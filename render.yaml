@@ -20,7 +20,7 @@ services:
       - key: AI_PROVIDER
         value: groq
       - key: GROQ_API_KEY
-        sync: false          # you fill this in Render dashboard
+        sync: false
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
       - key: FAISS_INDEX_PATH
@@ -38,9 +38,9 @@ services:
       - key: ALLOWED_ORIGINS
         value: https://talentiq-frontend.onrender.com
       - key: GOOGLE_CLIENT_ID
-        sync: false          # fill in Render dashboard
+        sync: false
       - key: GOOGLE_CLIENT_SECRET
-        sync: false          # fill in Render dashboard
+        sync: false
       - key: MICROSOFT_CLIENT_ID
         sync: false
       - key: MICROSOFT_CLIENT_SECRET
@@ -53,17 +53,20 @@ services:
   # ── Frontend (React → Static Site) ────────────────────────────────────────
   - type: web
     name: talentiq-frontend
-    runtime: node
+    runtime: static
     rootDir: ai-recruitment-frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
         value: https://talentiq-backend.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
 
 # ── Postgres Database ──────────────────────────────────────────────────────
 databases:
   - name: talentiq-db
     databaseName: ai_recruitment
-    user: postgres
     plan: free
