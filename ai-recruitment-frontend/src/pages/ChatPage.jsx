@@ -1,0 +1,541 @@
+import React, { useEffect, useState, useRef, useCallback } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import {
+  Send, Plus, MessageSquare, Sparkles, User, Trash2,
+  Bot, ChevronDown, Paperclip, Mic, Copy, ThumbsUp,
+  ThumbsDown, RotateCcw, Zap, Users, Briefcase, Brain
+} from 'lucide-react'
+import { chatApi, candidatesApi, jobsApi } from '../services/api'
+import { Spinner } from '../components/ui'
+import { formatRelativeTime, getInitials } from '../utils/helpers'
+import toast from 'react-hot-toast'
+
+// ── Markdown-like renderer ────────────────────────────────────────────────────
+function RenderContent({ content }) {
+  const lines = content.split('\n')
+  return (
+    <div className="space-y-1.5 text-sm leading-relaxed">
+      {lines.map((line, i) => {
+        if (line.startsWith('### ')) return <h3 key={i} className="font-bold text-base mt-2" style={{ color: 'var(--text-primary)' }}>{line.slice(4)}</h3>
+        if (line.startsWith('## '))  return <h2 key={i} className="font-bold text-lg mt-3" style={{ color: 'var(--text-primary)' }}>{line.slice(3)}</h2>
+        if (line.startsWith('# '))   return <h1 key={i} className="font-bold text-xl mt-3" style={{ color: 'var(--text-primary)' }}>{line.slice(2)}</h1>
+        if (line.startsWith('- ') || line.startsWith('• ')) {
+          return (
+            <div key={i} className="flex items-start gap-2">
+              <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent-cyan)' }} />
+              <span dangerouslySetInnerHTML={{ __html: formatInline(line.slice(2)) }} />
+            </div>
+          )
+        }
+        if (/^\d+\.\s/.test(line)) {
+          const num = line.match(/^(\d+)\./)[1]
+          return (
+            <div key={i} className="flex items-start gap-2">
+              <span className="font-bold text-xs mt-0.5 flex-shrink-0 w-5 text-right" style={{ color: 'var(--accent-cyan)' }}>{num}.</span>
+              <span dangerouslySetInnerHTML={{ __html: formatInline(line.replace(/^\d+\.\s/, '')) }} />
+            </div>
+          )
+        }
+        if (line.trim() === '') return <div key={i} className="h-1" />
+        return <p key={i} dangerouslySetInnerHTML={{ __html: formatInline(line) }} />
+      })}
+    </div>
+  )
+}
+
+function formatInline(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, `<code style="background:var(--bg-card-hover);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:0.85em">$1</code>`)
+}
+
+// ── Message Bubble ────────────────────────────────────────────────────────────
+function MessageBubble({ message, onCopy }) {
+  const isUser = message.role === 'user'
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+    onCopy?.()
+  }
+
+  return (
+    <div className={`flex gap-3 group ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start mb-4`}>
+      {/* Avatar */}
+      <div
+        className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+        style={isUser
+          ? { background: 'linear-gradient(135deg, #3b82f6, #7c3aed)' }
+          : { background: 'var(--bg-card)', border: '1px solid var(--border)' }
+        }
+      >
+        {isUser
+          ? <User size={14} className="text-white" />
+          : <Sparkles size={14} style={{ color: 'var(--accent-cyan)' }} />
+        }
+      </div>
+
+      {/* Bubble */}
+      <div className={`max-w-[78%] flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+        <div
+          className="px-4 py-3 rounded-2xl"
+          style={isUser
+            ? { background: 'linear-gradient(135deg, #3b82f6, #7c3aed)', color: '#fff', borderBottomRightRadius: 6 }
+            : { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderBottomLeftRadius: 6 }
+          }
+        >
+          {isUser
+            ? <p className="text-sm leading-relaxed">{message.content}</p>
+            : <RenderContent content={message.content} />
+          }
+        </div>
+
+        {/* Actions */}
+        <div className={`flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
+          <span className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
+            {formatRelativeTime(message.created_at)}
+          </span>
+          {!isUser && (
+            <button
+              onClick={handleCopy}
+              className="w-6 h-6 rounded-lg flex items-center justify-center transition-all"
+              style={{ color: 'var(--text-muted)', background: 'var(--bg-card)' }}
+              title="Copy"
+            >
+              <Copy size={11} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Typing Indicator ──────────────────────────────────────────────────────────
+function TypingIndicator() {
+  return (
+    <div className="flex gap-3 items-start mb-4">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <Sparkles size={14} style={{ color: 'var(--accent-cyan)' }} />
+      </div>
+      <div className="px-4 py-3 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <div className="flex gap-1 items-center h-4">
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-full"
+              style={{
+                background: 'var(--accent-cyan)',
+                animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Quick Suggestions ─────────────────────────────────────────────────────────
+const SUGGESTIONS = [
+  { icon: Brain,    text: "Analyze the top candidates in my talent pool" },
+  { icon: Briefcase,text: "What jobs do I have posted and their requirements?" },
+  { icon: Zap,      text: "Which candidates best match my latest job posting?" },
+  { icon: Users,    text: "Give me a recruitment strategy for my current openings" },
+]
+
+export default function ChatPage() {
+  const { sessionId: routeSessionId } = useParams()
+  const navigate = useNavigate()
+  const [sessions, setSessions]           = useState([])
+  const [activeSession, setActiveSession] = useState(null)
+  const [messages, setMessages]           = useState([])
+  const [input, setInput]                 = useState('')
+  const [sending, setSending]             = useState(false)
+  const [typing, setTyping]               = useState(false)
+  const [candidates, setCandidates]       = useState([])
+  const [jobs, setJobs]                   = useState([])
+  const [selectedCandidate, setSelectedCandidate] = useState('')
+  const [selectedJob, setSelectedJob]     = useState('')
+  const [showNewChat, setShowNewChat]     = useState(false)
+  const [sidebarOpen, setSidebarOpen]     = useState(true)
+  const messagesEndRef = useRef(null)
+  const inputRef       = useRef(null)
+  const textareaRef    = useRef(null)
+
+  useEffect(() => {
+    chatApi.listSessions().then(res => setSessions(Array.isArray(res.data) ? res.data : []))
+    candidatesApi.list({ page_size: 50 }).then(res => setCandidates(res.data.candidates || []))
+    jobsApi.list({ page_size: 50 }).then(res => setJobs(res.data.jobs || []))
+  }, [])
+
+  useEffect(() => { if (routeSessionId) loadSession(routeSessionId) }, [routeSessionId])
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, typing])
+
+  const loadSession = async (id) => {
+    try {
+      const res = await chatApi.getSession(id)
+      setActiveSession(res.data)
+      setMessages(res.data.messages || [])
+      navigate(`/chat/${id}`, { replace: true })
+    } catch { toast.error('Failed to load session') }
+  }
+
+  const createSession = async () => {
+    try {
+      const res = await chatApi.createSession({
+        candidate_id: selectedCandidate || undefined,
+        job_id:       selectedJob       || undefined,
+      })
+      const s = res.data
+      setSessions(p => [s, ...p])
+      setActiveSession(s)
+      setMessages(s.messages || [])
+      navigate(`/chat/${s.id}`, { replace: true })
+      setShowNewChat(false)
+      setSelectedCandidate('')
+      setSelectedJob('')
+    } catch { toast.error('Failed to create session') }
+  }
+
+  const sendMessage = async (text) => {
+    const content = (text || input).trim()
+    if (!content || sending) return
+    if (!activeSession) {
+      // Auto-create a general session
+      try {
+        const res = await chatApi.createSession({})
+        const s = res.data
+        setSessions(p => [s, ...p])
+        setActiveSession(s)
+        setMessages(s.messages || [])
+        navigate(`/chat/${s.id}`, { replace: true })
+        // Send after session created
+        setTimeout(() => sendMessageToSession(s.id, content), 100)
+      } catch { toast.error('Failed to create session') }
+      setInput('')
+      return
+    }
+    setInput('')
+    sendMessageToSession(activeSession.id, content)
+  }
+
+  const sendMessageToSession = async (sessionId, content) => {
+    setMessages(p => [...p, { id: Date.now(), role: 'user', content, created_at: new Date().toISOString() }])
+    setSending(true)
+    setTyping(true)
+    try {
+      const res = await chatApi.sendMessage(sessionId, content)
+      setTyping(false)
+      setMessages(p => [...p, res.data.message])
+    } catch {
+      setTyping(false)
+      toast.error('Failed to send message')
+    } finally {
+      setSending(false)
+      inputRef.current?.focus()
+    }
+  }
+
+  const deleteSession = async (id, e) => {
+    e.stopPropagation()
+    try {
+      await chatApi.deleteSession(id)
+      setSessions(p => p.filter(s => s.id !== id))
+      if (activeSession?.id === id) {
+        setActiveSession(null)
+        setMessages([])
+        navigate('/chat', { replace: true })
+      }
+    } catch {}
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
+  }
+
+  const handleTextareaInput = (e) => {
+    setInput(e.target.value)
+    // Auto-resize
+    e.target.style.height = 'auto'
+    e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
+  }
+
+  return (
+    <div className="flex h-full overflow-hidden page-enter" style={{ background: 'var(--bg-primary)' }}>
+
+      {/* ── Sessions Sidebar ── */}
+      <div
+        className="flex-shrink-0 border-r flex flex-col overflow-hidden transition-all duration-300"
+        style={{
+          width: sidebarOpen ? 260 : 0,
+          background: 'var(--sidebar-bg)',
+          borderColor: 'var(--border)',
+          overflow: sidebarOpen ? 'visible' : 'hidden'
+        }}
+      >
+        <div className="p-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
+          <button
+            onClick={() => setShowNewChat(true)}
+            className="btn-primary w-full h-9 text-sm"
+          >
+            <Plus size={15} /> New Chat
+          </button>
+        </div>
+
+        {/* Session list */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          {sessions.length === 0 ? (
+            <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No conversations yet</p>
+          ) : sessions.map(s => (
+            <button
+              key={s.id}
+              onClick={() => loadSession(s.id)}
+              className="w-full text-left p-2.5 rounded-xl text-xs transition-all group relative"
+              style={activeSession?.id === s.id
+                ? { background: 'var(--tag-bg)', border: '1px solid var(--tag-border)', color: 'var(--accent-cyan)' }
+                : { color: 'var(--text-secondary)', border: '1px solid transparent' }
+              }
+              onMouseEnter={e => { if (activeSession?.id !== s.id) { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+              onMouseLeave={e => { if (activeSession?.id !== s.id) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' } }}
+            >
+              <div className="flex items-center gap-2 pr-6">
+                <MessageSquare size={12} className="flex-shrink-0" />
+                <span className="truncate font-medium">{s.title || 'Chat session'}</span>
+              </div>
+              <button
+                onClick={(e) => deleteSession(s.id, e)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--error-text)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
+              >
+                <Trash2 size={11} />
+              </button>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main Chat Area ── */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+
+        {/* Chat Header */}
+        <div
+          className="flex-shrink-0 px-4 py-3 border-b flex items-center gap-3"
+          style={{ background: 'var(--topbar-bg)', borderColor: 'var(--border)', backdropFilter: 'blur(12px)' }}
+        >
+          <button
+            onClick={() => setSidebarOpen(p => !p)}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+          >
+            <MessageSquare size={14} />
+          </button>
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #3b82f6, #7c3aed)' }}
+          >
+            <Sparkles size={14} className="text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
+              {activeSession?.title || 'TalentIQ AI Assistant'}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Powered by AI · Access to all your recruitment data
+            </p>
+          </div>
+          {activeSession && (
+            <div className="ml-auto flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 6px #34d399' }} />
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Online</span>
+            </div>
+          )}
+        </div>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto px-4 py-6" style={{ background: 'var(--bg-primary)' }}>
+          {!activeSession ? (
+            /* Welcome Screen */
+            <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto text-center">
+              <div
+                className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6 shadow-2xl"
+                style={{ background: 'linear-gradient(135deg, #3b82f6, #7c3aed)', boxShadow: '0 0 60px rgba(59,130,246,0.3)' }}
+              >
+                <Sparkles size={36} className="text-white" />
+              </div>
+              <h2 className="text-3xl font-bold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
+                TalentIQ AI Assistant
+              </h2>
+              <p className="text-base mb-8 max-w-md leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                Your intelligent recruitment partner. Ask me anything about candidates, jobs, matching, or hiring strategy.
+              </p>
+
+              {/* Quick suggestions */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl mb-8">
+                {SUGGESTIONS.map(({ icon: Icon, text }, i) => (
+                  <button
+                    key={i}
+                    onClick={() => sendMessage(text)}
+                    className="flex items-start gap-3 p-4 rounded-2xl text-left transition-all group"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.background = 'var(--bg-card-hover)' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)' }}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--tag-bg)' }}
+                    >
+                      <Icon size={15} style={{ color: 'var(--accent-cyan)' }} />
+                    </div>
+                    <span className="text-sm leading-snug" style={{ color: 'var(--text-secondary)' }}>{text}</span>
+                  </button>
+                ))}
+              </div>
+
+              <button onClick={() => setShowNewChat(true)} className="btn-primary px-8 h-11">
+                <Plus size={16} /> Start New Conversation
+              </button>
+            </div>
+          ) : (
+            <div className="max-w-3xl mx-auto">
+              {messages.length === 0 && (
+                <div className="mb-6">
+                  <p className="text-xs mb-3 text-center" style={{ color: 'var(--text-muted)' }}>Suggested questions to get started:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {SUGGESTIONS.map(({ text }, i) => (
+                      <button
+                        key={i}
+                        onClick={() => sendMessage(text)}
+                        className="p-3 rounded-2xl text-left text-xs transition-all"
+                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+                      >
+                        {text}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
+              {typing && <TypingIndicator />}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        {/* Input Area */}
+        <div
+          className="flex-shrink-0 px-4 py-4 border-t"
+          style={{ background: 'var(--topbar-bg)', borderColor: 'var(--border)', backdropFilter: 'blur(12px)' }}
+        >
+          <div className="max-w-3xl mx-auto">
+            <div
+              className="flex items-end gap-3 p-3 rounded-2xl"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+            >
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={handleTextareaInput}
+                onKeyDown={handleKeyDown}
+                className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
+                style={{
+                  color: 'var(--text-primary)',
+                  fontFamily: 'Manrope, sans-serif',
+                  minHeight: 24,
+                  maxHeight: 160,
+                  height: 24,
+                }}
+                placeholder="Ask TalentIQ anything about your candidates, jobs, or hiring strategy..."
+                disabled={sending}
+                rows={1}
+              />
+              <button
+                onClick={() => sendMessage()}
+                disabled={!input.trim() || sending}
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: 'var(--accent-cyan)', color: '#000' }}
+              >
+                {sending ? <Spinner size={14} /> : <Send size={15} />}
+              </button>
+            </div>
+            <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>
+              Press <kbd className="px-1 py-0.5 rounded text-xs" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded text-xs" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>Shift+Enter</kbd> for new line
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── New Session Modal ── */}
+      {showNewChat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
+          <div
+            className="w-full max-w-md rounded-3xl p-6 space-y-5 animate-scaleIn"
+            style={{ background: 'var(--modal-bg)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #3b82f6, #7c3aed)' }}>
+                <Sparkles size={18} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>New AI Conversation</h3>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Optionally focus on a candidate or job</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-muted)' }}>
+                  Candidate Context (optional)
+                </label>
+                <select
+                  value={selectedCandidate}
+                  onChange={e => setSelectedCandidate(e.target.value)}
+                  className="input-field"
+                  style={{ background: 'var(--input-bg)' }}
+                >
+                  <option value="" style={{ background: 'var(--bg-secondary)' }}>General assistant — no specific candidate</option>
+                  {candidates.map(c => (
+                    <option key={c.id} value={c.id} style={{ background: 'var(--bg-secondary)' }}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-muted)' }}>
+                  Job Context (optional)
+                </label>
+                <select
+                  value={selectedJob}
+                  onChange={e => setSelectedJob(e.target.value)}
+                  className="input-field"
+                  style={{ background: 'var(--input-bg)' }}
+                >
+                  <option value="" style={{ background: 'var(--bg-secondary)' }}>No specific job</option>
+                  {jobs.map(j => (
+                    <option key={j.id} value={j.id} style={{ background: 'var(--bg-secondary)' }}>{j.title}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowNewChat(false)} className="btn-ghost flex-1">Cancel</button>
+              <button onClick={createSession} className="btn-primary flex-1">
+                <Sparkles size={14} /> Start Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

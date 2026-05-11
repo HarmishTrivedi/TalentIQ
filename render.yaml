@@ -1,0 +1,69 @@
+services:
+  # ── Backend (FastAPI) ──────────────────────────────────────────────────────
+  - type: web
+    name: talentiq-backend
+    runtime: python
+    rootDir: ai-recruitment-Backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_NAME
+        value: AI Recruitment Intelligence Platform
+      - key: DEBUG
+        value: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: talentiq-db
+          property: connectionString
+      - key: AI_PROVIDER
+        value: groq
+      - key: GROQ_API_KEY
+        sync: false          # you fill this in Render dashboard
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: FAISS_INDEX_PATH
+        value: ./vector_store/faiss_index
+      - key: EMBEDDING_DIMENSION
+        value: 1536
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 60
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: 7
+      - key: UPLOAD_DIR
+        value: ./uploads
+      - key: MAX_FILE_SIZE_MB
+        value: 10
+      - key: ALLOWED_ORIGINS
+        value: https://talentiq-frontend.onrender.com
+      - key: GOOGLE_CLIENT_ID
+        sync: false          # fill in Render dashboard
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false          # fill in Render dashboard
+      - key: MICROSOFT_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_CLIENT_SECRET
+        sync: false
+      - key: BACKEND_URL
+        value: https://talentiq-backend.onrender.com
+      - key: FRONTEND_URL
+        value: https://talentiq-frontend.onrender.com
+
+  # ── Frontend (React → Static Site) ────────────────────────────────────────
+  - type: web
+    name: talentiq-frontend
+    runtime: node
+    rootDir: ai-recruitment-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://talentiq-backend.onrender.com
+
+# ── Postgres Database ──────────────────────────────────────────────────────
+databases:
+  - name: talentiq-db
+    databaseName: ai_recruitment
+    user: postgres
+    plan: free

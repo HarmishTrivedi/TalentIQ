@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.env
+.env.local
+
+# Data / uploads
+ai-recruitment-Backend/uploads/*
+ai-recruitment-Backend/vector_store/*
+!ai-recruitment-Backend/uploads/.gitkeep
+!ai-recruitment-Backend/vector_store/.gitkeep
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
