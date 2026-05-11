@@ -6,6 +6,7 @@ import { Features } from '../components/landing/Features'
 import { HowItWorks } from '../components/landing/HowItWorks'
 import { ProductShowcase } from '../components/landing/ProductShowcase'
 import { Stats } from '../components/landing/Stats'
+import { Pricing } from '../components/landing/Pricing'
 import { CTA } from '../components/landing/CTA'
 
 export default function Landing() {
@@ -20,6 +21,7 @@ export default function Landing() {
         <HowItWorks />
         <ProductShowcase />
         <Stats />
+        <Pricing />
         <CTA />
       </main>
     </>
