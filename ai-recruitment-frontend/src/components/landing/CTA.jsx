@@ -5,7 +5,7 @@ import { Starfield } from './Starfield'
 
 export function CTA() {
   return (
-    <section id="cta" className="relative isolate overflow-hidden py-40">
+    <section id="cta" className="relative isolate overflow-hidden flex flex-col" style={{minHeight: '100vh'}}>
       <div aria-hidden className="absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-1/2 h-[1200px] w-[1200px] -translate-x-1/2 -translate-y-1/2 animate-vortex"
           style={{
@@ -20,7 +20,7 @@ export function CTA() {
         <Starfield count={100} />
       </div>
 
-      <div className="relative mx-auto max-w-4xl px-6 text-center">
+      <div className="relative mx-auto max-w-4xl px-6 text-center py-40 flex-1">
         <motion.h2
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -66,7 +66,7 @@ export function CTA() {
         </motion.div>
       </div>
 
-      <div className="relative mt-32 border-t border-white/5 pt-8">
+      <div className="relative mt-auto border-t border-white/5 pt-8 pb-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-6 text-xs text-white/40 md:flex-row">
           <div>© 2026 TalentIQ — Intelligence for talent.</div>
           <div className="flex gap-6">

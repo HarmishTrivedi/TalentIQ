@@ -13,7 +13,7 @@ export default function Landing() {
     <>
       <LoadingScreen />
       <CursorGlow />
-      <main className="landing-prime relative min-h-screen bg-[#000000] text-white overflow-x-hidden">
+      <main className="landing-prime relative flex flex-col min-h-screen bg-[#000000] text-white overflow-x-hidden">
         <Nav />
         <Hero />
         <Features />
