@@ -27,6 +27,9 @@ const AdminPricing = lazy(() => import('./pages/AdminPricing'))
 const AdminSubscriptions = lazy(() => import('./pages/AdminSubscriptions'))
 const AdminLogin = lazy(() => import('./pages/AdminLogin'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
+const Privacy = lazy(() => import('./pages/Privacy'))
+const Terms = lazy(() => import('./pages/Terms'))
+const Security = lazy(() => import('./pages/Security'))
 
 function AdminRoute({ children }) {
   const { token, user } = useAuthStore()
@@ -69,6 +72,9 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/auth" element={<CinematicAuth />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/security" element={<Security />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/register" element={<Register />} />
 
