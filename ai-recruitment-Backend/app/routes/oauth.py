@@ -71,6 +71,8 @@ async def verify_email_with_provider(email: str, provider: str, access_token: st
 async def google_login(request: Request):
     """Initiate Google OAuth flow"""
     redirect_uri = f"{settings.backend_url}/api/v1/auth/oauth/google/callback"
+    # Fix scheme for Render's proxy (HTTP internally, HTTPS externally)
+    request.scope["scheme"] = "https"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -78,6 +80,7 @@ async def google_login(request: Request):
 async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
     """Handle Google OAuth callback"""
     try:
+        request.scope["scheme"] = "https"
         token = await oauth.google.authorize_access_token(request)
         user_info = token.get('userinfo')
         

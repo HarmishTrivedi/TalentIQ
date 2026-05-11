@@ -11,6 +11,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings
 from app.database import init_db
@@ -128,13 +129,18 @@ FastAPI · LangChain · OpenAI · FAISS · PostgreSQL · SQLAlchemy
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+# Trust Render's reverse proxy so request.url.scheme is 'https'
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
 # Session middleware for OAuth (MUST be before CORS)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.secret_key,
     max_age=3600,
-    same_site='lax',
-    https_only=False  # Set to True in production with HTTPS
+    same_site='none',
+    https_only=True
 )
 
 # ─── CORS Middleware (MUST BE LAST/OUTERMOST) ────────────────────────────────
