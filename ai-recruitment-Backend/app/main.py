@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
@@ -124,6 +125,10 @@ FastAPI · LangChain · OpenAI · FAISS · PostgreSQL · SQLAlchemy
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
+
+# Mount uploads directory for static file serving
+os.makedirs(settings.upload_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 

@@ -72,6 +72,10 @@ async def init_db():
             "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS uploaded_by VARCHAR(36) REFERENCES users(id)",
             "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS processing_error TEXT",
             "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS faiss_doc_ids JSON",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS company_name VARCHAR(255)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS role_in_company VARCHAR(255)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)",
         ]
         for sql in migrations:
             try:

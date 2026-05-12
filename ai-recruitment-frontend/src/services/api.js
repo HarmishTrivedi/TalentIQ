@@ -36,6 +36,11 @@ export const authApi = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   register: (data) => api.post('/auth/register', data),
   me: () => api.get('/auth/me'),
+  updateProfile: (data) => api.patch('/auth/me', data),
+  changePassword: (data) => api.post('/auth/me/change-password', data),
+  uploadAvatar: (formData) => api.post('/auth/me/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
 }
 
 export const candidatesApi = {

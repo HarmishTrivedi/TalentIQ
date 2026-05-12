@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { NavLink, useNavigate, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Upload, Briefcase,
@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from '../../store'
 import { useThemeStore } from '../../store/themeStore'
 import { cn, getInitials } from '../../utils/helpers'
+import ProfileDropdown from './ProfileDropdown'
 
 const navItems = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',     description: 'Overview & Analytics' },
@@ -24,8 +25,13 @@ export default function Sidebar() {
   const navigate = useNavigate()
   const isAdmin  = user?.role === 'admin'
   const isDark   = theme === 'dark'
+  const [showDropdown, setShowDropdown] = useState(false)
 
   const handleLogout = () => { logout(); navigate('/login') }
+  const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const avatarSrc = user?.avatar_url
+    ? (user.avatar_url.startsWith('http') ? user.avatar_url : `${BASE_URL}${user.avatar_url}`)
+    : null
 
   return (
     <aside
@@ -59,13 +65,20 @@ export default function Sidebar() {
 
       {/* User Profile */}
       <div className="px-4 py-3 border-b relative z-10" style={{ borderColor: 'var(--border)' }}>
-        <div
-          className="flex items-center gap-3 p-3 rounded-2xl transition-all"
+        <button
+          onClick={() => setShowDropdown(!showDropdown)}
+          className="w-full flex items-center gap-3 p-3 rounded-2xl transition-all"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
-            {getInitials(user?.full_name || 'U')}
-          </div>
+          {avatarSrc ? (
+            <img src={avatarSrc} alt="avatar" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+              {getInitials(user?.full_name || 'U')}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
               {user?.full_name || 'User'}
@@ -76,14 +89,15 @@ export default function Sidebar() {
           </div>
           {/* Theme toggle */}
           <button
-            onClick={toggleTheme}
+            onClick={(e) => { e.stopPropagation(); toggleTheme() }}
             title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             className="w-8 h-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0"
             style={{ background: 'var(--bg-card-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-        </div>
+        </button>
+        {showDropdown && <ProfileDropdown onClose={() => setShowDropdown(false)} />}
       </div>
 
       {/* Navigation */}

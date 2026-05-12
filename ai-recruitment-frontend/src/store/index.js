@@ -33,6 +33,12 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+  updateUser: (userData) => {
+    const updated = { ...get().user, ...userData }
+    localStorage.setItem('user', JSON.stringify(updated))
+    set({ user: updated })
+  },
+
   logout: () => {
     localStorage.removeItem('access_token')
     localStorage.removeItem('user')

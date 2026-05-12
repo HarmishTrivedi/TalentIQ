@@ -30,6 +30,7 @@ const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 const Terms = lazy(() => import('./pages/Terms'))
 const Security = lazy(() => import('./pages/Security'))
+const AccountSettings = lazy(() => import('./pages/AccountSettings'))
 
 function AdminRoute({ children }) {
   const { token, user } = useAuthStore()
@@ -92,6 +93,7 @@ export default function App() {
             <Route path="/chat/:sessionId" element={<ChatPage />} />
             <Route path="/interview-room" element={<InterviewRoom />} />
             <Route path="/plans" element={<RecruiterPlans />} />
+            <Route path="/account" element={<AccountSettings />} />
 
             <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} />

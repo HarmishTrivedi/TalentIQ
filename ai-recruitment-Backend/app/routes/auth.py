@@ -1,8 +1,12 @@
-"""Authentication routes: register, login, refresh token."""
+"""Authentication routes: register, login, refresh token, profile management."""
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from pydantic import BaseModel, EmailStr
+import os, uuid, shutil
 
 from app.database import get_db
 from app.models.models import User
@@ -13,6 +17,18 @@ from app.utils.auth import (
     decode_token, get_current_user,
 )
 from app.config import settings
+
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    company_name: Optional[str] = None
+    role_in_company: Optional[str] = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -111,6 +127,10 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
+    from datetime import datetime, timezone
+    user.last_login = datetime.now(timezone.utc)
+    await db.commit()
+
     access_token = create_access_token({"sub": user.id})
     refresh_token = create_refresh_token({"sub": user.id})
 
@@ -151,3 +171,63 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)):
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current user profile."""
     return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_profile(
+    data: ProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update current user profile fields."""
+    if data.full_name is not None:
+        current_user.full_name = data.full_name
+    if data.phone is not None:
+        current_user.phone = data.phone
+    if data.company_name is not None:
+        current_user.company_name = data.company_name
+    if data.role_in_company is not None:
+        current_user.role_in_company = data.role_in_company
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
+@router.post("/me/change-password")
+async def change_password(
+    data: PasswordChange,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Change current user password after verifying current password."""
+    if not verify_password(data.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+    current_user.hashed_password = hash_password(data.new_password)
+    await db.commit()
+    return {"message": "Password updated successfully"}
+
+
+@router.post("/me/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload profile avatar image."""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    if file.size and file.size > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be under 5MB")
+
+    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "jpg"
+    filename = f"avatar_{current_user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+    upload_path = os.path.join(settings.upload_dir, filename)
+
+    with open(upload_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    current_user.avatar_url = f"/uploads/{filename}"
+    await db.commit()
+    return {"avatar_url": current_user.avatar_url}
