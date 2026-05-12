@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { chatApi, candidatesApi, jobsApi } from '../services/api'
 import { Spinner, ConfirmationModal } from '../components/ui'
-import { formatRelativeTime, getInitials } from '../utils/helpers'
+import { getInitials } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
 // ── Markdown-like renderer ────────────────────────────────────────────────────
@@ -55,20 +55,6 @@ function formatInline(text) {
 function MessageBubble({ message, onCopy }) {
   const isUser = message.role === 'user'
   const [copied, setCopied] = useState(false)
-  const [timeAgo, setTimeAgo] = useState(() => formatRelativeTime(message.created_at))
-
-  // Update time display every 1 second for real-time accuracy
-  useEffect(() => {
-    // Update immediately
-    setTimeAgo(formatRelativeTime(message.created_at))
-    
-    // Then update every second
-    const interval = setInterval(() => {
-      setTimeAgo(formatRelativeTime(message.created_at))
-    }, 1000) // Update every 1 second for real-time
-    
-    return () => clearInterval(interval)
-  }, [message.created_at])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
@@ -109,13 +95,8 @@ function MessageBubble({ message, onCopy }) {
         </div>
 
         {/* Actions */}
-        <div className={`flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
-          {isUser && (
-            <span className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
-              {timeAgo}
-            </span>
-          )}
-          {!isUser && (
+        {!isUser && (
+          <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={handleCopy}
               className="w-6 h-6 rounded-lg flex items-center justify-center transition-all"
@@ -124,8 +105,8 @@ function MessageBubble({ message, onCopy }) {
             >
               <Copy size={11} />
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -238,6 +219,8 @@ export default function ChatPage() {
     const content = (text || input).trim()
     if (!content || sending) return
     
+    setInput('')
+    
     if (!activeSession) {
       // Auto-create a general session
       try {
@@ -246,18 +229,17 @@ export default function ChatPage() {
         setSessions(p => [s, ...p])
         setActiveSession(s)
         // Show ALL messages including greeting
-        setMessages(s.messages || [])
+        const initialMessages = s.messages || []
+        setMessages(initialMessages)
         navigate(`/chat/${s.id}`, { replace: true })
-        // Send after session created
-        setTimeout(() => sendMessageToSession(s.id, content), 100)
+        // Send message with the initial messages as base
+        sendMessageToSessionWithBase(s.id, content, initialMessages)
       } catch (err) {
         console.error('Failed to create session:', err)
         toast.error('Failed to create session')
       }
-      setInput('')
       return
     }
-    setInput('')
     sendMessageToSession(activeSession.id, content)
   }
 
@@ -271,14 +253,45 @@ export default function ChatPage() {
     try {
       const res = await chatApi.sendMessage(sessionId, content)
       setTyping(false)
-      // Add AI response
-      setMessages(p => [...p, res.data.message])
+      // Replace temp user message with real one and add AI response
+      const realUserMsg = res.data.user_message || userMsg
+      const aiMsg = res.data.message
+      setMessages(p => {
+        const withoutTemp = p.filter(m => m.id !== userMsg.id)
+        return [...withoutTemp, realUserMsg, aiMsg]
+      })
     } catch (err) {
       setTyping(false)
       console.error('Failed to send message:', err)
       toast.error('Failed to send message')
       // Remove the temporary user message on error
       setMessages(p => p.filter(m => m.id !== userMsg.id))
+    } finally {
+      setSending(false)
+      inputRef.current?.focus()
+    }
+  }
+
+  const sendMessageToSessionWithBase = async (sessionId, content, baseMessages) => {
+    // Add user message to UI immediately on top of base messages
+    const userMsg = { id: `temp-${Date.now()}`, role: 'user', content, created_at: new Date().toISOString() }
+    setMessages([...baseMessages, userMsg])
+    setSending(true)
+    setTyping(true)
+    
+    try {
+      const res = await chatApi.sendMessage(sessionId, content)
+      setTyping(false)
+      // Replace temp user message with real one and add AI response
+      const realUserMsg = res.data.user_message || userMsg
+      const aiMsg = res.data.message
+      setMessages([...baseMessages, realUserMsg, aiMsg])
+    } catch (err) {
+      setTyping(false)
+      console.error('Failed to send message:', err)
+      toast.error('Failed to send message')
+      // Remove the temporary user message on error
+      setMessages(baseMessages)
     } finally {
       setSending(false)
       inputRef.current?.focus()
