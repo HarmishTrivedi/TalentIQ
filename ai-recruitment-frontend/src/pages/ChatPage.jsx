@@ -7,7 +7,7 @@ import {
   Wand2, Target, FileText, Hash
 } from 'lucide-react'
 import { chatApi, candidatesApi, jobsApi } from '../services/api'
-import { Spinner } from '../components/ui'
+import { Spinner, ConfirmationModal } from '../components/ui'
 import { formatRelativeTime, getInitials } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
@@ -55,6 +55,15 @@ function formatInline(text) {
 function MessageBubble({ message, onCopy }) {
   const isUser = message.role === 'user'
   const [copied, setCopied] = useState(false)
+  const [timeAgo, setTimeAgo] = useState(formatRelativeTime(message.created_at))
+
+  // Update time display every 10 seconds for live updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeAgo(formatRelativeTime(message.created_at))
+    }, 10000) // Update every 10 seconds
+    return () => clearInterval(interval)
+  }, [message.created_at])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
@@ -97,7 +106,7 @@ function MessageBubble({ message, onCopy }) {
         {/* Actions */}
         <div className={`flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
           <span className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
-            {formatRelativeTime(message.created_at)}
+            {timeAgo}
           </span>
           {!isUser && (
             <button
@@ -165,6 +174,8 @@ export default function ChatPage() {
   const [selectedJob, setSelectedJob]     = useState('')
   const [showNewChat, setShowNewChat]     = useState(false)
   const [sidebarOpen, setSidebarOpen]     = useState(true)
+  const [sessionToDelete, setSessionToDelete] = useState(null)
+  const [deleting, setDeleting]           = useState(false)
   const messagesEndRef = useRef(null)
   const inputRef       = useRef(null)
   const textareaRef    = useRef(null)
@@ -266,15 +277,24 @@ export default function ChatPage() {
   }
 
   const deleteSession = async (id, e) => {
-    e.stopPropagation()
-    e.preventDefault()
+    if (e) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+    // Show confirmation modal
+    setSessionToDelete(id)
+  }
+
+  const confirmDelete = async () => {
+    if (!sessionToDelete) return
+    setDeleting(true)
     
     try {
-      await chatApi.deleteSession(id)
+      await chatApi.deleteSession(sessionToDelete)
       // Remove from list
-      setSessions(p => p.filter(s => s.id !== id))
+      setSessions(p => p.filter(s => s.id !== sessionToDelete))
       // Clear active session if it was deleted
-      if (activeSession?.id === id) {
+      if (activeSession?.id === sessionToDelete) {
         setActiveSession(null)
         setMessages([])
         navigate('/chat', { replace: true })
@@ -284,6 +304,9 @@ export default function ChatPage() {
       console.error('Delete error:', err)
       const errorMsg = err.response?.data?.detail || err.message || 'Failed to delete chat'
       toast.error(errorMsg)
+    } finally {
+      setDeleting(false)
+      setSessionToDelete(null)
     }
   }
 
@@ -570,6 +593,17 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      <ConfirmationModal
+        isOpen={!!sessionToDelete}
+        onClose={() => setSessionToDelete(null)}
+        onConfirm={confirmDelete}
+        loading={deleting}
+        title="Delete Chat"
+        message="Are you sure you want to delete this conversation? All messages will be permanently removed."
+        confirmText="Delete Chat"
+      />
     </div>
   )
 }
