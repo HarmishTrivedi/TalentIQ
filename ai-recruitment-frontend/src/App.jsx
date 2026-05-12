@@ -7,7 +7,6 @@ import { Spinner } from './components/ui'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const UploadCV = lazy(() => import('./pages/UploadCV'))
-const BulkUploadCV = lazy(() => import('./pages/BulkUploadCV'))
 const Candidates = lazy(() => import('./pages/Candidates'))
 const CandidateDetail = lazy(() => import('./pages/CandidateDetail'))
 const Jobs = lazy(() => import('./pages/Jobs'))
@@ -88,7 +87,6 @@ export default function App() {
             <Route path="/candidates" element={<Candidates />} />
             <Route path="/candidates/:id" element={<CandidateDetail />} />
             <Route path="/upload" element={<UploadCV />} />
-            <Route path="/bulk-upload" element={<BulkUploadCV />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
             <Route path="/matching" element={<Matching />} />

@@ -16,8 +16,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const navItems = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',     description: 'Overview & Analytics' },
   { to: '/candidates', icon: Users,           label: 'Talent Pool',   description: 'All Candidates' },
-  { to: '/upload',     icon: Upload,          label: 'Upload Resume', description: 'Single CV Upload' },
-  { to: '/bulk-upload',icon: Upload,          label: 'Bulk Upload',   description: 'Multiple CVs at once' },
+  { to: '/upload',     icon: Upload,          label: 'Upload Resume', description: 'Bulk CV Upload' },
   { to: '/jobs',       icon: Briefcase,       label: 'Job Positions', description: 'Manage Openings' },
   { to: '/matching',   icon: Target,          label: 'AI Matching',   description: 'Smart Candidate Match' },
   { to: '/chat',       icon: MessageSquare,   label: 'AI Assistant',  description: 'Chat with TalentIQ AI' },
