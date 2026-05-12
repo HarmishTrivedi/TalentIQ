@@ -105,12 +105,6 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const isMicrosoftConfigured = () => {
-    // Microsoft OAuth is only available if properly configured on backend
-    // We check by attempting — button is always shown but gracefully handles errors
-    return true
-  }
-
   // ── OAuth callback handler ──────────────────────────────────────────────────
   useEffect(() => {
     const accessToken = searchParams.get('access_token')
@@ -148,11 +142,6 @@ export default function Login() {
   // ── Microsoft OAuth ─────────────────────────────────────────────────────────
   const handleMicrosoftOAuth = () => {
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-    const msClientId = import.meta.env.VITE_MICROSOFT_CLIENT_ID
-    if (!msClientId || msClientId === 'your-microsoft-client-id') {
-      toast.error('Microsoft login is not configured yet. Please use Google or email login.')
-      return
-    }
     window.location.href = `${apiBase}/api/v1/auth/oauth/microsoft/login`
   }
 

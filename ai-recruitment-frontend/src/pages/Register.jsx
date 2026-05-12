@@ -228,13 +228,8 @@ export default function Register() {
     window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/google/login`
   }
 
-  // Microsoft OAuth — check config before redirecting
+  // Microsoft OAuth
   const handleMicrosoftOAuth = () => {
-    const msClientId = import.meta.env.VITE_MICROSOFT_CLIENT_ID
-    if (!msClientId || msClientId === 'your-microsoft-client-id') {
-      toast.error('Microsoft login is not configured yet. Please use Google or email sign-up.')
-      return
-    }
     window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/microsoft/login`
   }
 
