@@ -26,28 +26,6 @@ function GoogleButton({ onClick }) {
   )
 }
 
-// ── Microsoft OAuth button ────────────────────────────────────────────────────
-function MicrosoftButton({ onClick, disabled }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-white/15 text-white font-semibold text-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed hover:border-white/25"
-      style={{ background: 'rgba(255,255,255,0.06)' }}
-    >
-      <svg className="w-5 h-5 shrink-0" viewBox="0 0 23 23">
-        <path fill="#f3f3f3" d="M0 0h11v11H0z"/>
-        <path fill="#f35325" d="M1 1h9v9H1z"/>
-        <path fill="#81bc06" d="M12 1h10v10H12z"/>
-        <path fill="#05a6f0" d="M1 12h10v10H1z"/>
-        <path fill="#ffba08" d="M12 12h10v10H12z"/>
-      </svg>
-      Continue with Microsoft
-    </button>
-  )
-}
-
 // ── Input field wrapper ───────────────────────────────────────────────────────
 function InputField({ icon: Icon, label, error, touched, children }) {
   const hasError = touched && error
@@ -137,12 +115,6 @@ export default function Login() {
   const handleGoogleOAuth = () => {
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
     window.location.href = `${apiBase}/api/v1/auth/oauth/google/login`
-  }
-
-  // ── Microsoft OAuth ─────────────────────────────────────────────────────────
-  const handleMicrosoftOAuth = () => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-    window.location.href = `${apiBase}/api/v1/auth/oauth/microsoft/login`
   }
 
   // ── Validation ──────────────────────────────────────────────────────────────
@@ -241,9 +213,8 @@ export default function Login() {
           </div>
 
           {/* OAuth buttons */}
-          <div className="space-y-2.5 mb-6">
+          <div className="mb-6">
             <GoogleButton onClick={handleGoogleOAuth} />
-            <MicrosoftButton onClick={handleMicrosoftOAuth} />
           </div>
 
           {/* Divider */}

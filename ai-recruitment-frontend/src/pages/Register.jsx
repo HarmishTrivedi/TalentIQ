@@ -159,15 +159,6 @@ const GoogleIcon = () => (
   </svg>
 )
 
-const MicrosoftIcon = () => (
-  <svg className="h-4 w-4 shrink-0" viewBox="0 0 23 23">
-    <path fill="#f3f3f3" d="M0 0h11v11H0z"/>
-    <path fill="#f35325" d="M1 1h9v9H1z"/>
-    <path fill="#81bc06" d="M12 1h10v10H12z"/>
-    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
-    <path fill="#ffba08" d="M12 12h10v10H12z"/>
-  </svg>
-)
 
 // ── Main Register component ───────────────────────────────────────────────────
 export default function Register() {
@@ -205,7 +196,10 @@ export default function Register() {
     const accessToken = searchParams.get('access_token')
     const refreshToken = searchParams.get('refresh_token')
     const oauthError = searchParams.get('error')
-    if (oauthError) { toast.error('Authentication failed. Please try again.'); return }
+    if (oauthError) {
+      toast.error('Authentication failed. Please try again.')
+      return
+    }
     if (accessToken && refreshToken) {
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
@@ -226,11 +220,6 @@ export default function Register() {
   // Google OAuth (untouched)
   const handleGoogleOAuth = () => {
     window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/google/login`
-  }
-
-  // Microsoft OAuth
-  const handleMicrosoftOAuth = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/microsoft/login`
   }
 
   // Controlled change with live validation after first touch
@@ -334,8 +323,7 @@ export default function Register() {
             </p>
             <div data-reveal className="mt-7 space-y-2.5">
               {[
-                'Google portal as primary provider',
-                'Microsoft gateway for enterprise teams',
+                'Google OAuth for instant sign-up',
                 'Secure email/password authentication',
               ].map(item => (
                 <div key={item} className="flex items-center gap-3 text-sm font-semibold text-slate-300">
@@ -365,12 +353,9 @@ export default function Register() {
                 </div>
 
                 {/* OAuth buttons */}
-                <div className="mb-5 grid grid-cols-2 gap-2.5">
-                  <PremiumButton type="button" variant="ghost" className="w-full text-xs" onClick={handleGoogleOAuth}>
+                <div className="mb-5">
+                  <PremiumButton type="button" variant="ghost" className="w-full text-sm" onClick={handleGoogleOAuth}>
                     <GoogleIcon /> Continue with Google
-                  </PremiumButton>
-                  <PremiumButton type="button" variant="ghost" className="w-full text-xs" onClick={handleMicrosoftOAuth}>
-                    <MicrosoftIcon /> Continue with Microsoft
                   </PremiumButton>
                 </div>
 
