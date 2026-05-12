@@ -91,6 +91,8 @@ class ChatService:
         title: Optional[str] = None,
     ) -> ChatSession:
         """Create a new chat session."""
+        from datetime import datetime
+        
         # Auto-generate title
         if not title:
             if candidate_id and job_id:
@@ -111,23 +113,25 @@ class ChatService:
         db.add(session)
         await db.flush()
 
-        # Add system message
+        # Add system message with explicit timestamp
         system_prompt = await self._build_system_prompt(db, candidate_id, job_id)
         system_msg = ChatMessage(
             session_id=session.id,
             role="system",
             content=system_prompt,
+            created_at=datetime.utcnow(),  # Explicit timestamp
         )
         db.add(system_msg)
         await db.flush()
 
-        # Add initial greeting
+        # Add initial greeting with explicit timestamp
         greeting = await self._generate_greeting(db, candidate_id, job_id)
         if greeting:
             ai_msg = ChatMessage(
                 session_id=session.id,
                 role="assistant",
                 content=greeting,
+                created_at=datetime.utcnow(),  # Explicit timestamp
             )
             db.add(ai_msg)
             await db.flush()
@@ -141,17 +145,19 @@ class ChatService:
         user_content: str,
     ) -> ChatMessage:
         """Process user message and generate AI response."""
+        from datetime import datetime
 
         # Get session and history
         session = await self._get_session(db, session_id)
         if not session:
             raise ValueError(f"Session {session_id} not found")
 
-        # Save user message
+        # Save user message with explicit timestamp
         user_msg = ChatMessage(
             session_id=session_id,
             role="user",
             content=user_content,
+            created_at=datetime.utcnow(),  # Explicit timestamp
         )
         db.add(user_msg)
         await db.flush()
@@ -174,14 +180,16 @@ class ChatService:
             max_tokens=1200,
         )
 
-        # Save assistant response
+        # Save assistant response with explicit timestamp
         ai_msg = ChatMessage(
             session_id=session_id,
             role="assistant",
             content=response_text,
+            created_at=datetime.utcnow(),  # Explicit timestamp
         )
         db.add(ai_msg)
         await db.flush()
+        await db.refresh(ai_msg)  # Refresh to get the actual timestamp
 
         return ai_msg
 
