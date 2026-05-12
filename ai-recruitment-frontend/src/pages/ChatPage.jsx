@@ -110,9 +110,11 @@ function MessageBubble({ message, onCopy }) {
 
         {/* Actions */}
         <div className={`flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
-          <span className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
-            {timeAgo}
-          </span>
+          {isUser && (
+            <span className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
+              {timeAgo}
+            </span>
+          )}
           {!isUser && (
             <button
               onClick={handleCopy}
