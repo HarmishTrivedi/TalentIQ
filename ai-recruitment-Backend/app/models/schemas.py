@@ -20,9 +20,12 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=255)
     password: str = Field(min_length=8)
+    phone: Optional[str] = None
+    company_name: Optional[str] = None
+    role_in_company: Optional[str] = None
+    # kept for backward compat (OAuth users may still send these)
     age: Optional[int] = None
     gender: Optional[str] = None
-    phone: Optional[str] = None
     role: str = "recruiter"
 
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight, CheckCircle, Eye, EyeOff, Lock, Mail,
-  Phone, User, Users, Sparkles, Calendar, AlertCircle, Check, X
+  Phone, User, Building2, Briefcase, Sparkles, AlertCircle, Check, X
 } from 'lucide-react'
 import { gsap } from 'gsap'
 import { useAuthStore } from '../store'
@@ -10,28 +10,39 @@ import { Spinner } from '../components/ui'
 import { BrandMark, GlassPanel, PremiumButton } from '../components/premium/PremiumUI'
 import toast from 'react-hot-toast'
 
-// ── Validation rules ──────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
 const PHONE_RE = /^(\+?\d{1,4}[\s\-]?)?(\(?\d{1,4}\)?[\s\-]?)?\d{3,4}[\s\-]?\d{3,4}([\s\-]?\d{1,4})?$/
 
+const ROLE_OPTIONS = [
+  'HR Manager',
+  'Technical Recruiter',
+  'Talent Acquisition Specialist',
+  'Hiring Manager',
+  'Founder / Co-Founder',
+  'People Operations Lead',
+  'Recruitment Consultant',
+  'Other',
+]
+
+// ── Validation ────────────────────────────────────────────────────────────────
 function validate(name, value, form) {
   switch (name) {
     case 'full_name':
       if (!value.trim()) return 'Full name is required'
       if (value.trim().length < 2) return 'Name must be at least 2 characters'
-      if (!/^[a-zA-Z\s'\-\.]+$/.test(value.trim())) return 'Name can only contain letters, spaces, hyphens and apostrophes'
+      if (!/^[a-zA-Z\s'\-\.]+$/.test(value.trim())) return 'Letters, spaces, hyphens and apostrophes only'
       return ''
     case 'email':
       if (!value.trim()) return 'Email is required'
       if (!EMAIL_RE.test(value.trim())) return 'Enter a valid email address'
       return ''
-    case 'age':
-      if (!value) return 'Age is required'
-      const age = parseInt(value)
-      if (isNaN(age) || age < 16 || age > 100) return 'Age must be between 16 and 100'
+    case 'company_name':
+      if (!value.trim()) return 'Company name is required'
+      if (value.trim().length < 2) return 'Must be at least 2 characters'
       return ''
-    case 'gender':
-      if (!value) return 'Please select a gender'
+    case 'role_in_company':
+      if (!value.trim()) return 'Your role is required'
       return ''
     case 'phone':
       if (value && !PHONE_RE.test(value.trim())) return 'Enter a valid phone number'
@@ -66,8 +77,8 @@ function getPasswordStrength(pw) {
   return { score, label: 'Very Strong', color: '#06b6d4' }
 }
 
-// ── Reusable Field component ──────────────────────────────────────────────────
-function Field({ icon: Icon, label, error, touched, required, children }) {
+// ── Field wrapper — no right-side icon on password fields (eye button handles it) ──
+function Field({ icon: Icon, label, error, touched, required, isPassword = false, children }) {
   const hasError = touched && error
   const isValid = touched && !error
 
@@ -80,34 +91,35 @@ function Field({ icon: Icon, label, error, touched, required, children }) {
       <div className="relative">
         <Icon
           size={14}
-          className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 ${
+          className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-200 ${
             hasError ? 'text-red-400' : isValid ? 'text-emerald-400' : 'text-slate-500'
           }`}
         />
         {children}
-        {hasError && (
-          <AlertCircle size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-red-400" />
+        {/* Only show status icon on non-password fields — password fields have the eye button */}
+        {!isPassword && hasError && (
+          <AlertCircle size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-red-400 pointer-events-none" />
         )}
-        {isValid && (
-          <Check size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-400" />
+        {!isPassword && isValid && (
+          <Check size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none" />
         )}
       </div>
       {hasError && (
         <p className="flex items-center gap-1 text-[11px] text-red-400">
-          <X size={10} /> {error}
+          <X size={10} className="shrink-0" /> {error}
         </p>
       )}
     </div>
   )
 }
 
-// ── Input style helper ────────────────────────────────────────────────────────
+// ── Input class helper ────────────────────────────────────────────────────────
+// pr-9 for normal fields (status icon), pr-10 for password fields (eye button)
 function inputCls(touched, error, extra = '') {
-  const base = `w-full h-11 rounded-xl pl-9 pr-9 text-sm text-white outline-none transition-all duration-200
+  const base = `w-full h-11 rounded-xl pl-9 text-sm text-white outline-none transition-all duration-200
     bg-white/[0.04] border placeholder:text-slate-600
     focus:bg-white/[0.07] focus:ring-2 focus:ring-offset-0
-    [&:-webkit-autofill]:!bg-slate-900 [&:-webkit-autofill]:!text-white
-    [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(15,23,42)_inset]
+    [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(10,12,22)_inset]
     [&:-webkit-autofill]:[-webkit-text-fill-color:#fff]`
 
   if (touched && error)
@@ -122,7 +134,7 @@ function PasswordStrengthBar({ password }) {
   const { score, label, color } = getPasswordStrength(password)
   if (!password) return null
   return (
-    <div className="mt-1.5 space-y-1">
+    <div className="mt-2 space-y-1">
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map(i => (
           <div
@@ -137,7 +149,7 @@ function PasswordStrengthBar({ password }) {
   )
 }
 
-// ── OAuth SVGs ────────────────────────────────────────────────────────────────
+// ── OAuth icons ───────────────────────────────────────────────────────────────
 const GoogleIcon = () => (
   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -149,15 +161,15 @@ const GoogleIcon = () => (
 
 const MicrosoftIcon = () => (
   <svg className="h-4 w-4 shrink-0" viewBox="0 0 23 23">
-    <path fill="#f3f3f3" d="M0 0h23v23H0z"/>
-    <path fill="#f35325" d="M1 1h10v10H1z"/>
+    <path fill="#f3f3f3" d="M0 0h11v11H0z"/>
+    <path fill="#f35325" d="M1 1h9v9H1z"/>
     <path fill="#81bc06" d="M12 1h10v10H12z"/>
     <path fill="#05a6f0" d="M1 12h10v10H1z"/>
     <path fill="#ffba08" d="M12 12h10v10H12z"/>
   </svg>
 )
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main Register component ───────────────────────────────────────────────────
 export default function Register() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -165,8 +177,13 @@ export default function Register() {
   const shellRef = useRef(null)
 
   const [form, setForm] = useState({
-    full_name: '', email: '', age: '', gender: '',
-    phone: '', password: '', confirm_password: ''
+    full_name: '',
+    email: '',
+    company_name: '',
+    role_in_company: '',
+    phone: '',
+    password: '',
+    confirm_password: '',
   })
   const [touched, setTouched] = useState({})
   const [errors, setErrors] = useState({})
@@ -178,10 +195,12 @@ export default function Register() {
   // GSAP entrance
   useEffect(() => {
     const els = shellRef.current?.querySelectorAll('[data-reveal]') || []
-    gsap.fromTo(els, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, stagger: 0.05, ease: 'power3.out' })
+    if (els.length) {
+      gsap.fromTo(els, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, stagger: 0.05, ease: 'power3.out' })
+    }
   }, [])
 
-  // OAuth callback
+  // OAuth callback handler
   useEffect(() => {
     const accessToken = searchParams.get('access_token')
     const refreshToken = searchParams.get('refresh_token')
@@ -191,7 +210,7 @@ export default function Register() {
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
       fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/me`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+        headers: { Authorization: `Bearer ${accessToken}` },
       })
         .then(r => r.json())
         .then(data => {
@@ -204,25 +223,37 @@ export default function Register() {
     }
   }, [searchParams, navigate])
 
-  const handleOAuth = (provider) => {
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/${provider}/login`
+  // Google OAuth (untouched)
+  const handleGoogleOAuth = () => {
+    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/google/login`
   }
 
-  // Controlled change — validate on every keystroke after first touch
+  // Microsoft OAuth — check config before redirecting
+  const handleMicrosoftOAuth = () => {
+    const msClientId = import.meta.env.VITE_MICROSOFT_CLIENT_ID
+    if (!msClientId || msClientId === 'your-microsoft-client-id') {
+      toast.error('Microsoft login is not configured yet. Please use Google or email sign-up.')
+      return
+    }
+    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/microsoft/login`
+  }
+
+  // Controlled change with live validation after first touch
   const handleChange = useCallback((e) => {
     const { name, value } = e.target
     setForm(prev => {
       const next = { ...prev, [name]: value }
       if (touched[name]) {
         setErrors(errs => ({ ...errs, [name]: validate(name, value, next) }))
-        // re-validate confirm_password when password changes
-        if (name === 'password' && touched.confirm_password) {
-          setErrors(errs => ({ ...errs, confirm_password: validate('confirm_password', next.confirm_password, next) }))
-        }
+      }
+      // Re-validate confirm_password whenever password changes
+      if (name === 'password' && touched.confirm_password) {
+        setErrors(errs => ({ ...errs, confirm_password: validate('confirm_password', next.confirm_password, next) }))
       }
       return next
     })
-  }, [touched])
+    if (submitError) setSubmitError('')
+  }, [touched, submitError])
 
   const handleBlur = useCallback((e) => {
     const { name, value } = e.target
@@ -230,9 +261,14 @@ export default function Register() {
     setErrors(prev => ({ ...prev, [name]: validate(name, value, form) }))
   }, [form])
 
+  // Password toggles — onMouseDown prevents input blur/focus loss
+  const togglePw = useCallback((e) => { e.preventDefault(); setShowPw(p => !p) }, [])
+  const toggleCPw = useCallback((e) => { e.preventDefault(); setShowCPw(p => !p) }, [])
+
   const validateAll = () => {
-    const allTouched = Object.keys(form).reduce((acc, k) => ({ ...acc, [k]: true }), {})
-    const allErrors = Object.keys(form).reduce((acc, k) => ({ ...acc, [k]: validate(k, form[k], form) }), {})
+    const fields = Object.keys(form)
+    const allTouched = fields.reduce((acc, k) => ({ ...acc, [k]: true }), {})
+    const allErrors = fields.reduce((acc, k) => ({ ...acc, [k]: validate(k, form[k], form) }), {})
     setTouched(allTouched)
     setErrors(allErrors)
     return Object.values(allErrors).every(e => !e)
@@ -240,37 +276,44 @@ export default function Register() {
 
   const submit = async (e) => {
     e.preventDefault()
+    if (isLoading) return
     setSubmitError('')
     if (!validateAll()) return
+
     const result = await register({
       full_name: form.full_name.trim(),
       email: form.email.trim().toLowerCase(),
       password: form.password,
-      age: form.age ? parseInt(form.age) : null,
-      gender: form.gender || null,
       phone: form.phone.trim() || null,
       role: 'recruiter',
+      // company_name and role_in_company sent as extra context (backend accepts optional fields)
+      company_name: form.company_name.trim() || null,
+      role_in_company: form.role_in_company.trim() || null,
     })
+
     if (result.success) {
       setSuccess(true)
-      setTimeout(() => navigate('/login'), 2000)
+      toast.success('Account created! Redirecting to sign in…')
+      setTimeout(() => navigate('/login'), 2200)
     } else {
       setSubmitError(result.error || 'Registration failed. Please try again.')
     }
   }
 
   return (
-    <div className="relative h-screen overflow-hidden bg-[#07080f] text-white">
-      {/* static ambient orbs — no canvas, no clash */}
+    <div className="relative min-h-screen overflow-hidden bg-[#07080f] text-white">
+      {/* Ambient background */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-violet-600/10 blur-[120px]" />
-        <div className="absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-cyan-500/10 blur-[120px]" />
+        <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-violet-600/8 blur-[130px]" />
+        <div className="absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-cyan-500/8 blur-[130px]" />
         <div className="absolute left-1/2 top-1/2 h-[300px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-600/5 blur-[100px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:64px_64px]" />
       </div>
-      <div ref={shellRef} className="relative z-10 flex h-full flex-col overflow-y-auto px-5 py-4 sm:px-8">
+
+      <div ref={shellRef} className="relative z-10 flex min-h-screen flex-col px-5 py-5 sm:px-8">
 
         {/* Header */}
-        <header data-reveal className="flex items-center justify-between">
+        <header data-reveal className="flex items-center justify-between mb-2">
           <BrandMark />
           <Link
             to="/login"
@@ -281,12 +324,12 @@ export default function Register() {
         </header>
 
         {/* Main grid */}
-        <main className="grid flex-1 items-center gap-6 py-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <main className="grid flex-1 items-center gap-6 py-4 lg:grid-cols-[0.9fr_1.1fr]">
 
           {/* Left — hero copy */}
           <section className="hidden lg:block max-w-xl">
             <div data-reveal className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-300/20 bg-fuchsia-300/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-fuchsia-100">
-              <Sparkles size={13} /> Universe Genesis
+              <Sparkles size={13} /> Recruiter Platform
             </div>
             <h1 data-reveal className="font-title text-5xl font-black leading-[0.96] tracking-tight text-white">
               Ignite your recruitment galaxy.
@@ -321,15 +364,17 @@ export default function Register() {
               <>
                 <div className="mb-5">
                   <h2 className="font-title text-xl font-black text-white">Create your account</h2>
-                  <p className="mt-1 text-xs text-slate-500">All fields marked <span className="text-cyan-400">*</span> are required</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Fields marked <span className="text-cyan-400">*</span> are required
+                  </p>
                 </div>
 
                 {/* OAuth buttons */}
                 <div className="mb-5 grid grid-cols-2 gap-2.5">
-                  <PremiumButton type="button" variant="ghost" className="w-full text-xs" onClick={() => handleOAuth('google')}>
+                  <PremiumButton type="button" variant="ghost" className="w-full text-xs" onClick={handleGoogleOAuth}>
                     <GoogleIcon /> Continue with Google
                   </PremiumButton>
-                  <PremiumButton type="button" variant="ghost" className="w-full text-xs" onClick={() => handleOAuth('microsoft')}>
+                  <PremiumButton type="button" variant="ghost" className="w-full text-xs" onClick={handleMicrosoftOAuth}>
                     <MicrosoftIcon /> Continue with Microsoft
                   </PremiumButton>
                 </div>
@@ -354,12 +399,12 @@ export default function Register() {
                         placeholder="Jane Smith"
                         autoComplete="name"
                         autoFocus
-                        className={inputCls(touched.full_name, errors.full_name)}
+                        className={inputCls(touched.full_name, errors.full_name, 'pr-9')}
                       />
                     </Field>
 
                     {/* Email */}
-                    <Field icon={Mail} label="Email" error={errors.email} touched={touched.email} required>
+                    <Field icon={Mail} label="Work Email" error={errors.email} touched={touched.email} required>
                       <input
                         name="email"
                         type="email"
@@ -369,47 +414,43 @@ export default function Register() {
                         placeholder="you@company.com"
                         autoComplete="email"
                         inputMode="email"
-                        className={inputCls(touched.email, errors.email)}
+                        className={inputCls(touched.email, errors.email, 'pr-9')}
                       />
                     </Field>
 
-                    {/* Age */}
-                    <Field icon={Calendar} label="Age" error={errors.age} touched={touched.age} required>
+                    {/* Company Name */}
+                    <Field icon={Building2} label="Company Name" error={errors.company_name} touched={touched.company_name} required>
                       <input
-                        name="age"
-                        type="number"
-                        value={form.age}
+                        name="company_name"
+                        type="text"
+                        value={form.company_name}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        placeholder="28"
-                        min="16"
-                        max="100"
-                        autoComplete="off"
-                        className={inputCls(touched.age, errors.age)}
+                        placeholder="Acme Corp"
+                        autoComplete="organization"
+                        className={inputCls(touched.company_name, errors.company_name, 'pr-9')}
                       />
                     </Field>
 
-                    {/* Gender */}
-                    <Field icon={Users} label="Gender" error={errors.gender} touched={touched.gender} required>
+                    {/* Role in Company */}
+                    <Field icon={Briefcase} label="Role in Company" error={errors.role_in_company} touched={touched.role_in_company} required>
                       <select
-                        name="gender"
-                        value={form.gender}
+                        name="role_in_company"
+                        value={form.role_in_company}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        autoComplete="sex"
-                        className={`${inputCls(touched.gender, errors.gender)} appearance-none cursor-pointer`}
+                        className={`${inputCls(touched.role_in_company, errors.role_in_company, 'pr-9')} appearance-none cursor-pointer`}
                         style={{ colorScheme: 'dark' }}
                       >
-                        <option value="" disabled className="bg-slate-900 text-slate-400">Select gender</option>
-                        <option value="male" className="bg-slate-900">Male</option>
-                        <option value="female" className="bg-slate-900">Female</option>
-                        <option value="other" className="bg-slate-900">Other</option>
-                        <option value="prefer_not" className="bg-slate-900">Prefer not to say</option>
+                        <option value="" disabled className="bg-slate-900 text-slate-400">Select your role</option>
+                        {ROLE_OPTIONS.map(r => (
+                          <option key={r} value={r} className="bg-slate-900">{r}</option>
+                        ))}
                       </select>
                     </Field>
 
-                    {/* Phone */}
-                    <Field icon={Phone} label="Phone" error={errors.phone} touched={touched.phone}>
+                    {/* Phone (optional) */}
+                    <Field icon={Phone} label="Phone (optional)" error={errors.phone} touched={touched.phone}>
                       <input
                         name="phone"
                         type="tel"
@@ -419,16 +460,16 @@ export default function Register() {
                         placeholder="+91 98765 43210"
                         autoComplete="tel"
                         inputMode="tel"
-                        className={inputCls(touched.phone, errors.phone)}
+                        className={inputCls(touched.phone, errors.phone, 'pr-9')}
                       />
                     </Field>
 
-                    {/* Spacer on desktop */}
+                    {/* Spacer */}
                     <div className="hidden sm:block" />
 
                     {/* Password */}
                     <div className="sm:col-span-2">
-                      <Field icon={Lock} label="Password" error={errors.password} touched={touched.password} required>
+                      <Field icon={Lock} label="Password" error={errors.password} touched={touched.password} required isPassword>
                         <input
                           name="password"
                           type={showPw ? 'text' : 'password'}
@@ -441,10 +482,10 @@ export default function Register() {
                         />
                         <button
                           type="button"
-                          onClick={() => setShowPw(p => !p)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-300"
+                          onMouseDown={togglePw}
                           tabIndex={-1}
                           aria-label={showPw ? 'Hide password' : 'Show password'}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-200 focus:outline-none"
                         >
                           {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
@@ -454,7 +495,7 @@ export default function Register() {
 
                     {/* Confirm Password */}
                     <div className="sm:col-span-2">
-                      <Field icon={Lock} label="Confirm Password" error={errors.confirm_password} touched={touched.confirm_password} required>
+                      <Field icon={Lock} label="Confirm Password" error={errors.confirm_password} touched={touched.confirm_password} required isPassword>
                         <input
                           name="confirm_password"
                           type={showCPw ? 'text' : 'password'}
@@ -467,10 +508,10 @@ export default function Register() {
                         />
                         <button
                           type="button"
-                          onClick={() => setShowCPw(p => !p)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-300"
+                          onMouseDown={toggleCPw}
                           tabIndex={-1}
                           aria-label={showCPw ? 'Hide password' : 'Show password'}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-200 focus:outline-none"
                         >
                           {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
