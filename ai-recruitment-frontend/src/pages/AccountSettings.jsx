@@ -247,6 +247,19 @@ export default function AccountSettings() {
               </button>
             ))}
           </div>
+
+          {/* Back Button at Bottom */}
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+            <button
+              onClick={() => navigate(-1)}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+            >
+              <ArrowLeft size={16} /> Back to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -257,16 +270,6 @@ export default function AccountSettings() {
   return (
     <div className="min-h-screen p-6 page-enter" style={{ background: 'var(--bg-primary)' }}>
       <div className="max-w-2xl mx-auto">
-        <button
-          onClick={() => setSearchParams({})}
-          className="flex items-center gap-2 mb-6 text-sm font-semibold transition-colors"
-          style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
-        >
-          <ArrowLeft size={16} /> Back to Settings
-        </button>
-
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             {currentSetting && <currentSetting.icon size={24} style={{ color: 'var(--accent-cyan)' }} />}
@@ -433,6 +436,19 @@ export default function AccountSettings() {
             <Toggle label="Show Analytics" sub="Display charts on dashboard" checked={prefs.showAnalytics !== false} onChange={v => savePrefs({ showAnalytics: v })} />
           </div>
         )}
+
+        {/* Back Button at Bottom */}
+        <div className="mt-8 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+          <button
+            onClick={() => setSearchParams({})}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+          >
+            <ArrowLeft size={16} /> Back to Settings Menu
+          </button>
+        </div>
       </div>
     </div>
   )

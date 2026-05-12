@@ -14,7 +14,7 @@ export default function Candidates() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(12)
+  const [pageSize] = useState(8)
   const [deleting, setDeleting] = useState(null)
   const [candidateToDelete, setCandidateToDelete] = useState(null)
 
@@ -78,8 +78,8 @@ export default function Candidates() {
 
       {/* List */}
       {loading ? (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {[...Array(6)].map((_, i) => <div key={i} className="flex-shrink-0 w-80"><SkeletonCard /></div>)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : candidates.length === 0 ? (
         <EmptyState
@@ -89,11 +89,11 @@ export default function Candidates() {
           action={<Link to="/upload" className="btn-primary">Upload First CV</Link>}
         />
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4 stagger">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 stagger">
           {candidates.map(c => {
             const skills = [...(c.skills?.technical || []), ...(c.skills?.frameworks || [])].slice(0, 5)
             return (
-              <div key={c.id} className="portal-card p-5 group relative flex-shrink-0 w-80">
+              <div key={c.id} className="portal-card p-5 group relative">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0 bg-gradient-to-br from-blue-500 to-violet-600">
                     {getInitials(c.name)}
@@ -149,25 +149,79 @@ export default function Candidates() {
 
       {/* Pagination */}
       {!loading && candidates.length > 0 && total > pageSize && (
-        <div className="flex items-center justify-center gap-3 mt-6">
+        <div className="flex items-center justify-center gap-2 mt-8">
+          {/* First Page */}
           <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
+            onClick={() => { setPage(1); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
             disabled={page === 1}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            title="First page"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={14} />
+            <ChevronLeft size={14} style={{ marginLeft: -8 }} />
           </button>
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Page {page} of {Math.ceil(total / pageSize)}
-          </span>
+          
+          {/* Previous */}
           <button
-            onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
-            disabled={page === Math.ceil(total / pageSize)}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+            disabled={page === 1}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            title="Previous page"
           >
-            <ChevronRight size={18} />
+            <ChevronLeft size={16} />
+          </button>
+
+          {/* Page Numbers */}
+          {(() => {
+            const totalPages = Math.ceil(total / pageSize)
+            const pages = []
+            let startPage = Math.max(1, page - 2)
+            let endPage = Math.min(totalPages, page + 2)
+            
+            if (page <= 3) endPage = Math.min(5, totalPages)
+            if (page > totalPages - 3) startPage = Math.max(1, totalPages - 4)
+            
+            for (let i = startPage; i <= endPage; i++) {
+              pages.push(
+                <button
+                  key={i}
+                  onClick={() => { setPage(i); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold transition-all"
+                  style={page === i
+                    ? { background: 'var(--accent-cyan)', color: '#000', border: '1px solid var(--accent-cyan)' }
+                    : { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }
+                  }
+                >
+                  {i}
+                </button>
+              )
+            }
+            return pages
+          })()}
+
+          {/* Next */}
+          <button
+            onClick={() => { setPage(p => Math.min(Math.ceil(total / pageSize), p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+            disabled={page === Math.ceil(total / pageSize)}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            title="Next page"
+          >
+            <ChevronRight size={16} />
+          </button>
+
+          {/* Last Page */}
+          <button
+            onClick={() => { setPage(Math.ceil(total / pageSize)); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+            disabled={page === Math.ceil(total / pageSize)}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            title="Last page"
+          >
+            <ChevronRight size={14} />
+            <ChevronRight size={14} style={{ marginLeft: -8 }} />
           </button>
         </div>
       )}
