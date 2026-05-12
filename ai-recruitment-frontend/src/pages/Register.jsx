@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  ArrowRight, CheckCircle, Eye, EyeOff, Lock, Mail,
+  ArrowRight, Eye, EyeOff, Lock, Mail,
   Phone, User, Building2, Briefcase, Sparkles, AlertCircle, Check, X
 } from 'lucide-react'
 import { gsap } from 'gsap'
@@ -129,22 +129,46 @@ function inputCls(touched, error, extra = '') {
   return `${base} border-white/10 focus:border-cyan-400/60 focus:ring-cyan-400/15 ${extra}`
 }
 
-// ── Password strength bar ─────────────────────────────────────────────────────
+// ── Password strength + requirements ─────────────────────────────────────────
+const PW_RULES = [
+  { key: 'len',   label: 'At least 8 characters',      test: pw => pw.length >= 8 },
+  { key: 'upper', label: '1 uppercase letter (A–Z)',    test: pw => /[A-Z]/.test(pw) },
+  { key: 'num',   label: '1 number (0–9)',              test: pw => /[0-9]/.test(pw) },
+  { key: 'sym',   label: '1 symbol (!@#$…)',            test: pw => /[^A-Za-z0-9]/.test(pw) },
+]
+
 function PasswordStrengthBar({ password }) {
   const { score, label, color } = getPasswordStrength(password)
   if (!password) return null
   return (
-    <div className="mt-2 space-y-1">
-      <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map(i => (
-          <div
-            key={i}
-            className="h-1 flex-1 rounded-full transition-all duration-300"
-            style={{ background: i <= score ? color : 'rgba(255,255,255,0.08)' }}
-          />
-        ))}
+    <div className="mt-2 space-y-2">
+      {/* bar + label */}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 gap-1">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div
+              key={i}
+              className="h-1 flex-1 rounded-full transition-all duration-300"
+              style={{ background: i <= score ? color : 'rgba(255,255,255,0.08)' }}
+            />
+          ))}
+        </div>
+        <span className="text-[10px] font-bold w-16 text-right" style={{ color }}>{label}</span>
       </div>
-      <p className="text-[10px] font-semibold" style={{ color }}>{label}</p>
+      {/* requirements checklist */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+        {PW_RULES.map(r => {
+          const ok = r.test(password)
+          return (
+            <div key={r.key} className="flex items-center gap-1.5">
+              <div className={`w-3 h-3 rounded-full flex items-center justify-center transition-all duration-200 ${ok ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                {ok && <Check size={8} className="text-white" />}
+              </div>
+              <span className={`text-[10px] transition-colors duration-200 ${ok ? 'text-emerald-400' : 'text-slate-500'}`}>{r.label}</span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -180,7 +204,6 @@ export default function Register() {
   const [errors, setErrors] = useState({})
   const [showPw, setShowPw] = useState(false)
   const [showCPw, setShowCPw] = useState(false)
-  const [success, setSuccess] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
   // GSAP entrance
@@ -264,6 +287,21 @@ export default function Register() {
     setSubmitError('')
     if (!validateAll()) return
 
+    // Block if password is not at least 'Good' (score >= 3)
+    const { score } = getPasswordStrength(form.password)
+    if (score < 3) {
+      setErrors(prev => ({ ...prev, password: 'Password is too weak. Add uppercase, numbers and symbols.' }))
+      setTouched(prev => ({ ...prev, password: true }))
+      return
+    }
+
+    // Block if passwords don't match
+    if (form.password !== form.confirm_password) {
+      setErrors(prev => ({ ...prev, confirm_password: 'Passwords do not match' }))
+      setTouched(prev => ({ ...prev, confirm_password: true }))
+      return
+    }
+
     const result = await register({
       full_name: form.full_name.trim(),
       email: form.email.trim().toLowerCase(),
@@ -276,9 +314,8 @@ export default function Register() {
     })
 
     if (result.success) {
-      setSuccess(true)
-      toast.success('Account created! Redirecting to sign in…')
-      setTimeout(() => navigate('/login'), 2200)
+      toast.success('Account created! Please sign in.')
+      navigate('/login')
     } else {
       setSubmitError(result.error || 'Registration failed. Please try again.')
     }
@@ -335,16 +372,7 @@ export default function Register() {
 
           {/* Right — form panel */}
           <GlassPanel data-reveal className="mx-auto w-full max-w-lg p-5 sm:p-6">
-            {success ? (
-              <div className="py-14 text-center">
-                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
-                  <CheckCircle size={32} />
-                </div>
-                <h2 className="font-title text-2xl font-black text-white">Account created!</h2>
-                <p className="mt-2 text-sm text-slate-400">Redirecting you to sign in…</p>
-              </div>
-            ) : (
-              <>
+            <>
                 <div className="mb-5">
                   <h2 className="font-title text-xl font-black text-white">Create your account</h2>
                   <p className="mt-1 text-xs text-slate-500">
@@ -473,7 +501,7 @@ export default function Register() {
                       <PasswordStrengthBar password={form.password} />
                     </div>
 
-                    {/* Confirm Password */}
+                    {/* Confirm Password — live mismatch shown inline */}
                     <div className="sm:col-span-2">
                       <Field icon={Lock} label="Confirm Password" error={errors.confirm_password} touched={touched.confirm_password} required isPassword>
                         <input
@@ -496,6 +524,17 @@ export default function Register() {
                           {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
                       </Field>
+                      {/* Live match indicator */}
+                      {form.confirm_password && (
+                        <div className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold ${
+                          form.confirm_password === form.password ? 'text-emerald-400' : 'text-red-400'
+                        }`}>
+                          {form.confirm_password === form.password
+                            ? <><Check size={11} /> Passwords match</>
+                            : <><X size={11} /> Passwords do not match</>
+                          }
+                        </div>
+                      )}
                     </div>
 
                   </div>
@@ -522,8 +561,6 @@ export default function Register() {
                     </Link>
                   </p>
                 </form>
-              </>
-            )}
           </GlassPanel>
         </main>
       </div>
