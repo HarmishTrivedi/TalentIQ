@@ -410,9 +410,22 @@ export default function Jobs() {
     } catch {}
   }
 
-  const handleUseJD = (jd) => {
-    setPrefillJD(jd)
-    setShowModal(true)
+  const handleUseJD = async (jd) => {
+    // Auto-create job with generated JD
+    const title = jd.split('\n')[0].replace(/^(Role Title:|Job Title:)/i, '').trim() || 'New Job Position'
+    try {
+      const res = await jobsApi.create({
+        title,
+        company: '',
+        location: '',
+        job_type: 'full-time',
+        description: jd,
+      })
+      setJobs(p => [res.data, ...p])
+      toast.success(`Job "${res.data.title}" created successfully!`)
+    } catch {
+      toast.error('Failed to create job')
+    }
   }
 
   return (

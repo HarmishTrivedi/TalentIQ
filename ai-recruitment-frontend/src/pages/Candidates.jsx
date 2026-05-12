@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Upload, Trash2, ChevronRight, User, RefreshCw } from 'lucide-react'
+import { Search, Upload, Trash2, ChevronRight, User, RefreshCw, ChevronLeft } from 'lucide-react'
 import { candidatesApi } from '../services/api'
 import { SkeletonCard, EmptyState, TagList, Badge, ConfirmationModal } from '../components/ui'
 import { formatRelativeTime, getInitials, formatExperience, truncate } from '../utils/helpers'
@@ -13,24 +13,28 @@ export default function Candidates() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(12)
   const [deleting, setDeleting] = useState(null)
   const [candidateToDelete, setCandidateToDelete] = useState(null)
 
-  const load = async (q = '') => {
+  const load = async (q = '', p = 1) => {
     setLoading(true)
     try {
-      const res = await candidatesApi.list({ search: q || undefined, page_size: 50 })
+      const res = await candidatesApi.list({ search: q || undefined, page: p, page_size: pageSize })
       setCandidates(res.data.candidates)
       setTotal(res.data.total)
     } catch {}
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load('', 1) }, [])
   useEffect(() => {
-    const t = setTimeout(() => load(search), 400)
+    const t = setTimeout(() => { setPage(1); load(search, 1) }, 400)
     return () => clearTimeout(t)
   }, [search])
+
+  useEffect(() => { load(search, page) }, [page])
 
   const confirmDelete = async () => {
     if (!candidateToDelete) return
@@ -146,6 +150,54 @@ export default function Candidates() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && candidates.length > 0 && total > pageSize && (
+        <div className="flex items-center justify-between mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of {total} candidates
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: 'var(--bg-card-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            {[...Array(Math.ceil(total / pageSize))].map((_, i) => {
+              const pageNum = i + 1
+              if (pageNum === 1 || pageNum === Math.ceil(total / pageSize) || (pageNum >= page - 1 && pageNum <= page + 1)) {
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPage(pageNum)}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-semibold transition-all"
+                    style={page === pageNum
+                      ? { background: 'var(--accent-cyan)', color: '#000' }
+                      : { background: 'var(--bg-card-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }
+                    }
+                  >
+                    {pageNum}
+                  </button>
+                )
+              } else if (pageNum === page - 2 || pageNum === page + 2) {
+                return <span key={pageNum} className="text-xs" style={{ color: 'var(--text-muted)' }}>...</span>
+              }
+              return null
+            })}
+            <button
+              onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
+              disabled={page === Math.ceil(total / pageSize)}
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: 'var(--bg-card-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       )}
 

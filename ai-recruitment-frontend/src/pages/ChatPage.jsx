@@ -2,8 +2,9 @@ import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Send, Plus, MessageSquare, Sparkles, User, Trash2,
-  Bot, ChevronDown, Paperclip, Mic, Copy, ThumbsUp,
-  ThumbsDown, RotateCcw, Zap, Users, Briefcase, Brain
+  Bot, ChevronDown, Copy, RotateCcw, Zap, Users,
+  Briefcase, Brain, Search, Filter, ChevronRight,
+  Wand2, Target, FileText, Hash
 } from 'lucide-react'
 import { chatApi, candidatesApi, jobsApi } from '../services/api'
 import { Spinner } from '../components/ui'
@@ -141,10 +142,12 @@ function TypingIndicator() {
 
 // ── Quick Suggestions ─────────────────────────────────────────────────────────
 const SUGGESTIONS = [
-  { icon: Brain,    text: "Analyze the top candidates in my talent pool" },
-  { icon: Briefcase,text: "What jobs do I have posted and their requirements?" },
-  { icon: Zap,      text: "Which candidates best match my latest job posting?" },
-  { icon: Users,    text: "Give me a recruitment strategy for my current openings" },
+  { icon: Brain,    text: "Show me top 5 frontend candidates with React experience" },
+  { icon: Users,    text: "Which candidates have both React and Node.js skills?" },
+  { icon: Zap,      text: "Compare the top 3 candidates for my latest job" },
+  { icon: Briefcase,text: "Generate interview questions for a senior developer role" },
+  { icon: Brain,    text: "Why did candidate X score low on job Y?" },
+  { icon: Users,    text: "Find candidates with AWS and less than 3 years experience" },
 ]
 
 export default function ChatPage() {
@@ -363,45 +366,64 @@ export default function ChatPage() {
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto px-4 py-6" style={{ background: 'var(--bg-primary)' }}>
           {!activeSession ? (
-            /* Welcome Screen */
-            <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto text-center">
-              <div
-                className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6 shadow-2xl"
-                style={{ background: 'linear-gradient(135deg, #3b82f6, #7c3aed)', boxShadow: '0 0 60px rgba(59,130,246,0.3)' }}
-              >
-                <Sparkles size={36} className="text-white" />
+            /* Welcome Screen — AI Recruiter Copilot */
+            <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto text-center px-4">
+              {/* Hero */}
+              <div className="relative mb-6">
+                <div
+                  className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl"
+                  style={{ background: 'linear-gradient(135deg, #3b82f6, #7c3aed)', boxShadow: '0 0 60px rgba(59,130,246,0.35)' }}
+                >
+                  <Sparkles size={36} className="text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-emerald-400 flex items-center justify-center"
+                  style={{ boxShadow: '0 0 10px #34d399', border: '2px solid var(--bg-primary)' }}>
+                  <div className="w-2 h-2 rounded-full bg-white" />
+                </div>
               </div>
-              <h2 className="text-3xl font-bold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
-                TalentIQ AI Assistant
-              </h2>
-              <p className="text-base mb-8 max-w-md leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                Your intelligent recruitment partner. Ask me anything about candidates, jobs, matching, or hiring strategy.
-              </p>
 
-              {/* Quick suggestions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl mb-8">
-                {SUGGESTIONS.map(({ icon: Icon, text }, i) => (
-                  <button
-                    key={i}
-                    onClick={() => sendMessage(text)}
-                    className="flex items-start gap-3 p-4 rounded-2xl text-left transition-all group"
-                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.background = 'var(--bg-card-hover)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)' }}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'var(--tag-bg)' }}
-                    >
-                      <Icon size={15} style={{ color: 'var(--accent-cyan)' }} />
-                    </div>
-                    <span className="text-sm leading-snug" style={{ color: 'var(--text-secondary)' }}>{text}</span>
-                  </button>
+              <h2 className="text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
+                AI Recruiter Copilot
+              </h2>
+              <p className="text-sm mb-2 max-w-md" style={{ color: 'var(--text-secondary)' }}>
+                Your intelligent hiring assistant with full access to your talent pool, jobs, and match data.
+              </p>
+              <div className="flex items-center gap-2 mb-8">
+                {['Candidate Search', 'Skill Filtering', 'Comparisons', 'Interview Prep'].map(tag => (
+                  <span key={tag} className="text-[10px] px-2 py-1 rounded-full font-semibold"
+                    style={{ background: 'var(--tag-bg)', color: 'var(--accent-cyan)', border: '1px solid var(--tag-border)' }}>
+                    {tag}
+                  </span>
                 ))}
               </div>
 
-              <button onClick={() => setShowNewChat(true)} className="btn-primary px-8 h-11">
-                <Plus size={16} /> Start New Conversation
+              {/* Command examples */}
+              <div className="w-full max-w-xl mb-6">
+                <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
+                  Try asking...
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {SUGGESTIONS.map(({ icon: Icon, text }, i) => (
+                    <button
+                      key={i}
+                      onClick={() => sendMessage(text)}
+                      className="flex items-start gap-3 p-3.5 rounded-2xl text-left transition-all"
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.background = 'var(--bg-card-hover)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)' }}
+                    >
+                      <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{ background: 'var(--tag-bg)' }}>
+                        <Icon size={13} style={{ color: 'var(--accent-cyan)' }} />
+                      </div>
+                      <span className="text-xs leading-snug" style={{ color: 'var(--text-secondary)' }}>{text}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button onClick={() => sendMessage('Hello! What can you help me with today?')} className="btn-primary px-8 h-11">
+                <Sparkles size={15} /> Start Chatting
               </button>
             </div>
           ) : (

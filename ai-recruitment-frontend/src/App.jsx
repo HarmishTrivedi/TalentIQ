@@ -7,6 +7,7 @@ import { Spinner } from './components/ui'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const UploadCV = lazy(() => import('./pages/UploadCV'))
+const BulkUploadCV = lazy(() => import('./pages/BulkUploadCV'))
 const Candidates = lazy(() => import('./pages/Candidates'))
 const CandidateDetail = lazy(() => import('./pages/CandidateDetail'))
 const Jobs = lazy(() => import('./pages/Jobs'))
@@ -31,6 +32,7 @@ const Privacy = lazy(() => import('./pages/Privacy'))
 const Terms = lazy(() => import('./pages/Terms'))
 const Security = lazy(() => import('./pages/Security'))
 const AccountSettings = lazy(() => import('./pages/AccountSettings'))
+const Pricing = lazy(() => import('./pages/Pricing'))
 
 function AdminRoute({ children }) {
   const { token, user } = useAuthStore()
@@ -86,6 +88,7 @@ export default function App() {
             <Route path="/candidates" element={<Candidates />} />
             <Route path="/candidates/:id" element={<CandidateDetail />} />
             <Route path="/upload" element={<UploadCV />} />
+            <Route path="/bulk-upload" element={<BulkUploadCV />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
             <Route path="/matching" element={<Matching />} />
@@ -94,6 +97,7 @@ export default function App() {
             <Route path="/interview-room" element={<InterviewRoom />} />
             <Route path="/plans" element={<RecruiterPlans />} />
             <Route path="/account" element={<AccountSettings />} />
+            <Route path="/pricing" element={<Pricing />} />
 
             <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} />

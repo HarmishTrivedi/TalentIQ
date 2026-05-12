@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Upload, Briefcase,
   MessageSquare, Sparkles, LogOut, ShieldCheck,
   Target, Sun, Moon, User, Settings, Shield,
-  Bell, ChevronUp, Building2, Crown, ChevronRight
+  Bell, ChevronUp, Building2, Crown, ChevronRight, DollarSign
 } from 'lucide-react'
 import { useAuthStore } from '../../store'
 import { useThemeStore } from '../../store/themeStore'
@@ -16,10 +16,12 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const navItems = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',     description: 'Overview & Analytics' },
   { to: '/candidates', icon: Users,           label: 'Talent Pool',   description: 'All Candidates' },
-  { to: '/upload',     icon: Upload,          label: 'Upload Resume', description: 'Add New Candidate' },
+  { to: '/upload',     icon: Upload,          label: 'Upload Resume', description: 'Single CV Upload' },
+  { to: '/bulk-upload',icon: Upload,          label: 'Bulk Upload',   description: 'Multiple CVs at once' },
   { to: '/jobs',       icon: Briefcase,       label: 'Job Positions', description: 'Manage Openings' },
   { to: '/matching',   icon: Target,          label: 'AI Matching',   description: 'Smart Candidate Match' },
   { to: '/chat',       icon: MessageSquare,   label: 'AI Assistant',  description: 'Chat with TalentIQ AI' },
+  { to: '/pricing',    icon: DollarSign,      label: 'Pricing',       description: 'Plans & Billing' },
 ]
 
 // ── Profile Dropdown rendered via portal (no clipping) ────────────────────────
