@@ -182,9 +182,14 @@ export default function ChatPage() {
     try {
       const res = await chatApi.getSession(id)
       setActiveSession(res.data)
-      setMessages(res.data.messages || [])
+      // Show ALL messages including assistant's greeting
+      const allMessages = res.data.messages || []
+      setMessages(allMessages)
       navigate(`/chat/${id}`, { replace: true })
-    } catch { toast.error('Failed to load session') }
+    } catch (err) {
+      console.error('Failed to load session:', err)
+      toast.error('Failed to load session')
+    }
   }
 
   const createSession = async () => {
@@ -196,17 +201,23 @@ export default function ChatPage() {
       const s = res.data
       setSessions(p => [s, ...p])
       setActiveSession(s)
+      // Show ALL messages including the initial greeting
       setMessages(s.messages || [])
       navigate(`/chat/${s.id}`, { replace: true })
       setShowNewChat(false)
       setSelectedCandidate('')
       setSelectedJob('')
-    } catch { toast.error('Failed to create session') }
+      toast.success('New chat started')
+    } catch (err) {
+      console.error('Failed to create session:', err)
+      toast.error('Failed to create session')
+    }
   }
 
   const sendMessage = async (text) => {
     const content = (text || input).trim()
     if (!content || sending) return
+    
     if (!activeSession) {
       // Auto-create a general session
       try {
@@ -214,11 +225,15 @@ export default function ChatPage() {
         const s = res.data
         setSessions(p => [s, ...p])
         setActiveSession(s)
+        // Show ALL messages including greeting
         setMessages(s.messages || [])
         navigate(`/chat/${s.id}`, { replace: true })
         // Send after session created
         setTimeout(() => sendMessageToSession(s.id, content), 100)
-      } catch { toast.error('Failed to create session') }
+      } catch (err) {
+        console.error('Failed to create session:', err)
+        toast.error('Failed to create session')
+      }
       setInput('')
       return
     }
@@ -227,16 +242,23 @@ export default function ChatPage() {
   }
 
   const sendMessageToSession = async (sessionId, content) => {
-    setMessages(p => [...p, { id: Date.now(), role: 'user', content, created_at: new Date().toISOString() }])
+    // Add user message to UI immediately
+    const userMsg = { id: `temp-${Date.now()}`, role: 'user', content, created_at: new Date().toISOString() }
+    setMessages(p => [...p, userMsg])
     setSending(true)
     setTyping(true)
+    
     try {
       const res = await chatApi.sendMessage(sessionId, content)
       setTyping(false)
+      // Add AI response
       setMessages(p => [...p, res.data.message])
-    } catch {
+    } catch (err) {
       setTyping(false)
+      console.error('Failed to send message:', err)
       toast.error('Failed to send message')
+      // Remove the temporary user message on error
+      setMessages(p => p.filter(m => m.id !== userMsg.id))
     } finally {
       setSending(false)
       inputRef.current?.focus()
@@ -245,17 +267,23 @@ export default function ChatPage() {
 
   const deleteSession = async (id, e) => {
     e.stopPropagation()
+    e.preventDefault()
+    
     try {
       await chatApi.deleteSession(id)
+      // Remove from list
       setSessions(p => p.filter(s => s.id !== id))
+      // Clear active session if it was deleted
       if (activeSession?.id === id) {
         setActiveSession(null)
         setMessages([])
         navigate('/chat', { replace: true })
       }
-      toast.success('Chat deleted')
-    } catch {
-      toast.error('Failed to delete chat')
+      toast.success('Chat deleted successfully')
+    } catch (err) {
+      console.error('Delete error:', err)
+      const errorMsg = err.response?.data?.detail || err.message || 'Failed to delete chat'
+      toast.error(errorMsg)
     }
   }
 

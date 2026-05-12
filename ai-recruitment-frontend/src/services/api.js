@@ -25,7 +25,8 @@ api.interceptors.response.use(
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login'
       }
-    } else if (error.response?.status !== 404) {
+    } else if (error.response?.status !== 404 && error.config?.method !== 'delete') {
+      // Don't show automatic toast for delete operations - let components handle it
       toast.error(msg || 'Something went wrong')
     }
     return Promise.reject(error)

@@ -118,11 +118,23 @@ async def delete_session(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Delete a chat session and all its messages."""
     result = await db.execute(
-        select(ChatSession).where(ChatSession.id == session_id, ChatSession.user_id == current_user.id)
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id
+        )
     )
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Delete all messages first
+    await db.execute(
+        select(ChatMessage).where(ChatMessage.session_id == session_id)
+    )
+    
+    # Delete the session
     await db.delete(session)
     await db.commit()
+    return None

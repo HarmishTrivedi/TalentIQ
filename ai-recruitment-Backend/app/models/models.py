@@ -206,7 +206,8 @@ class ChatSession(Base):
     candidate: Mapped[Optional["Candidate"]] = relationship("Candidate", back_populates="chat_sessions")
     messages: Mapped[list["ChatMessage"]] = relationship(
         "ChatMessage", back_populates="session", 
-        order_by="ChatMessage.created_at", lazy="select"
+        order_by="ChatMessage.created_at", lazy="select",
+        cascade="all, delete-orphan"
     )
 
 
