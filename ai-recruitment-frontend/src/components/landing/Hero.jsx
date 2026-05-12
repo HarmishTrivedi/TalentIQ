@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Play, Sparkles, Brain, Shield, TrendingUp, Users } from 'lucide-react'
+import { ArrowRight, Play, Brain, Shield, TrendingUp, Users } from 'lucide-react'
 import { Starfield } from './Starfield'
 import { Link } from 'react-router-dom'
 
@@ -212,11 +212,6 @@ export function Hero() {
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
           style={{ transform: `translate(${parallax.x * 0.3}px, ${parallax.y * 0.3}px)` }}
         >
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full glass px-3 py-1.5 text-xs">
-            <Sparkles className="h-3 w-3 text-[#65F7FF]" />
-            <span className="text-white/60">Powered by frontier AI · Now in private beta</span>
-          </div>
-
           <h1 className="font-display text-[clamp(3rem,7vw,5.75rem)] font-bold leading-[0.95] tracking-tight">
             <span className="text-gradient">The Future of</span>
             <br />
