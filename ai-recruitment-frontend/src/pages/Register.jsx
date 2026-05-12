@@ -10,7 +10,6 @@ import { Spinner } from '../components/ui'
 import { BrandMark, GlassPanel, PremiumButton } from '../components/premium/PremiumUI'
 import toast from 'react-hot-toast'
 
-// ── Constants ─────────────────────────────────────────────────────────────────
 const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
 const PHONE_RE = /^(\+?\d{1,4}[\s\-]?)?(\(?\d{1,4}\)?[\s\-]?)?\d{3,4}[\s\-]?\d{3,4}([\s\-]?\d{1,4})?$/
 
@@ -25,7 +24,13 @@ const ROLE_OPTIONS = [
   'Other',
 ]
 
-// ── Validation ────────────────────────────────────────────────────────────────
+const PW_RULES = [
+  { key: 'len',   label: 'At least 8 characters',   test: pw => pw.length >= 8 },
+  { key: 'upper', label: '1 uppercase letter (A–Z)', test: pw => /[A-Z]/.test(pw) },
+  { key: 'num',   label: '1 number (0–9)',           test: pw => /[0-9]/.test(pw) },
+  { key: 'sym',   label: '1 symbol (!@#$…)',         test: pw => /[^A-Za-z0-9]/.test(pw) },
+]
+
 function validate(name, value, form) {
   switch (name) {
     case 'full_name':
@@ -77,11 +82,9 @@ function getPasswordStrength(pw) {
   return { score, label: 'Very Strong', color: '#06b6d4' }
 }
 
-// ── Field wrapper — no right-side icon on password fields (eye button handles it) ──
 function Field({ icon: Icon, label, error, touched, required, isPassword = false, children }) {
   const hasError = touched && error
   const isValid = touched && !error
-
   return (
     <div className="flex flex-col gap-1.5">
       <label className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
@@ -96,7 +99,6 @@ function Field({ icon: Icon, label, error, touched, required, isPassword = false
           }`}
         />
         {children}
-        {/* Only show status icon on non-password fields — password fields have the eye button */}
         {!isPassword && hasError && (
           <AlertCircle size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-red-400 pointer-events-none" />
         )}
@@ -113,15 +115,12 @@ function Field({ icon: Icon, label, error, touched, required, isPassword = false
   )
 }
 
-// ── Input class helper ────────────────────────────────────────────────────────
-// pr-9 for normal fields (status icon), pr-10 for password fields (eye button)
 function inputCls(touched, error, extra = '') {
   const base = `w-full h-11 rounded-xl pl-9 text-sm text-white outline-none transition-all duration-200
     bg-white/[0.04] border placeholder:text-slate-600
     focus:bg-white/[0.07] focus:ring-2 focus:ring-offset-0
     [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(10,12,22)_inset]
     [&:-webkit-autofill]:[-webkit-text-fill-color:#fff]`
-
   if (touched && error)
     return `${base} border-red-500/50 focus:border-red-400 focus:ring-red-500/20 ${extra}`
   if (touched && !error)
@@ -129,20 +128,11 @@ function inputCls(touched, error, extra = '') {
   return `${base} border-white/10 focus:border-cyan-400/60 focus:ring-cyan-400/15 ${extra}`
 }
 
-// ── Password strength + requirements ─────────────────────────────────────────
-const PW_RULES = [
-  { key: 'len',   label: 'At least 8 characters',      test: pw => pw.length >= 8 },
-  { key: 'upper', label: '1 uppercase letter (A–Z)',    test: pw => /[A-Z]/.test(pw) },
-  { key: 'num',   label: '1 number (0–9)',              test: pw => /[0-9]/.test(pw) },
-  { key: 'sym',   label: '1 symbol (!@#$…)',            test: pw => /[^A-Za-z0-9]/.test(pw) },
-]
-
 function PasswordStrengthBar({ password }) {
   const { score, label, color } = getPasswordStrength(password)
   if (!password) return null
   return (
     <div className="mt-2 space-y-2">
-      {/* bar + label */}
       <div className="flex items-center gap-2">
         <div className="flex flex-1 gap-1">
           {[1, 2, 3, 4, 5].map(i => (
@@ -155,7 +145,6 @@ function PasswordStrengthBar({ password }) {
         </div>
         <span className="text-[10px] font-bold w-16 text-right" style={{ color }}>{label}</span>
       </div>
-      {/* requirements checklist */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-1">
         {PW_RULES.map(r => {
           const ok = r.test(password)
@@ -173,7 +162,6 @@ function PasswordStrengthBar({ password }) {
   )
 }
 
-// ── OAuth icons ───────────────────────────────────────────────────────────────
 const GoogleIcon = () => (
   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -183,8 +171,6 @@ const GoogleIcon = () => (
   </svg>
 )
 
-
-// ── Main Register component ───────────────────────────────────────────────────
 export default function Register() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -192,13 +178,8 @@ export default function Register() {
   const shellRef = useRef(null)
 
   const [form, setForm] = useState({
-    full_name: '',
-    email: '',
-    company_name: '',
-    role_in_company: '',
-    phone: '',
-    password: '',
-    confirm_password: '',
+    full_name: '', email: '', company_name: '',
+    role_in_company: '', phone: '', password: '', confirm_password: '',
   })
   const [touched, setTouched] = useState({})
   const [errors, setErrors] = useState({})
@@ -206,7 +187,6 @@ export default function Register() {
   const [showCPw, setShowCPw] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  // GSAP entrance
   useEffect(() => {
     const els = shellRef.current?.querySelectorAll('[data-reveal]') || []
     if (els.length) {
@@ -214,15 +194,11 @@ export default function Register() {
     }
   }, [])
 
-  // OAuth callback handler
   useEffect(() => {
     const accessToken = searchParams.get('access_token')
     const refreshToken = searchParams.get('refresh_token')
     const oauthError = searchParams.get('error')
-    if (oauthError) {
-      toast.error('Authentication failed. Please try again.')
-      return
-    }
+    if (oauthError) { toast.error('Authentication failed. Please try again.'); return }
     if (accessToken && refreshToken) {
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
@@ -240,12 +216,10 @@ export default function Register() {
     }
   }, [searchParams, navigate])
 
-  // Google OAuth (untouched)
   const handleGoogleOAuth = () => {
     window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/google/login`
   }
 
-  // Controlled change with live validation after first touch
   const handleChange = useCallback((e) => {
     const { name, value } = e.target
     setForm(prev => {
@@ -253,7 +227,6 @@ export default function Register() {
       if (touched[name]) {
         setErrors(errs => ({ ...errs, [name]: validate(name, value, next) }))
       }
-      // Re-validate confirm_password whenever password changes
       if (name === 'password' && touched.confirm_password) {
         setErrors(errs => ({ ...errs, confirm_password: validate('confirm_password', next.confirm_password, next) }))
       }
@@ -268,7 +241,6 @@ export default function Register() {
     setErrors(prev => ({ ...prev, [name]: validate(name, value, form) }))
   }, [form])
 
-  // Password toggles — onMouseDown prevents input blur/focus loss
   const togglePw = useCallback((e) => { e.preventDefault(); setShowPw(p => !p) }, [])
   const toggleCPw = useCallback((e) => { e.preventDefault(); setShowCPw(p => !p) }, [])
 
@@ -287,7 +259,6 @@ export default function Register() {
     setSubmitError('')
     if (!validateAll()) return
 
-    // Block if password is not at least 'Good' (score >= 3)
     const { score } = getPasswordStrength(form.password)
     if (score < 3) {
       setErrors(prev => ({ ...prev, password: 'Password is too weak. Add uppercase, numbers and symbols.' }))
@@ -295,7 +266,6 @@ export default function Register() {
       return
     }
 
-    // Block if passwords don't match
     if (form.password !== form.confirm_password) {
       setErrors(prev => ({ ...prev, confirm_password: 'Passwords do not match' }))
       setTouched(prev => ({ ...prev, confirm_password: true }))
@@ -308,7 +278,6 @@ export default function Register() {
       password: form.password,
       phone: form.phone.trim() || null,
       role: 'recruiter',
-      // company_name and role_in_company sent as extra context (backend accepts optional fields)
       company_name: form.company_name.trim() || null,
       role_in_company: form.role_in_company.trim() || null,
     })
@@ -323,7 +292,6 @@ export default function Register() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#07080f] text-white">
-      {/* Ambient background */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-violet-600/8 blur-[130px]" />
         <div className="absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-cyan-500/8 blur-[130px]" />
@@ -333,7 +301,6 @@ export default function Register() {
 
       <div ref={shellRef} className="relative z-10 flex min-h-screen flex-col px-5 py-5 sm:px-8">
 
-        {/* Header */}
         <header data-reveal className="flex items-center justify-between mb-2">
           <BrandMark />
           <Link
@@ -344,10 +311,8 @@ export default function Register() {
           </Link>
         </header>
 
-        {/* Main grid */}
         <main className="grid flex-1 items-center gap-6 py-4 lg:grid-cols-[0.9fr_1.1fr]">
 
-          {/* Left — hero copy */}
           <section className="hidden lg:block max-w-xl">
             <div data-reveal className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-300/20 bg-fuchsia-300/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-fuchsia-100">
               <Sparkles size={13} /> Recruiter Platform
@@ -362,206 +327,195 @@ export default function Register() {
               {[
                 'Google OAuth for instant sign-up',
                 'Secure email/password authentication',
+                'Enterprise-grade password security',
               ].map(item => (
                 <div key={item} className="flex items-center gap-3 text-sm font-semibold text-slate-300">
-                  <CheckCircle size={15} className="shrink-0 text-emerald-400" /> {item}
+                  <Check size={15} className="shrink-0 text-emerald-400" /> {item}
                 </div>
               ))}
             </div>
           </section>
 
-          {/* Right — form panel */}
           <GlassPanel data-reveal className="mx-auto w-full max-w-lg p-5 sm:p-6">
-            <>
-                <div className="mb-5">
-                  <h2 className="font-title text-xl font-black text-white">Create your account</h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Fields marked <span className="text-cyan-400">*</span> are required
-                  </p>
+            <div className="mb-5">
+              <h2 className="font-title text-xl font-black text-white">Create your account</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Fields marked <span className="text-cyan-400">*</span> are required
+              </p>
+            </div>
+
+            <div className="mb-5">
+              <PremiumButton type="button" variant="ghost" className="w-full text-sm" onClick={handleGoogleOAuth}>
+                <GoogleIcon /> Continue with Google
+              </PremiumButton>
+            </div>
+
+            <div className="mb-5 flex items-center gap-3">
+              <div className="h-px flex-1 bg-white/[0.07]" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">or register with email</span>
+              <div className="h-px flex-1 bg-white/[0.07]" />
+            </div>
+
+            <form onSubmit={submit} noValidate autoComplete="on">
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+
+                <Field icon={User} label="Full Name" error={errors.full_name} touched={touched.full_name} required>
+                  <input
+                    name="full_name"
+                    type="text"
+                    value={form.full_name}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="Jane Smith"
+                    autoComplete="name"
+                    autoFocus
+                    className={inputCls(touched.full_name, errors.full_name, 'pr-9')}
+                  />
+                </Field>
+
+                <Field icon={Mail} label="Work Email" error={errors.email} touched={touched.email} required>
+                  <input
+                    name="email"
+                    type="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="you@company.com"
+                    autoComplete="email"
+                    inputMode="email"
+                    className={inputCls(touched.email, errors.email, 'pr-9')}
+                  />
+                </Field>
+
+                <Field icon={Building2} label="Company Name" error={errors.company_name} touched={touched.company_name} required>
+                  <input
+                    name="company_name"
+                    type="text"
+                    value={form.company_name}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="Acme Corp"
+                    autoComplete="organization"
+                    className={inputCls(touched.company_name, errors.company_name, 'pr-9')}
+                  />
+                </Field>
+
+                <Field icon={Briefcase} label="Role in Company" error={errors.role_in_company} touched={touched.role_in_company} required>
+                  <select
+                    name="role_in_company"
+                    value={form.role_in_company}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    className={`${inputCls(touched.role_in_company, errors.role_in_company, 'pr-9')} appearance-none cursor-pointer`}
+                    style={{ colorScheme: 'dark' }}
+                  >
+                    <option value="" disabled className="bg-slate-900 text-slate-400">Select your role</option>
+                    {ROLE_OPTIONS.map(r => (
+                      <option key={r} value={r} className="bg-slate-900">{r}</option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field icon={Phone} label="Phone (optional)" error={errors.phone} touched={touched.phone}>
+                  <input
+                    name="phone"
+                    type="tel"
+                    value={form.phone}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="+91 98765 43210"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    className={inputCls(touched.phone, errors.phone, 'pr-9')}
+                  />
+                </Field>
+
+                <div className="hidden sm:block" />
+
+                <div className="sm:col-span-2">
+                  <Field icon={Lock} label="Password" error={errors.password} touched={touched.password} required isPassword>
+                    <input
+                      name="password"
+                      type={showPw ? 'text' : 'password'}
+                      value={form.password}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      placeholder="Min. 8 chars, 1 uppercase, 1 number"
+                      autoComplete="new-password"
+                      className={inputCls(touched.password, errors.password, 'pr-10')}
+                    />
+                    <button
+                      type="button"
+                      onMouseDown={togglePw}
+                      tabIndex={-1}
+                      aria-label={showPw ? 'Hide password' : 'Show password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-200 focus:outline-none"
+                    >
+                      {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </Field>
+                  <PasswordStrengthBar password={form.password} />
                 </div>
 
-                {/* OAuth buttons */}
-                <div className="mb-5">
-                  <PremiumButton type="button" variant="ghost" className="w-full text-sm" onClick={handleGoogleOAuth}>
-                    <GoogleIcon /> Continue with Google
-                  </PremiumButton>
-                </div>
-
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-white/[0.07]" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">or register with email</span>
-                  <div className="h-px flex-1 bg-white/[0.07]" />
-                </div>
-
-                <form onSubmit={submit} noValidate autoComplete="on">
-                  <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-
-                    {/* Full Name */}
-                    <Field icon={User} label="Full Name" error={errors.full_name} touched={touched.full_name} required>
-                      <input
-                        name="full_name"
-                        type="text"
-                        value={form.full_name}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        placeholder="Jane Smith"
-                        autoComplete="name"
-                        autoFocus
-                        className={inputCls(touched.full_name, errors.full_name, 'pr-9')}
-                      />
-                    </Field>
-
-                    {/* Email */}
-                    <Field icon={Mail} label="Work Email" error={errors.email} touched={touched.email} required>
-                      <input
-                        name="email"
-                        type="email"
-                        value={form.email}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        placeholder="you@company.com"
-                        autoComplete="email"
-                        inputMode="email"
-                        className={inputCls(touched.email, errors.email, 'pr-9')}
-                      />
-                    </Field>
-
-                    {/* Company Name */}
-                    <Field icon={Building2} label="Company Name" error={errors.company_name} touched={touched.company_name} required>
-                      <input
-                        name="company_name"
-                        type="text"
-                        value={form.company_name}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        placeholder="Acme Corp"
-                        autoComplete="organization"
-                        className={inputCls(touched.company_name, errors.company_name, 'pr-9')}
-                      />
-                    </Field>
-
-                    {/* Role in Company */}
-                    <Field icon={Briefcase} label="Role in Company" error={errors.role_in_company} touched={touched.role_in_company} required>
-                      <select
-                        name="role_in_company"
-                        value={form.role_in_company}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={`${inputCls(touched.role_in_company, errors.role_in_company, 'pr-9')} appearance-none cursor-pointer`}
-                        style={{ colorScheme: 'dark' }}
-                      >
-                        <option value="" disabled className="bg-slate-900 text-slate-400">Select your role</option>
-                        {ROLE_OPTIONS.map(r => (
-                          <option key={r} value={r} className="bg-slate-900">{r}</option>
-                        ))}
-                      </select>
-                    </Field>
-
-                    {/* Phone (optional) */}
-                    <Field icon={Phone} label="Phone (optional)" error={errors.phone} touched={touched.phone}>
-                      <input
-                        name="phone"
-                        type="tel"
-                        value={form.phone}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        placeholder="+91 98765 43210"
-                        autoComplete="tel"
-                        inputMode="tel"
-                        className={inputCls(touched.phone, errors.phone, 'pr-9')}
-                      />
-                    </Field>
-
-                    {/* Spacer */}
-                    <div className="hidden sm:block" />
-
-                    {/* Password */}
-                    <div className="sm:col-span-2">
-                      <Field icon={Lock} label="Password" error={errors.password} touched={touched.password} required isPassword>
-                        <input
-                          name="password"
-                          type={showPw ? 'text' : 'password'}
-                          value={form.password}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          placeholder="Min. 8 chars, 1 uppercase, 1 number"
-                          autoComplete="new-password"
-                          className={inputCls(touched.password, errors.password, 'pr-10')}
-                        />
-                        <button
-                          type="button"
-                          onMouseDown={togglePw}
-                          tabIndex={-1}
-                          aria-label={showPw ? 'Hide password' : 'Show password'}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-200 focus:outline-none"
-                        >
-                          {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                        </button>
-                      </Field>
-                      <PasswordStrengthBar password={form.password} />
-                    </div>
-
-                    {/* Confirm Password — live mismatch shown inline */}
-                    <div className="sm:col-span-2">
-                      <Field icon={Lock} label="Confirm Password" error={errors.confirm_password} touched={touched.confirm_password} required isPassword>
-                        <input
-                          name="confirm_password"
-                          type={showCPw ? 'text' : 'password'}
-                          value={form.confirm_password}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          placeholder="Repeat your password"
-                          autoComplete="new-password"
-                          className={inputCls(touched.confirm_password, errors.confirm_password, 'pr-10')}
-                        />
-                        <button
-                          type="button"
-                          onMouseDown={toggleCPw}
-                          tabIndex={-1}
-                          aria-label={showCPw ? 'Hide password' : 'Show password'}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-200 focus:outline-none"
-                        >
-                          {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                        </button>
-                      </Field>
-                      {/* Live match indicator */}
-                      {form.confirm_password && (
-                        <div className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold ${
-                          form.confirm_password === form.password ? 'text-emerald-400' : 'text-red-400'
-                        }`}>
-                          {form.confirm_password === form.password
-                            ? <><Check size={11} /> Passwords match</>
-                            : <><X size={11} /> Passwords do not match</>
-                          }
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
-
-                  {/* Submit error */}
-                  {submitError && (
-                    <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
-                      <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-400" />
-                      <p className="text-sm text-red-300">{submitError}</p>
+                <div className="sm:col-span-2">
+                  <Field icon={Lock} label="Confirm Password" error={errors.confirm_password} touched={touched.confirm_password} required isPassword>
+                    <input
+                      name="confirm_password"
+                      type={showCPw ? 'text' : 'password'}
+                      value={form.confirm_password}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      placeholder="Repeat your password"
+                      autoComplete="new-password"
+                      className={inputCls(touched.confirm_password, errors.confirm_password, 'pr-10')}
+                    />
+                    <button
+                      type="button"
+                      onMouseDown={toggleCPw}
+                      tabIndex={-1}
+                      aria-label={showCPw ? 'Hide password' : 'Show password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-200 focus:outline-none"
+                    >
+                      {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </Field>
+                  {form.confirm_password && (
+                    <div className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold ${
+                      form.confirm_password === form.password ? 'text-emerald-400' : 'text-red-400'
+                    }`}>
+                      {form.confirm_password === form.password
+                        ? <><Check size={11} /> Passwords match</>
+                        : <><X size={11} /> Passwords do not match</>
+                      }
                     </div>
                   )}
+                </div>
 
-                  <PremiumButton type="submit" disabled={isLoading} className="mt-5 h-11 w-full">
-                    {isLoading
-                      ? <Spinner size={15} className="text-slate-950" />
-                      : <><span>Create Account</span><ArrowRight size={15} /></>
-                    }
-                  </PremiumButton>
+              </div>
 
-                  <p className="mt-4 text-center text-xs text-slate-500">
-                    Already have an account?{' '}
-                    <Link to="/login" className="font-bold text-cyan-300 transition hover:text-cyan-200">
-                      Sign in
-                    </Link>
-                  </p>
-                </form>
+              {submitError && (
+                <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
+                  <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-400" />
+                  <p className="text-sm text-red-300">{submitError}</p>
+                </div>
+              )}
+
+              <PremiumButton type="submit" disabled={isLoading} className="mt-5 h-11 w-full">
+                {isLoading
+                  ? <Spinner size={15} className="text-slate-950" />
+                  : <><span>Create Account</span><ArrowRight size={15} /></>
+                }
+              </PremiumButton>
+
+              <p className="mt-4 text-center text-xs text-slate-500">
+                Already have an account?{' '}
+                <Link to="/login" className="font-bold text-cyan-300 transition hover:text-cyan-200">
+                  Sign in
+                </Link>
+              </p>
+            </form>
           </GlassPanel>
+
         </main>
       </div>
     </div>
