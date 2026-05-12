@@ -125,3 +125,4 @@ async def delete_session(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     await db.delete(session)
+    await db.commit()

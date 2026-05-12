@@ -253,7 +253,10 @@ export default function ChatPage() {
         setMessages([])
         navigate('/chat', { replace: true })
       }
-    } catch {}
+      toast.success('Chat deleted')
+    } catch {
+      toast.error('Failed to delete chat')
+    }
   }
 
   const handleKeyDown = (e) => {
@@ -406,7 +409,7 @@ export default function ChatPage() {
                   {SUGGESTIONS.map(({ icon: Icon, text }, i) => (
                     <button
                       key={i}
-                      onClick={() => sendMessage(text)}
+                      onClick={() => { setInput(text); inputRef.current?.focus(); }}
                       className="flex items-start gap-3 p-3.5 rounded-2xl text-left transition-all"
                       style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.background = 'var(--bg-card-hover)' }}
@@ -428,25 +431,6 @@ export default function ChatPage() {
             </div>
           ) : (
             <div className="max-w-3xl mx-auto">
-              {messages.length === 0 && (
-                <div className="mb-6">
-                  <p className="text-xs mb-3 text-center" style={{ color: 'var(--text-muted)' }}>Suggested questions to get started:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {SUGGESTIONS.map(({ text }, i) => (
-                      <button
-                        key={i}
-                        onClick={() => sendMessage(text)}
-                        className="p-3 rounded-2xl text-left text-xs transition-all"
-                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
-                      >
-                        {text}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
               {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
               {typing && <TypingIndicator />}
               <div ref={messagesEndRef} />

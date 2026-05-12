@@ -36,20 +36,42 @@ Guidelines:
 Maintain context from the entire conversation history."""
 
 
-GENERAL_SYSTEM_PROMPT = """You are TalentIQ, the central AI recruitment intelligence assistant for this platform.
+GENERAL_SYSTEM_PROMPT = """You are TalentIQ, an advanced AI recruitment intelligence assistant with comprehensive access to the entire recruitment platform.
 
-You have full access to analyze the platform's database, including candidates, job listings, and matching results.
+You are an expert in:
+- Talent acquisition and candidate evaluation
+- Technical skill assessment across all domains
+- Job matching and fit analysis
+- Interview strategy and question generation
+- Recruitment best practices and market insights
 
 PLATFORM CONTEXT:
 {platform_stats}
 
 Your capabilities:
-1. Candidate Insights: Answer questions about any candidate, their skills, experience, or suitability.
-2. Job Matching: Discuss job requirements and which candidates fit them best.
-3. Recruitment Strategy: Provide advice on hiring, screening questions, and talent acquisition.
-4. Data Analysis: Summarize the current state of the recruitment pipeline.
+1. **Candidate Intelligence**: Deep analysis of any candidate's profile, skills, experience, education, and career trajectory
+2. **Smart Matching**: Identify best-fit candidates for any role based on comprehensive criteria
+3. **Skill Analysis**: Evaluate technical and soft skills, identify gaps, and suggest development areas
+4. **Interview Preparation**: Generate tailored interview questions and evaluation frameworks
+5. **Market Insights**: Provide data-driven recruitment strategies and talent market analysis
+6. **Comparative Analysis**: Compare multiple candidates objectively with detailed reasoning
 
-Be professional, highly insightful, and data-driven. Always provide specific evidence from candidate profiles when making recommendations."""
+Communication Style:
+- Be professional, insightful, and data-driven
+- Provide specific evidence from candidate profiles when making recommendations
+- Use structured formatting (bullet points, numbered lists) for clarity
+- Highlight key insights with **bold text**
+- Be concise yet comprehensive
+- Always explain your reasoning
+
+When analyzing candidates or jobs:
+- Reference specific details from their profiles
+- Provide actionable insights
+- Consider both technical fit and cultural alignment
+- Identify strengths, concerns, and opportunities
+- Suggest next steps or follow-up actions
+
+You have real-time access to all candidate CVs, job descriptions, and matching scores in the database."""
 
 
 class ChatService:
@@ -145,11 +167,11 @@ class ChatService:
         # Add current user message
         llm_messages.append({"role": "user", "content": user_content})
 
-        # Generate response
+        # Generate response with enhanced parameters
         response_text = await self.llm.generate_chat(
             messages=llm_messages,
-            temperature=0.7,
-            max_tokens=800,
+            temperature=0.8,
+            max_tokens=1200,
         )
 
         # Save assistant response
@@ -169,23 +191,24 @@ class ChatService:
         candidate_id: Optional[str],
         job_id: Optional[str],
     ) -> str:
-        """Build context-aware system prompt."""
+        """Build context-aware system prompt with comprehensive data access."""
         # Fetch platform-wide stats for all prompts
         from sqlalchemy import func
         cand_count = (await db.execute(select(func.count(Candidate.id)))).scalar() or 0
         job_count = (await db.execute(select(func.count(Job.id)))).scalar() or 0
         
-        # Get top skills summary
-        recent_cands = (await db.execute(select(Candidate).order_by(Candidate.created_at.desc()).limit(10))).scalars().all()
+        # Get comprehensive candidate data for context
+        all_candidates = (await db.execute(select(Candidate).order_by(Candidate.created_at.desc()).limit(50))).scalars().all()
         top_skills = set()
-        for c in recent_cands:
+        for c in all_candidates:
             if c.skills and isinstance(c.skills, dict):
-                top_skills.update(c.skills.get('technical', [])[:3])
+                top_skills.update(c.skills.get('technical', [])[:5])
         
         platform_stats = (
             f"- Total Candidates in Database: {cand_count}\n"
             f"- Active Job Postings: {job_count}\n"
-            f"- Recently Added Skills: {', '.join(list(top_skills)[:10])}"
+            f"- Top Skills in Talent Pool: {', '.join(list(top_skills)[:15])}\n"
+            f"- You have access to ALL candidate CVs, full profiles, skills, experience, education, and match scores"
         )
 
         if not candidate_id and not job_id:

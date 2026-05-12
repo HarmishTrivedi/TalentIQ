@@ -78,8 +78,8 @@ export default function Candidates() {
 
       {/* List */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {[...Array(6)].map((_, i) => <div key={i} className="flex-shrink-0 w-80"><SkeletonCard /></div>)}
         </div>
       ) : candidates.length === 0 ? (
         <EmptyState
@@ -89,21 +89,16 @@ export default function Candidates() {
           action={<Link to="/upload" className="btn-primary">Upload First CV</Link>}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 stagger">
+        <div className="flex gap-4 overflow-x-auto pb-4 stagger">
           {candidates.map(c => {
             const skills = [...(c.skills?.technical || []), ...(c.skills?.frameworks || [])].slice(0, 5)
             return (
-              <div key={c.id} className="portal-card p-5 group relative">
-                {/* Status */}
-                <div className="absolute top-4 right-4">
-                  <Badge variant={STATUS_COLORS[c.status] || 'blue'}>{c.status}</Badge>
-                </div>
-
+              <div key={c.id} className="portal-card p-5 group relative flex-shrink-0 w-80">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0 bg-gradient-to-br from-blue-500 to-violet-600">
                     {getInitials(c.name)}
                   </div>
-                  <div className="min-w-0 pr-16">
+                  <div className="min-w-0">
                     <h3 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>{c.name}</h3>
                     <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{c.email || 'No email'}</p>
                     {c.experience_years > 0 && (
@@ -123,10 +118,9 @@ export default function Candidates() {
                 {skills.length > 0 && <TagList tags={skills} max={4} />}
 
                 <div
-                  className="flex items-center justify-between mt-4 pt-3"
+                  className="flex items-center justify-end mt-4 pt-3 gap-1"
                   style={{ borderTop: '1px solid var(--border)' }}
                 >
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(c.created_at)}</span>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => setCandidateToDelete({ id: c.id, name: c.name })}
@@ -155,49 +149,26 @@ export default function Candidates() {
 
       {/* Pagination */}
       {!loading && candidates.length > 0 && total > pageSize && (
-        <div className="flex items-center justify-between mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of {total} candidates
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: 'var(--bg-card-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
-            >
-              <ChevronLeft size={16} />
-            </button>
-            {[...Array(Math.ceil(total / pageSize))].map((_, i) => {
-              const pageNum = i + 1
-              if (pageNum === 1 || pageNum === Math.ceil(total / pageSize) || (pageNum >= page - 1 && pageNum <= page + 1)) {
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setPage(pageNum)}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-semibold transition-all"
-                    style={page === pageNum
-                      ? { background: 'var(--accent-cyan)', color: '#000' }
-                      : { background: 'var(--bg-card-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }
-                    }
-                  >
-                    {pageNum}
-                  </button>
-                )
-              } else if (pageNum === page - 2 || pageNum === page + 2) {
-                return <span key={pageNum} className="text-xs" style={{ color: 'var(--text-muted)' }}>...</span>
-              }
-              return null
-            })}
-            <button
-              onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
-              disabled={page === Math.ceil(total / pageSize)}
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: 'var(--bg-card-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Page {page} of {Math.ceil(total / pageSize)}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
+            disabled={page === Math.ceil(total / pageSize)}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+          >
+            <ChevronRight size={18} />
+          </button>
         </div>
       )}
 

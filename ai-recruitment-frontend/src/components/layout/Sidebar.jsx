@@ -64,10 +64,7 @@ function ProfileDropdownPortal({ anchorRef, onClose }) {
     : null
 
   const menuItems = [
-    { icon: User,     label: 'My Profile',       sub: 'View & edit profile',    path: '/account?tab=profile' },
-    { icon: Settings, label: 'Account Settings', sub: 'Preferences & info',     path: '/account?tab=profile' },
-    { icon: Shield,   label: 'Security',         sub: 'Password & sessions',    path: '/account?tab=security' },
-    { icon: Bell,     label: 'Notifications',    sub: 'Alerts & emails',        path: '/account?tab=preferences' },
+    { icon: Settings, label: 'Account Settings', sub: 'Manage your account', path: '/account' },
   ]
 
   return createPortal(
