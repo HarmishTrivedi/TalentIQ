@@ -111,7 +111,8 @@ class ChatService:
             title=title,
         )
         db.add(session)
-        await db.flush()
+        await db.commit()
+        await db.refresh(session)
 
         # Add system message with explicit timestamp
         system_prompt = await self._build_system_prompt(db, candidate_id, job_id)
@@ -122,7 +123,7 @@ class ChatService:
             created_at=datetime.utcnow(),  # Explicit timestamp
         )
         db.add(system_msg)
-        await db.flush()
+        await db.commit()
 
         # Add initial greeting with explicit timestamp
         greeting = await self._generate_greeting(db, candidate_id, job_id)
@@ -134,7 +135,7 @@ class ChatService:
                 created_at=datetime.utcnow(),  # Explicit timestamp
             )
             db.add(ai_msg)
-            await db.flush()
+            await db.commit()
 
         return session
 
@@ -160,7 +161,7 @@ class ChatService:
             created_at=datetime.utcnow(),  # Explicit timestamp
         )
         db.add(user_msg)
-        await db.flush()
+        await db.commit()  # Commit immediately
 
         # Build message history for LLM
         history = await self._get_message_history(db, session_id)
@@ -188,7 +189,7 @@ class ChatService:
             created_at=datetime.utcnow(),  # Explicit timestamp
         )
         db.add(ai_msg)
-        await db.flush()
+        await db.commit()  # Commit to ensure timestamp is saved
         await db.refresh(ai_msg)  # Refresh to get the actual timestamp
 
         return ai_msg
@@ -322,18 +323,8 @@ class ChatService:
             if candidate:
                 job = await self._get_job(db, job_id) if job_id else None
                 job_str = f" for the {job.title} position" if job else ""
-                return (
-                    f"Hello! I'm TalentIQ, your AI recruitment assistant. "
-                    f"I've analyzed **{candidate.name}'s** profile{job_str} and I'm ready to help you. "
-                    f"I can answer questions about their experience, run a screening interview, "
-                    f"or provide an in-depth fit analysis. What would you like to explore?"
-                )
-        return (
-            "Hello! I'm TalentIQ, your AI recruitment assistant. "
-            "I can help you analyze candidates, match skills to job requirements, "
-            "generate interview questions, or discuss hiring strategies. "
-            "How can I assist you today?"
-        )
+                return f"Hi! I've reviewed **{candidate.name}'s** profile{job_str}. What would you like to know?"
+        return "Hi! How can I help you today?"
 
     async def _get_session(self, db: AsyncSession, session_id: str) -> Optional[ChatSession]:
         result = await db.execute(
