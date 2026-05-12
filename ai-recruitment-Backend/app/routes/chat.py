@@ -112,6 +112,50 @@ async def list_sessions(
     return sessions
 
 
+@router.patch("/sessions/{session_id}", response_model=ChatSessionResponse)
+async def update_session(
+    session_id: str,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update chat session (e.g., rename)."""
+    result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id
+        )
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Update title if provided
+    if 'title' in data:
+        session.title = data['title']
+    
+    await db.commit()
+    await db.refresh(session)
+    
+    # Load messages for response
+    msgs_result = await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.session_id == session.id)
+        .where(ChatMessage.role != "system")
+        .order_by(ChatMessage.created_at.asc())
+    )
+    messages = msgs_result.scalars().all()
+
+    return ChatSessionResponse(
+        id=session.id,
+        candidate_id=session.candidate_id,
+        job_id=session.job_id,
+        title=session.title,
+        messages=[ChatMessageResponse.model_validate(m) for m in messages],
+        created_at=session.created_at,
+    )
+
+
 @router.delete("/sessions/{session_id}", status_code=204)
 async def delete_session(
     session_id: str,

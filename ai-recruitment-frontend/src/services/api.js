@@ -75,6 +75,7 @@ export const chatApi = {
   sendMessage: (sessionId, content) => api.post(`/chat/sessions/${sessionId}/messages`, { content }),
   getSession: (sessionId) => api.get(`/chat/sessions/${sessionId}`),
   listSessions: () => api.get('/chat/sessions'),
+  updateSession: (sessionId, data) => api.patch(`/chat/sessions/${sessionId}`, data),
   deleteSession: (sessionId) => api.delete(`/chat/sessions/${sessionId}`),
 }
 

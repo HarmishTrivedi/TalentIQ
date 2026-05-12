@@ -4,7 +4,7 @@ import {
   Send, Plus, MessageSquare, Sparkles, User, Trash2,
   Bot, ChevronDown, Copy, RotateCcw, Zap, Users,
   Briefcase, Brain, Search, Filter, ChevronRight,
-  Wand2, Target, FileText, Hash
+  Wand2, Target, FileText, Hash, Edit2, Check, X
 } from 'lucide-react'
 import { chatApi, candidatesApi, jobsApi } from '../services/api'
 import { Spinner, ConfirmationModal } from '../components/ui'
@@ -55,13 +55,18 @@ function formatInline(text) {
 function MessageBubble({ message, onCopy }) {
   const isUser = message.role === 'user'
   const [copied, setCopied] = useState(false)
-  const [timeAgo, setTimeAgo] = useState(formatRelativeTime(message.created_at))
+  const [timeAgo, setTimeAgo] = useState(() => formatRelativeTime(message.created_at))
 
-  // Update time display every 10 seconds for live updates
+  // Update time display every 1 second for real-time accuracy
   useEffect(() => {
+    // Update immediately
+    setTimeAgo(formatRelativeTime(message.created_at))
+    
+    // Then update every second
     const interval = setInterval(() => {
       setTimeAgo(formatRelativeTime(message.created_at))
-    }, 10000) // Update every 10 seconds
+    }, 1000) // Update every 1 second for real-time
+    
     return () => clearInterval(interval)
   }, [message.created_at])
 
@@ -176,6 +181,8 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen]     = useState(true)
   const [sessionToDelete, setSessionToDelete] = useState(null)
   const [deleting, setDeleting]           = useState(false)
+  const [editingSession, setEditingSession] = useState(null)
+  const [editTitle, setEditTitle]         = useState('')
   const messagesEndRef = useRef(null)
   const inputRef       = useRef(null)
   const textareaRef    = useRef(null)
@@ -310,6 +317,41 @@ export default function ChatPage() {
     }
   }
 
+  const startRename = (session, e) => {
+    if (e) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+    setEditingSession(session.id)
+    setEditTitle(session.title || 'Chat session')
+  }
+
+  const cancelRename = () => {
+    setEditingSession(null)
+    setEditTitle('')
+  }
+
+  const saveRename = async (sessionId) => {
+    if (!editTitle.trim()) {
+      toast.error('Title cannot be empty')
+      return
+    }
+    
+    try {
+      await chatApi.updateSession(sessionId, { title: editTitle.trim() })
+      setSessions(p => p.map(s => s.id === sessionId ? { ...s, title: editTitle.trim() } : s))
+      if (activeSession?.id === sessionId) {
+        setActiveSession(prev => ({ ...prev, title: editTitle.trim() }))
+      }
+      toast.success('Chat renamed')
+      setEditingSession(null)
+      setEditTitle('')
+    } catch (err) {
+      console.error('Rename error:', err)
+      toast.error('Failed to rename chat')
+    }
+  }
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -351,31 +393,85 @@ export default function ChatPage() {
           {sessions.length === 0 ? (
             <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No conversations yet</p>
           ) : sessions.map(s => (
-            <button
+            <div
               key={s.id}
-              onClick={() => loadSession(s.id)}
               className="w-full text-left p-2.5 rounded-xl text-xs transition-all group relative"
               style={activeSession?.id === s.id
                 ? { background: 'var(--tag-bg)', border: '1px solid var(--tag-border)', color: 'var(--accent-cyan)' }
                 : { color: 'var(--text-secondary)', border: '1px solid transparent' }
               }
-              onMouseEnter={e => { if (activeSession?.id !== s.id) { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
-              onMouseLeave={e => { if (activeSession?.id !== s.id) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' } }}
+              onMouseEnter={e => { if (activeSession?.id !== s.id && editingSession !== s.id) { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+              onMouseLeave={e => { if (activeSession?.id !== s.id && editingSession !== s.id) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' } }}
             >
-              <div className="flex items-center gap-2 pr-6">
-                <MessageSquare size={12} className="flex-shrink-0" />
-                <span className="truncate font-medium">{s.title || 'Chat session'}</span>
-              </div>
-              <button
-                onClick={(e) => deleteSession(s.id, e)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center"
-                style={{ color: 'var(--text-muted)' }}
-                onMouseEnter={e => { e.currentTarget.style.color = 'var(--error-text)' }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
-              >
-                <Trash2 size={11} />
-              </button>
-            </button>
+              {editingSession === s.id ? (
+                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveRename(s.id)
+                      if (e.key === 'Escape') cancelRename()
+                    }}
+                    className="flex-1 px-2 py-1 rounded text-xs"
+                    style={{ background: 'var(--input-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => saveRename(s.id)}
+                    className="w-5 h-5 rounded flex items-center justify-center transition-colors"
+                    style={{ color: 'var(--success-text)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--success-bg)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <Check size={12} />
+                  </button>
+                  <button
+                    onClick={cancelRename}
+                    className="w-5 h-5 rounded flex items-center justify-center transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => loadSession(s.id)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-center gap-2 pr-12">
+                      <MessageSquare size={12} className="flex-shrink-0" />
+                      <span className="truncate font-medium">{s.title || 'Chat session'}</span>
+                    </div>
+                  </button>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                    <button
+                      onClick={(e) => startRename(s, e)}
+                      className="w-5 h-5 rounded flex items-center justify-center transition-colors"
+                      style={{ color: 'var(--text-muted)' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-cyan)'; e.currentTarget.style.background = 'var(--tag-bg)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
+                      title="Rename"
+                    >
+                      <Edit2 size={11} />
+                    </button>
+                    <button
+                      onClick={(e) => deleteSession(s.id, e)}
+                      className="w-5 h-5 rounded flex items-center justify-center transition-colors"
+                      style={{ color: 'var(--text-muted)' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--error-text)'; e.currentTarget.style.background = 'var(--error-bg)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
+                      title="Delete"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           ))}
         </div>
       </div>
