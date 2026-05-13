@@ -81,12 +81,15 @@ async def create_interview(
     # Generate unique candidate access token
     candidate_token = secrets.token_urlsafe(32)
     
+    # Convert timezone-aware datetime to timezone-naive (remove timezone info)
+    scheduled_at_naive = data.scheduled_at.replace(tzinfo=None) if data.scheduled_at.tzinfo else data.scheduled_at
+    
     interview = Interview(
         candidate_id=data.candidate_id,
         job_id=data.job_id,
         recruiter_id=current_user.id,
         title=data.title,
-        scheduled_at=data.scheduled_at,
+        scheduled_at=scheduled_at_naive,
         duration_minutes=data.duration_minutes if hasattr(data, 'duration_minutes') else 60,
         status=InterviewStatus.scheduled,
         candidate_access_token=candidate_token,
@@ -219,7 +222,8 @@ async def update_interview(
     if data.status:
         interview.status = data.status
     if data.scheduled_at:
-        interview.scheduled_at = data.scheduled_at
+        # Convert timezone-aware datetime to timezone-naive
+        interview.scheduled_at = data.scheduled_at.replace(tzinfo=None) if data.scheduled_at.tzinfo else data.scheduled_at
     
     await db.commit()
     await db.refresh(interview)
