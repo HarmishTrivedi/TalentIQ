@@ -274,6 +274,10 @@ class Interview(Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     status: Mapped[InterviewStatus] = mapped_column(SAEnum(InterviewStatus), default=InterviewStatus.scheduled)
     
+    # Candidate Access
+    candidate_access_token: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True, index=True)
+    interview_types: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # ["Technical", "HR", "Coding"]
+    
     # Scheduling
     scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

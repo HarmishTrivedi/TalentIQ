@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, Phone,
   MessageSquare, Users, Settings, MoreVertical, Maximize, Minimize,
-  Hand, Copy, Share2, Clock, Signal
+  Hand, Copy, Share2, Clock, Signal, Code, User
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -16,9 +16,15 @@ import ParticipantsList from '../components/interview/ParticipantsList';
 
 export default function InterviewRoom() {
   const { interviewId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const isRecruiter = user?.role === 'recruiter' || user?.role === 'admin';
+  
+  // Check if candidate (token-based access) or recruiter (auth-based)
+  const token = searchParams.get('token');
+  const candidateName = searchParams.get('name');
+  const isCandidate = !!token;
+  const isRecruiter = !isCandidate && (user?.role === 'recruiter' || user?.role === 'admin');
   
   const [interview, setInterview] = useState(null);
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -54,7 +60,15 @@ export default function InterviewRoom() {
 
   const loadInterview = async () => {
     try {
-      const response = await api.get(`/interviews/${interviewId}`);
+      let response;
+      if (isCandidate) {
+        // Candidate access with token
+        response = await api.get(`/interviews/join/${interviewId}?token=${token}`);
+      } else {
+        // Recruiter access with auth
+        response = await api.get(`/interviews/${interviewId}`);
+      }
+      
       setInterview(response.data);
       
       // Auto-start interview if recruiter
@@ -63,7 +77,11 @@ export default function InterviewRoom() {
       }
     } catch (error) {
       toast.error('Failed to load interview');
-      navigate('/interviews');
+      if (isCandidate) {
+        navigate('/');
+      } else {
+        navigate('/interviews');
+      }
     }
   };
 

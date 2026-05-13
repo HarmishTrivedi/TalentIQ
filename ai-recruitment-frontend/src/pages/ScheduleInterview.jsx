@@ -91,7 +91,9 @@ export default function ScheduleInterview() {
         candidate_id: formData.candidate_id || null,
         job_id: formData.job_id || null,
         title: formData.title,
-        scheduled_at: scheduledAt.toISOString()
+        scheduled_at: scheduledAt.toISOString(),
+        duration_minutes: formData.duration,
+        interview_types: formData.interview_types
       };
 
       const response = await api.post('/interviews', payload);

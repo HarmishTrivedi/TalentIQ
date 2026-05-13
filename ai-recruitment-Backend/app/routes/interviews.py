@@ -9,6 +9,7 @@ from typing import List, Optional
 from datetime import datetime
 import json
 import os
+import secrets
 
 from app.database import get_db
 from app.models.models import (
@@ -77,6 +78,9 @@ async def create_interview(
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
     
+    # Generate unique candidate access token
+    candidate_token = secrets.token_urlsafe(32)
+    
     interview = Interview(
         candidate_id=data.candidate_id,
         job_id=data.job_id,
@@ -85,6 +89,8 @@ async def create_interview(
         scheduled_at=data.scheduled_at,
         duration_minutes=data.duration_minutes if hasattr(data, 'duration_minutes') else 60,
         status=InterviewStatus.scheduled,
+        candidate_access_token=candidate_token,
+        interview_types=data.interview_types if hasattr(data, 'interview_types') else [],
         metadata_={"meeting_link": data.meeting_link if hasattr(data, 'meeting_link') else None}
     )
     
@@ -94,7 +100,13 @@ async def create_interview(
     
     # Send invitation emails
     email_service = get_email_service()
-    meeting_link = interview.metadata_.get("meeting_link") if interview.metadata_ else f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/interview-room/{interview.id}"
+    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+    
+    # Candidate gets special join link with token (no auth required)
+    candidate_meeting_link = f"{frontend_url}/join/{interview.id}?token={candidate_token}"
+    
+    # Recruiter gets normal interview room link
+    recruiter_meeting_link = f"{frontend_url}/interview-room/{interview.id}"
     
     # Send to candidate
     if candidate.email:
@@ -105,7 +117,7 @@ async def create_interview(
                 interview_title=interview.title,
                 scheduled_at=interview.scheduled_at,
                 duration=interview.duration_minutes or 60,
-                meeting_link=meeting_link,
+                meeting_link=candidate_meeting_link,
                 recruiter_name=current_user.full_name,
                 description=job.description[:200] if job else ""
             )
@@ -120,7 +132,7 @@ async def create_interview(
             candidate_name=candidate.name,
             interview_title=interview.title,
             scheduled_at=interview.scheduled_at,
-            meeting_link=meeting_link
+            meeting_link=recruiter_meeting_link
         )
     except Exception as e:
         print(f"Failed to send recruiter confirmation: {e}")
@@ -166,6 +178,23 @@ async def get_interview(
     
     if interview.recruiter_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
+    
+    return interview
+
+
+@router.get("/join/{interview_id}", response_model=InterviewResponse)
+async def get_interview_by_token(
+    interview_id: str,
+    token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get interview details using candidate access token (no auth required)"""
+    interview = await db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    
+    if interview.candidate_access_token != token:
+        raise HTTPException(status_code=403, detail="Invalid access token")
     
     return interview
 

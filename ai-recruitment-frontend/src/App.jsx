@@ -15,6 +15,9 @@ const Matching = lazy(() => import('./pages/Matching'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const InterviewRoom = lazy(() => import('./pages/InterviewRoom'))
 const ScheduleInterview = lazy(() => import('./pages/ScheduleInterview'))
+const InterviewSchedule = lazy(() => import('./pages/InterviewSchedule'))
+const AIInterviews = lazy(() => import('./pages/AIInterviews'))
+const CandidateJoin = lazy(() => import('./pages/CandidateJoin'))
 const Landing = lazy(() => import('./pages/Landing'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
@@ -84,6 +87,9 @@ export default function App() {
           <Route path="/security" element={<Security />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/register" element={<Register />} />
+          
+          {/* Candidate Join - No Auth Required */}
+          <Route path="/join/:interviewId" element={<CandidateJoin />} />
 
           <Route path="/welcome" element={<PrivateRoute><RecruiterWelcome /></PrivateRoute>} />
 
@@ -101,6 +107,8 @@ export default function App() {
             <Route path="/plans" element={<RecruiterPlans />} />
             <Route path="/account" element={<AccountSettings />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/interview-schedule" element={<InterviewSchedule />} />
+            <Route path="/ai-interviews" element={<AIInterviews />} />
             <Route path="/interviews" element={<Interviews />} />
             <Route path="/interviews/schedule" element={<ScheduleInterview />} />
             <Route path="/interviews/:interviewId" element={<LiveInterview />} />
