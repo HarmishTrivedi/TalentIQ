@@ -99,8 +99,8 @@ async def lifespan(app: FastAPI):
 
     logger.info("✅ All systems ready. Platform is live.")
     
-    # Temporarily disable reminder scheduler until database is migrated
-    # Uncomment after running: ALTER TABLE interviews ADD COLUMN candidate_access_token VARCHAR(100);
+    # Reminder scheduler is disabled by default until the interview schema is available.
+    # The runtime DB initializer now creates the missing interview columns automatically.
     # try:
     #     from app.services.reminder_scheduler import start_reminder_scheduler
     #     start_reminder_scheduler()

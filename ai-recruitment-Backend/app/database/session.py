@@ -76,6 +76,9 @@ async def init_db():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS role_in_company VARCHAR(255)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)",
+            "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS candidate_access_token VARCHAR(100)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_interviews_candidate_access_token ON interviews(candidate_access_token)",
+            "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS interview_types JSON",
         ]
         for sql in migrations:
             try:
