@@ -6,7 +6,7 @@ import {
   MessageSquare, Sparkles, LogOut, ShieldCheck,
   Target, Sun, Moon, User, Settings, Shield,
   Bell, ChevronUp, Building2, Crown, ChevronRight, DollarSign,
-  Video, Brain, Wand2
+  Video, Brain, Wand2, Calendar
 } from 'lucide-react'
 import { useAuthStore } from '../../store'
 import { useThemeStore } from '../../store/themeStore'
