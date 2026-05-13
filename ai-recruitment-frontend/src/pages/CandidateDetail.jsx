@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MessageSquare, Zap, CheckCircle, XCircle, GraduationCap, Briefcase, Mail, Phone, MapPin, Trash2, Award, FileText, TrendingUp, Sparkles, ChevronRight, Clock } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Zap, CheckCircle, XCircle, GraduationCap, Briefcase, Mail, Phone, MapPin, Trash2, Award, FileText, TrendingUp, Sparkles, ChevronRight, Clock, Calendar } from 'lucide-react'
 import { candidatesApi, matchingApi, chatApi } from '../services/api'
 import { ScoreRing, ScoreBar, Spinner, EmptyState, ConfirmationModal } from '../components/ui'
 import { formatDate, getInitials, getScoreColor, getRecommendationLabel, formatExperience } from '../utils/helpers'
@@ -108,6 +108,10 @@ export default function CandidateDetail() {
                 style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)' }}>
                 {chatLoading ? <Spinner size={14} /> : <MessageSquare size={14} />} AI Screen
               </button>
+              <Link to={`/interviews/schedule?candidateId=${id}`} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.15)' }}>
+                <Calendar size={14} /> Schedule Interview
+              </Link>
               <Link to="/matching" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-lg"
                 style={{ background: '#fff', color: '#1d4ed8' }}>
                 <Zap size={14} /> Match to Job

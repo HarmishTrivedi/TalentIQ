@@ -1,140 +1,537 @@
-import React from 'react'
-import { AlertTriangle, BrainCircuit, Mic2, Radio, ShieldCheck, Sparkles, UserRound, Video, Wand2, Waves } from 'lucide-react'
-
-const transcript = [
-  ['Candidate', 'I led the migration from a monolith to event-driven services and owned the rollout plan.'],
-  ['AI', 'Follow-up: ask for measurable latency, incident, and deployment frequency improvements.'],
-  ['Panel', 'What tradeoffs did you make between delivery speed and system reliability?'],
-  ['Candidate', 'We used feature flags, canary deploys, and a rollback budget agreed with product.'],
-]
-
-const signals = [
-  ['Integrity Score', '91%', 'Stable gaze, normal answer cadence', 'success'],
-  ['Authenticity', '94%', 'Specific ownership and measurable context', 'cyan'],
-  ['Originality', '88%', 'Low template overlap detected', 'violet'],
-  ['Suspicion Level', 'Low', 'No active behavior anomaly', 'success'],
-]
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, Phone,
+  MessageSquare, Users, Settings, MoreVertical, Maximize, Minimize,
+  Hand, Copy, Share2, Clock, Signal
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import api from '../services/api';
+import { useAuthStore } from '../store';
+import RecruiterAIPanel from '../components/interview/RecruiterAIPanel';
+import MeetingChat from '../components/interview/MeetingChat';
+import SharedCodeEditor from '../components/interview/SharedCodeEditor';
+import ParticipantsList from '../components/interview/ParticipantsList';
 
 export default function InterviewRoom() {
+  const { interviewId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const isRecruiter = user?.role === 'recruiter' || user?.role === 'admin';
+  
+  const [interview, setInterview] = useState(null);
+  const [isVideoOn, setIsVideoOn] = useState(true);
+  const [isAudioOn, setIsAudioOn] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [showCodeEditor, setShowCodeEditor] = useState(false);
+  const [handRaised, setHandRaised] = useState(false);
+  const [networkQuality, setNetworkQuality] = useState('good'); // good, fair, poor
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const screenShareRef = useRef(null);
+  const wsRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    loadInterview();
+    initializeMedia();
+    initializeWebSocket();
+    initializeSpeechRecognition();
+    startTimer();
+
+    return () => {
+      cleanup();
+    };
+  }, [interviewId]);
+
+  const loadInterview = async () => {
+    try {
+      const response = await api.get(`/interviews/${interviewId}`);
+      setInterview(response.data);
+      
+      // Auto-start interview if recruiter
+      if (isRecruiter && response.data.status === 'scheduled') {
+        await api.post(`/interviews/${interviewId}/start`);
+      }
+    } catch (error) {
+      toast.error('Failed to load interview');
+      navigate('/interviews');
+    }
+  };
+
+  const initializeMedia = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720 },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      console.error('Media access error:', error);
+      toast.error('Could not access camera/microphone');
+    }
+  };
+
+  const initializeWebSocket = () => {
+    const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8000'}/api/v1/interviews/${interviewId}/live`;
+    wsRef.current = new WebSocket(wsUrl);
+
+    wsRef.current.onopen = () => {
+      console.log('Connected to interview room');
+    };
+
+    wsRef.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      handleWebSocketMessage(data);
+    };
+
+    wsRef.current.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+  };
+
+  const initializeSpeechRecognition = () => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = true;
+    recognitionRef.current.interimResults = true;
+
+    recognitionRef.current.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join('');
+
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'transcript',
+          text: transcript,
+          speaker: isRecruiter ? 'recruiter' : 'candidate',
+          timestamp: new Date().toISOString()
+        }));
+      }
+    };
+
+    // Auto-start for recruiter
+    if (isRecruiter) {
+      recognitionRef.current.start();
+      setIsRecording(true);
+    }
+  };
+
+  const startTimer = () => {
+    timerRef.current = setInterval(() => {
+      setElapsedTime(prev => prev + 1);
+    }, 1000);
+  };
+
+  const handleWebSocketMessage = (data) => {
+    switch (data.type) {
+      case 'participant_joined':
+        toast.success(`${data.name} joined the interview`);
+        break;
+      case 'participant_left':
+        toast(`${data.name} left the interview`, { icon: '👋' });
+        break;
+      case 'hand_raised':
+        toast(`${data.name} raised their hand`, { icon: '✋' });
+        break;
+      case 'chat_message':
+        // Handle chat message
+        break;
+      default:
+        break;
+    }
+  };
+
+  const toggleVideo = () => {
+    if (localVideoRef.current?.srcObject) {
+      const videoTrack = localVideoRef.current.srcObject.getVideoTracks()[0];
+      videoTrack.enabled = !videoTrack.enabled;
+      setIsVideoOn(videoTrack.enabled);
+    }
+  };
+
+  const toggleAudio = () => {
+    if (localVideoRef.current?.srcObject) {
+      const audioTrack = localVideoRef.current.srcObject.getAudioTracks()[0];
+      audioTrack.enabled = !audioTrack.enabled;
+      setIsAudioOn(audioTrack.enabled);
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    if (isScreenSharing) {
+      // Stop screen sharing
+      if (screenShareRef.current?.srcObject) {
+        screenShareRef.current.srcObject.getTracks().forEach(track => track.stop());
+      }
+      setIsScreenSharing(false);
+    } else {
+      // Start screen sharing
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: false
+        });
+        
+        if (screenShareRef.current) {
+          screenShareRef.current.srcObject = stream;
+        }
+        
+        setIsScreenSharing(true);
+        
+        stream.getVideoTracks()[0].onended = () => {
+          setIsScreenSharing(false);
+        };
+      } catch (error) {
+        console.error('Screen share error:', error);
+        toast.error('Could not start screen sharing');
+      }
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      toast.success('Recording stopped');
+    } else {
+      recognitionRef.current?.start();
+      setIsRecording(true);
+      toast.success('Recording started');
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  const raiseHand = () => {
+    setHandRaised(!handRaised);
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'hand_raised',
+        raised: !handRaised,
+        name: user?.full_name || 'Participant'
+      }));
+    }
+  };
+
+  const copyMeetingLink = () => {
+    const link = window.location.href;
+    navigator.clipboard.writeText(link);
+    toast.success('Meeting link copied!');
+  };
+
+  const endInterview = async () => {
+    if (window.confirm('Are you sure you want to end this interview?')) {
+      try {
+        await api.post(`/interviews/${interviewId}/end`);
+        toast.success('Interview ended');
+        navigate(`/interviews/${interviewId}/analysis`);
+      } catch (error) {
+        toast.error('Failed to end interview');
+      }
+    }
+  };
+
+  const cleanup = () => {
+    if (localVideoRef.current?.srcObject) {
+      localVideoRef.current.srcObject.getTracks().forEach(track => track.stop());
+    }
+    if (screenShareRef.current?.srcObject) {
+      screenShareRef.current.srcObject.getTracks().forEach(track => track.stop());
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getNetworkIcon = () => {
+    const colors = {
+      good: 'text-green-400',
+      fair: 'text-yellow-400',
+      poor: 'text-red-400'
+    };
+    return <Signal className={`w-4 h-4 ${colors[networkQuality]}`} />;
+  };
+
   return (
-    <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6 page-enter">
-      {/* Header */}
-      <div className="portal-card p-6 sm:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--accent-cyan)' }}>
-              <Radio size={15} /> Flagship Module
-            </div>
-            <h2 className="text-4xl font-black sm:text-5xl" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
-              Interview Intelligence Room
-            </h2>
-            <p className="mt-4 max-w-2xl leading-7 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              A premium live interview surface for video, transcript, voice waveform, authenticity signals, suspicious behavior alerts, and AI follow-up suggestions.
-            </p>
+    <div className="h-screen bg-slate-950 flex flex-col overflow-hidden">
+      {/* Top Bar */}
+      <div className="bg-black/60 backdrop-blur-xl border-b border-purple-500/20 px-6 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-4">
+          <h1 className="text-white font-bold text-lg">{interview?.title || 'Interview Room'}</h1>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 rounded-lg border border-red-500/30">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            <span className="text-red-400 text-sm font-semibold">{isRecording ? 'REC' : 'LIVE'}</span>
           </div>
-          <div className="flex gap-3">
-            <button className="btn-ghost"><Mic2 size={16} /> Calibrate</button>
-            <button className="btn-primary"><Sparkles size={16} /> Start Session</button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 rounded-lg border border-purple-500/20">
+            <Clock className="w-4 h-4 text-purple-400" />
+            <span className="text-white font-mono text-sm">{formatTime(elapsedTime)}</span>
           </div>
+          
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 rounded-lg border border-purple-500/20">
+            {getNetworkIcon()}
+            <span className="text-purple-300 text-sm capitalize">{networkQuality}</span>
+          </div>
+
+          <button
+            onClick={copyMeetingLink}
+            className="p-2 hover:bg-purple-500/20 rounded-lg transition-colors"
+            title="Copy meeting link"
+          >
+            <Copy className="w-5 h-5 text-purple-400" />
+          </button>
+
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 hover:bg-purple-500/20 rounded-lg transition-colors"
+            title="Toggle fullscreen"
+          >
+            {isFullscreen ? (
+              <Minimize className="w-5 h-5 text-purple-400" />
+            ) : (
+              <Maximize className="w-5 h-5 text-purple-400" />
+            )}
+          </button>
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.45fr_0.9fr]">
-        {/* Video + Waveform */}
-        <div className="portal-card p-4 space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {[
-              { label: 'Candidate video', icon: UserRound, name: 'Aarav Sharma', role: 'Senior Backend Engineer', accent: 'var(--success-text)' },
-              { label: 'Panel video', icon: Video, name: null, role: null, accent: 'var(--accent-violet)' },
-            ].map(({ label, icon: Icon, name, role, accent }, i) => (
-              <div key={i} className="relative aspect-video overflow-hidden rounded-2xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                <div className="absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>{label}</div>
-                <Icon size={64} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20" style={{ color: accent }} />
-                {name && (
-                  <div className="absolute bottom-3 left-3 right-3 rounded-xl p-3" style={{ background: 'var(--modal-bg)', backdropFilter: 'blur(12px)', border: '1px solid var(--border)' }}>
-                    <div className="text-sm font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>{name}</div>
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{role}</div>
-                  </div>
-                )}
-                {!name && (
-                  <div className="absolute bottom-3 left-3 right-3 grid grid-cols-3 gap-2">
-                    {['HR', 'Tech', 'AI'].map(item => (
-                      <div key={item} className="rounded-xl py-2 text-center text-xs font-bold" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>{item}</div>
-                    ))}
-                  </div>
-                )}
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Video Area */}
+        <div className={`flex-1 flex flex-col p-4 ${isRecruiter ? 'pr-2' : ''}`}>
+          {/* Main Video Grid */}
+          <div className="flex-1 grid grid-cols-2 gap-4 mb-4">
+            {/* Remote Video (Candidate for Recruiter, Recruiter for Candidate) */}
+            <div className="relative bg-slate-900 rounded-2xl overflow-hidden">
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-black/60 backdrop-blur rounded-lg">
+                <span className="text-white text-sm font-semibold">
+                  {isRecruiter ? interview?.candidate?.name || 'Candidate' : 'Interviewer'}
+                </span>
               </div>
-            ))}
-          </div>
-
-          <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--accent-cyan)' }}>
-              <Waves size={15} /> Voice Waveform
-            </div>
-            <div className="flex h-20 items-center gap-0.5 overflow-hidden">
-              {Array.from({ length: 88 }).map((_, i) => (
-                <div key={i} className="w-1 rounded-full" style={{ height: `${18 + Math.abs(Math.sin(i * 0.55)) * 52}px`, background: 'var(--accent-cyan)', opacity: 0.3 + (i % 7) / 14 }} />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Authenticity Signals */}
-        <div className="portal-card p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <ShieldCheck size={17} style={{ color: 'var(--success-text)' }} />
-            <h3 className="text-lg font-black" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>Authenticity Indicators</h3>
-          </div>
-          <div className="space-y-3">
-            {signals.map(([label, value, copy, type]) => (
-              <div key={label} className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{label}</div>
-                  <div className="text-xl font-black" style={{ color: type === 'success' ? 'var(--success-text)' : type === 'cyan' ? 'var(--accent-cyan)' : 'var(--accent-violet)', fontFamily: 'Inter, sans-serif' }}>{value}</div>
+              {handRaised && !isRecruiter && (
+                <div className="absolute top-4 right-4 p-2 bg-yellow-500/20 backdrop-blur rounded-lg border border-yellow-500/30">
+                  <Hand className="w-6 h-6 text-yellow-400" />
                 </div>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{copy}</p>
+              )}
+            </div>
+
+            {/* Local Video */}
+            <div className="relative bg-slate-900 rounded-2xl overflow-hidden">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover mirror"
+              />
+              <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-black/60 backdrop-blur rounded-lg">
+                <span className="text-white text-sm font-semibold">You</span>
               </div>
-            ))}
+              {!isVideoOn && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                  <div className="w-20 h-20 rounded-full bg-purple-500/20 flex items-center justify-center">
+                    <User className="w-10 h-10 text-purple-400" />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Screen Share */}
+          {isScreenSharing && (
+            <div className="h-64 bg-slate-900 rounded-2xl overflow-hidden mb-4">
+              <video
+                ref={screenShareRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain"
+              />
+            </div>
+          )}
+
+          {/* Code Editor */}
+          {showCodeEditor && (
+            <div className="h-96 mb-4">
+              <SharedCodeEditor interviewId={interviewId} />
+            </div>
+          )}
         </div>
+
+        {/* Recruiter AI Panel (Only for Recruiter) */}
+        {isRecruiter && (
+          <div className="w-96 flex-shrink-0 pl-2">
+            <RecruiterAIPanel interviewId={interviewId} />
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        {/* Transcript */}
-        <div className="portal-card p-5 lg:col-span-2">
-          <div className="mb-4 flex items-center gap-2">
-            <BrainCircuit size={17} style={{ color: 'var(--accent-violet)' }} />
-            <h3 className="text-lg font-black" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>Live Transcript</h3>
-          </div>
-          <div className="space-y-3">
-            {transcript.map(([speaker, text], i) => (
-              <div key={i} className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="mb-1 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--accent-cyan)' }}>{speaker}</div>
-                <p className="leading-7 text-sm" style={{ color: 'var(--text-secondary)' }}>{text}</p>
-              </div>
-            ))}
-          </div>
+      {/* Bottom Controls */}
+      <div className="bg-black/60 backdrop-blur-xl border-t border-purple-500/20 px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleVideo}
+            className={`p-4 rounded-xl transition-all ${
+              isVideoOn
+                ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
+                : 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+            }`}
+          >
+            {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+          </button>
+
+          <button
+            onClick={toggleAudio}
+            className={`p-4 rounded-xl transition-all ${
+              isAudioOn
+                ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
+                : 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+            }`}
+          >
+            {isAudioOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+          </button>
+
+          <button
+            onClick={toggleScreenShare}
+            className={`p-4 rounded-xl transition-all ${
+              isScreenSharing
+                ? 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30'
+                : 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
+            }`}
+          >
+            {isScreenSharing ? <Monitor className="w-5 h-5" /> : <MonitorOff className="w-5 h-5" />}
+          </button>
+
+          {!isRecruiter && (
+            <button
+              onClick={raiseHand}
+              className={`p-4 rounded-xl transition-all ${
+                handRaised
+                  ? 'bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30'
+                  : 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
+              }`}
+            >
+              <Hand className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        {/* AI Follow-ups */}
-        <div className="portal-card p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Wand2 size={17} style={{ color: 'var(--accent-cyan)' }} />
-            <h3 className="text-lg font-black" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>AI Follow-ups</h3>
-          </div>
-          {['Ask for one production failure and recovery detail.', 'Probe ownership depth around architecture decisions.', 'Validate team size, timeline, and measurable business result.'].map((item, i) => (
-            <div key={item} className="mb-3 rounded-2xl p-4 text-sm leading-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-              <span className="mr-2 font-bold" style={{ color: 'var(--accent-cyan)', fontFamily: 'Inter, sans-serif' }}>0{i + 1}</span>{item}
-            </div>
-          ))}
-          <div className="mt-4 rounded-2xl p-4" style={{ background: 'var(--warning-bg)', border: '1px solid var(--warning-border)' }}>
-            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--warning-text)' }}>
-              <AlertTriangle size={15} /> Alert Monitor
-            </div>
-            <p className="text-sm leading-6" style={{ color: 'var(--warning-text)' }}>No suspicious behavior requiring interruption. Continue monitoring answer specificity.</p>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowChat(!showChat)}
+            className="p-4 rounded-xl bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-all"
+          >
+            <MessageSquare className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => setShowCodeEditor(!showCodeEditor)}
+            className="p-4 rounded-xl bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-all"
+          >
+            <Code className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => setShowParticipants(!showParticipants)}
+            className="p-4 rounded-xl bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-all"
+          >
+            <Users className="w-5 h-5" />
+          </button>
+
+          {isRecruiter && (
+            <button
+              onClick={toggleRecording}
+              className={`p-4 rounded-xl transition-all ${
+                isRecording
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
+              }`}
+            >
+              <div className="w-3 h-3 rounded-full bg-current" />
+            </button>
+          )}
         </div>
+
+        <button
+          onClick={endInterview}
+          className="px-6 py-3 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/50 transition-all"
+        >
+          <Phone className="w-4 h-4 inline mr-2" />
+          {isRecruiter ? 'End Interview' : 'Leave'}
+        </button>
       </div>
+
+      {/* Side Panels */}
+      <AnimatePresence>
+        {showChat && (
+          <MeetingChat
+            interviewId={interviewId}
+            onClose={() => setShowChat(false)}
+          />
+        )}
+        
+        {showParticipants && (
+          <ParticipantsList
+            interviewId={interviewId}
+            onClose={() => setShowParticipants(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <style jsx>{`
+        .mirror {
+          transform: scaleX(-1);
+        }
+      `}</style>
     </div>
-  )
+  );
 }

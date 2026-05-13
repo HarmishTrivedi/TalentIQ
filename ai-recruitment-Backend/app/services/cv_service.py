@@ -256,6 +256,9 @@ class CVProcessingService:
 
             candidate.status = CandidateStatus.ready
             logger.info("CV processing complete", candidate_id=candidate.id, name=candidate.name)
+            
+            # 7. Send email notifications
+            await self._send_email_notifications(candidate, user_id, db)
 
         except Exception as e:
             candidate.status = CandidateStatus.error
@@ -277,6 +280,64 @@ class CVProcessingService:
 
         await db.flush()
         return candidate
+    
+    async def _send_email_notifications(self, candidate: Candidate, user_id: Optional[str], db: AsyncSession):
+        """Send email notifications to candidate and recruiter"""
+        try:
+            from app.services.email_service import get_email_service
+            from app.models.models import User
+            from sqlalchemy import select
+            
+            email_service = get_email_service()
+            
+            # Extract skills list for email
+            skills_list = []
+            if candidate.skills:
+                if isinstance(candidate.skills, dict):
+                    skills_list = (
+                        candidate.skills.get("technical", []) +
+                        candidate.skills.get("frameworks", []) +
+                        candidate.skills.get("tools", [])
+                    )
+                elif isinstance(candidate.skills, list):
+                    skills_list = candidate.skills
+            
+            # Send confirmation to candidate if email exists
+            if candidate.email:
+                try:
+                    email_service.send_candidate_application_confirmation(
+                        candidate_email=candidate.email,
+                        candidate_name=candidate.name,
+                        skills=skills_list,
+                        experience_years=candidate.experience_years or 0.0
+                    )
+                    logger.info("Candidate confirmation email sent", candidate_email=candidate.email)
+                except Exception as e:
+                    logger.error("Failed to send candidate email", error=str(e))
+            
+            # Send notification to recruiter if user_id exists
+            if user_id:
+                try:
+                    result = await db.execute(select(User).where(User.id == user_id))
+                    recruiter = result.scalar_one_or_none()
+                    
+                    if recruiter and recruiter.email:
+                        email_service.send_recruiter_new_candidate_notification(
+                            recruiter_email=recruiter.email,
+                            recruiter_name=recruiter.full_name,
+                            candidate_name=candidate.name,
+                            candidate_email=candidate.email or "Not provided",
+                            skills=skills_list,
+                            experience_years=candidate.experience_years or 0.0,
+                            summary=candidate.summary
+                        )
+                        logger.info("Recruiter notification email sent", recruiter_email=recruiter.email)
+                except Exception as e:
+                    logger.error("Failed to send recruiter email", error=str(e))
+        
+        except Exception as e:
+            logger.error("Email notification failed", error=str(e))
+            # Don't fail the entire process if email fails
 
     async def _save_file(self, file_bytes: bytes, filename: str) -> Path:
         """Save uploaded file to disk."""

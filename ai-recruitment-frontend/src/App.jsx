@@ -14,6 +14,7 @@ const JobDetail = lazy(() => import('./pages/JobDetail'))
 const Matching = lazy(() => import('./pages/Matching'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const InterviewRoom = lazy(() => import('./pages/InterviewRoom'))
+const ScheduleInterview = lazy(() => import('./pages/ScheduleInterview'))
 const Landing = lazy(() => import('./pages/Landing'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
@@ -101,8 +102,10 @@ export default function App() {
             <Route path="/account" element={<AccountSettings />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/interviews" element={<Interviews />} />
+            <Route path="/interviews/schedule" element={<ScheduleInterview />} />
             <Route path="/interviews/:interviewId" element={<LiveInterview />} />
             <Route path="/interviews/:interviewId/analysis" element={<InterviewAnalysis />} />
+            <Route path="/interview-room/:interviewId" element={<InterviewRoom />} />
             <Route path="/questions/generate" element={<QuestionGenerator />} />
 
             <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

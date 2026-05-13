@@ -8,6 +8,7 @@ from sqlalchemy import select, func, and_, or_
 from typing import List, Optional
 from datetime import datetime
 import json
+import os
 
 from app.database import get_db
 from app.models.models import (
@@ -23,6 +24,7 @@ from app.models.schemas import (
 )
 from app.utils.auth import get_current_user
 from app.services.interview_ai_service import get_interview_ai_service
+from app.services.email_service import get_email_service
 
 router = APIRouter(prefix="/interviews", tags=["Interviews"])
 
@@ -62,13 +64,14 @@ async def create_interview(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new interview"""
+    """Create a new interview and send invitation emails"""
     # Verify candidate exists
     candidate = await db.get(Candidate, data.candidate_id)
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
     
     # Verify job exists if provided
+    job = None
     if data.job_id:
         job = await db.get(Job, data.job_id)
         if not job:
@@ -80,12 +83,47 @@ async def create_interview(
         recruiter_id=current_user.id,
         title=data.title,
         scheduled_at=data.scheduled_at,
-        status=InterviewStatus.scheduled
+        duration_minutes=data.duration_minutes if hasattr(data, 'duration_minutes') else 60,
+        status=InterviewStatus.scheduled,
+        metadata_={"meeting_link": data.meeting_link if hasattr(data, 'meeting_link') else None}
     )
     
     db.add(interview)
     await db.commit()
     await db.refresh(interview)
+    
+    # Send invitation emails
+    email_service = get_email_service()
+    meeting_link = interview.metadata_.get("meeting_link") if interview.metadata_ else f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/interview-room/{interview.id}"
+    
+    # Send to candidate
+    if candidate.email:
+        try:
+            email_service.send_interview_invitation(
+                candidate_email=candidate.email,
+                candidate_name=candidate.name,
+                interview_title=interview.title,
+                scheduled_at=interview.scheduled_at,
+                duration=interview.duration_minutes or 60,
+                meeting_link=meeting_link,
+                recruiter_name=current_user.full_name,
+                description=job.description[:200] if job else ""
+            )
+        except Exception as e:
+            print(f"Failed to send candidate invitation: {e}")
+    
+    # Send confirmation to recruiter
+    try:
+        email_service.send_recruiter_confirmation(
+            recruiter_email=current_user.email,
+            recruiter_name=current_user.full_name,
+            candidate_name=candidate.name,
+            interview_title=interview.title,
+            scheduled_at=interview.scheduled_at,
+            meeting_link=meeting_link
+        )
+    except Exception as e:
+        print(f"Failed to send recruiter confirmation: {e}")
     
     return interview
 
@@ -558,3 +596,91 @@ async def interview_websocket(
     
     except WebSocketDisconnect:
         manager.disconnect(websocket, interview_id)
+
+
+
+# ─── Email Notifications ──────────────────────────────────────────────────────
+
+@router.post("/send-invitation")
+async def send_interview_invitation(
+    data: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Send interview invitation email"""
+    email_service = get_email_service()
+    
+    success = email_service.send_interview_invitation(
+        candidate_email=data["candidate_email"],
+        candidate_name=data["candidate_name"],
+        interview_title=data.get("interview_title", "Interview"),
+        scheduled_at=datetime.fromisoformat(data["scheduled_at"].replace('Z', '+00:00')),
+        duration=data.get("duration", 60),
+        meeting_link=data["meeting_link"],
+        recruiter_name=data.get("recruiter_name", "TalentIQ Team"),
+        description=data.get("description", "")
+    )
+    
+    if success:
+        return {"message": "Invitation sent successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to send invitation")
+
+
+@router.post("/send-reminder/{interview_id}")
+async def send_interview_reminder(
+    interview_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Send interview reminder to both candidate and recruiter (30 min before)"""
+    interview = await db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    
+    candidate = await db.get(Candidate, interview.candidate_id)
+    recruiter = await db.get(User, interview.recruiter_id)
+    
+    if not candidate:
+        raise HTTPException(status_code=400, detail="Candidate not found")
+    
+    email_service = get_email_service()
+    meeting_link = interview.metadata_.get("meeting_link") if interview.metadata_ else f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/interview-room/{interview_id}"
+    
+    results = {"candidate": False, "recruiter": False}
+    
+    # Send reminder to candidate
+    if candidate.email:
+        try:
+            results["candidate"] = email_service.send_interview_reminder(
+                candidate_email=candidate.email,
+                candidate_name=candidate.name,
+                interview_title=interview.title,
+                scheduled_at=interview.scheduled_at,
+                meeting_link=meeting_link,
+                recruiter_name=recruiter.full_name if recruiter else "TalentIQ Team"
+            )
+        except Exception as e:
+            print(f"Failed to send candidate reminder: {e}")
+    
+    # Send reminder to recruiter
+    if recruiter and recruiter.email:
+        try:
+            results["recruiter"] = email_service.send_recruiter_interview_reminder(
+                recruiter_email=recruiter.email,
+                recruiter_name=recruiter.full_name,
+                candidate_name=candidate.name,
+                interview_title=interview.title,
+                scheduled_at=interview.scheduled_at,
+                meeting_link=meeting_link,
+                candidate_email=candidate.email
+            )
+        except Exception as e:
+            print(f"Failed to send recruiter reminder: {e}")
+    
+    if results["candidate"] or results["recruiter"]:
+        return {
+            "message": "Reminders sent",
+            "candidate_sent": results["candidate"],
+            "recruiter_sent": results["recruiter"]
+        }
+    else:
+        raise HTTPException(status_code=500, detail="Failed to send reminders")
