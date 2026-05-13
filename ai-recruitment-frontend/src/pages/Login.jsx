@@ -96,7 +96,7 @@ export default function Login() {
     if (accessToken && refreshToken) {
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+      const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
       fetch(`${apiBase}/api/v1/auth/me`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
@@ -113,7 +113,7 @@ export default function Login() {
 
   // ── Google OAuth (untouched) ────────────────────────────────────────────────
   const handleGoogleOAuth = () => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
     window.location.href = `${apiBase}/api/v1/auth/oauth/google/login`
   }
 

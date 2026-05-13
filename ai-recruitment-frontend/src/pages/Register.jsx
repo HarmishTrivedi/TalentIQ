@@ -202,7 +202,8 @@ export default function Register() {
     if (accessToken && refreshToken) {
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
-      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/me`, {
+      const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+      fetch(`${backendUrl}/api/v1/auth/me`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
         .then(r => r.json())
@@ -217,7 +218,8 @@ export default function Register() {
   }, [searchParams, navigate])
 
   const handleGoogleOAuth = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/google/login`
+    const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+    window.location.href = `${backendUrl}/api/v1/auth/oauth/google/login`
   }
 
   const handleChange = useCallback((e) => {

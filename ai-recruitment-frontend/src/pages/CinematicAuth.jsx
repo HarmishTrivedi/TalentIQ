@@ -92,7 +92,8 @@ export default function CinematicAuth() {
       localStorage.setItem('refresh_token', refreshToken)
       
       // Fetch user data and store in auth store
-      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/me`, {
+      const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+      fetch(`${backendUrl}/api/v1/auth/me`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
@@ -114,7 +115,7 @@ export default function CinematicAuth() {
   }, [searchParams, navigate])
 
   const handleOAuthLogin = (provider) => {
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
     // Direct redirect to OAuth endpoint
     window.location.href = `${backendUrl}/api/v1/auth/oauth/${provider}/login`
   }

@@ -30,7 +30,8 @@ export default function AdminLogin() {
     if (accessToken && refreshToken) {
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
-      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/me`, {
+      const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+      fetch(`${backendUrl}/api/v1/auth/me`, {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       }).then(r => r.json()).then(data => {
         useAuthStore.setState({ token: accessToken, user: data })
@@ -42,7 +43,8 @@ export default function AdminLogin() {
   }, [searchParams, navigate])
 
   const handleOAuth = (provider) => {
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth/${provider}/login`
+    const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+    window.location.href = `${backendUrl}/api/v1/auth/oauth/${provider}/login`
   }
 
   const submit = async (e) => {

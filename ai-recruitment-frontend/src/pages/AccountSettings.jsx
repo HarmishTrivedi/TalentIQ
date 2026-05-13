@@ -13,7 +13,7 @@ import { useThemeStore } from '../store/themeStore'
 import { authApi } from '../services/api'
 import { getInitials, formatDate, formatRelativeTime } from '../utils/helpers'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
 
 const SETTINGS_MENU = [
   { id: 'profile', label: 'Profile Information', icon: User, desc: 'Update your personal details' },

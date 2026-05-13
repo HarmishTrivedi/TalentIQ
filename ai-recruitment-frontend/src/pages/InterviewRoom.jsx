@@ -106,7 +106,10 @@ export default function InterviewRoom() {
   };
 
   const initializeWebSocket = () => {
-    const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8000'}/api/v1/interviews/${interviewId}/live`;
+    const defaultWsOrigin = typeof window !== 'undefined'
+      ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
+      : 'ws://localhost:8000';
+    const wsUrl = `${import.meta.env.VITE_WS_URL || defaultWsOrigin}/api/v1/interviews/${interviewId}/live`;
     wsRef.current = new WebSocket(wsUrl);
 
     wsRef.current.onopen = () => {
