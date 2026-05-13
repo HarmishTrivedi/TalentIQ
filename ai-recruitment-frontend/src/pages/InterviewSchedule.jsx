@@ -142,6 +142,18 @@ export default function InterviewSchedule() {
     navigate(`/interviews/schedule?reschedule=${interviewId}`);
   };
 
+  const handleDelete = async (interviewId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this interview? This action cannot be undone.')) return;
+    
+    try {
+      await api.delete(`/interviews/${interviewId}`);
+      toast.success('Interview deleted permanently');
+      loadInterviews();
+    } catch (error) {
+      toast.error('Failed to delete interview');
+    }
+  };
+
   const handleCancel = async (interviewId) => {
     if (!window.confirm('Are you sure you want to cancel this interview?')) return;
     
@@ -363,38 +375,68 @@ export default function InterviewSchedule() {
                               Reschedule
                             </button>
                             <button
-                              onClick={() => handleCancel(interview.id)}
-                              className="px-4 py-2.5 bg-red-500/10 text-red-400 rounded-xl font-semibold hover:bg-red-500/20 border border-red-500/30 transition-all"
+                              onClick={() => handleDelete(interview.id)}
+                              className="px-4 py-2.5 bg-red-500/10 text-red-400 rounded-xl font-semibold hover:bg-red-500/20 border border-red-500/30 transition-all flex items-center gap-2"
+                              title="Delete permanently"
+                            >
+                              <X className="w-4 h-4" />
+                              Delete
+                            </button>
+                          </>
+                        )}
+
+                        {interview.status === 'in_progress' && (
+                          <>
+                            <button
+                              onClick={() => handleStartInterview(interview.id)}
+                              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all flex items-center justify-center gap-2 animate-pulse"
+                            >
+                              <Video className="w-4 h-4" />
+                              Join Live Interview
+                            </button>
+                            <button
+                              onClick={() => handleDelete(interview.id)}
+                              className="px-4 py-2.5 bg-red-500/10 text-red-400 rounded-xl font-semibold hover:bg-red-500/20 border border-red-500/30 transition-all flex items-center gap-2"
+                              title="Delete permanently"
                             >
                               <X className="w-4 h-4" />
                             </button>
                           </>
                         )}
 
-                        {interview.status === 'in_progress' && (
-                          <button
-                            onClick={() => handleStartInterview(interview.id)}
-                            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all flex items-center justify-center gap-2 animate-pulse"
-                          >
-                            <Video className="w-4 h-4" />
-                            Join Live Interview
-                          </button>
-                        )}
-
                         {interview.status === 'completed' && (
-                          <button
-                            onClick={() => handleViewDetails(interview.id, interview.status)}
-                            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
-                          >
-                            <Eye className="w-4 h-4" />
-                            View Analysis
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleViewDetails(interview.id, interview.status)}
+                              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Analysis
+                            </button>
+                            <button
+                              onClick={() => handleDelete(interview.id)}
+                              className="px-4 py-2.5 bg-red-500/10 text-red-400 rounded-xl font-semibold hover:bg-red-500/20 border border-red-500/30 transition-all flex items-center gap-2"
+                              title="Delete permanently"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
 
                         {interview.status === 'cancelled' && (
-                          <div className="flex-1 text-center text-sm text-slate-500">
-                            This interview was cancelled
-                          </div>
+                          <>
+                            <div className="flex-1 text-center text-sm text-slate-500">
+                              This interview was cancelled
+                            </div>
+                            <button
+                              onClick={() => handleDelete(interview.id)}
+                              className="px-4 py-2.5 bg-red-500/10 text-red-400 rounded-xl font-semibold hover:bg-red-500/20 border border-red-500/30 transition-all flex items-center gap-2"
+                              title="Delete permanently"
+                            >
+                              <X className="w-4 h-4" />
+                              Delete
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>

@@ -87,21 +87,47 @@ export default function InterviewRoom() {
 
   const initializeMedia = async () => {
     try {
+      // Request permissions explicitly
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 48000
         }
       });
       
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        // Ensure video plays
+        localVideoRef.current.play().catch(err => {
+          console.error('Video play error:', err);
+        });
       }
+      
+      toast.success('Camera and microphone connected');
     } catch (error) {
       console.error('Media access error:', error);
-      toast.error('Could not access camera/microphone');
+      
+      // Provide specific error messages
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error('Please allow camera and microphone access to join the interview');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error('No camera or microphone found. Please connect a device.');
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        toast.error('Camera or microphone is already in use by another application');
+      } else {
+        toast.error('Could not access camera/microphone. Please check your device settings.');
+      }
+      
+      // Still allow joining without media
+      setIsVideoOn(false);
+      setIsAudioOn(false);
     }
   };
 

@@ -318,6 +318,27 @@ async def update_interview(
     return interview
 
 
+@router.delete("/{interview_id}")
+async def delete_interview(
+    interview_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Permanently delete an interview"""
+    interview = await db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    
+    if interview.recruiter_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    await db.delete(interview)
+    await db.commit()
+    
+    print(f"✅ Interview deleted permanently: {interview_id}")
+    return {"message": "Interview deleted successfully", "id": interview_id}
+
+
 @router.post("/{interview_id}/start", response_model=InterviewResponse)
 async def start_interview(
     interview_id: str,

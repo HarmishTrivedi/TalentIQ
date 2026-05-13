@@ -275,7 +275,6 @@ export default function ScheduleInterview() {
                   className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
                   placeholder="John Doe"
                   required
-                  readOnly={!!candidateId}
                 />
               </div>
 
@@ -290,7 +289,6 @@ export default function ScheduleInterview() {
                   className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
                   placeholder="john@example.com"
                   required
-                  readOnly={!!candidateId}
                 />
               </div>
             </div>
