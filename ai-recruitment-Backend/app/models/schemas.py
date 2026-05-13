@@ -250,7 +250,10 @@ class InterviewCreate(BaseModel):
     candidate_id: str
     job_id: Optional[str] = None
     title: str
-    scheduled_at: Optional[datetime] = None
+    scheduled_at: datetime
+    duration_minutes: Optional[int] = 60
+    interview_types: Optional[List[str]] = []
+    meeting_link: Optional[str] = None
 
 
 class InterviewUpdate(BaseModel):
@@ -284,6 +287,8 @@ class InterviewResponse(BaseResponse):
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     duration_minutes: Optional[int] = None
+    interview_types: Optional[List[str]] = []
+    candidate_access_token: Optional[str] = None
     overall_score: Optional[float] = None
     technical_score: Optional[float] = None
     communication_score: Optional[float] = None

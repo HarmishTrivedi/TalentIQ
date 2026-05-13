@@ -83,7 +83,7 @@ async def create_interview(
     candidate_token = secrets.token_urlsafe(32)
     
     # Convert timezone-aware datetime to timezone-naive (remove timezone info)
-    scheduled_at_naive = data.scheduled_at.replace(tzinfo=None) if data.scheduled_at.tzinfo else data.scheduled_at
+    scheduled_at_naive = data.scheduled_at.replace(tzinfo=None) if data.scheduled_at and data.scheduled_at.tzinfo else data.scheduled_at
     
     interview = Interview(
         candidate_id=data.candidate_id,
@@ -102,6 +102,16 @@ async def create_interview(
     await db.commit()
     await db.refresh(interview)
     
+    # Eagerly load relationships to avoid lazy loading issues
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Interview)
+        .options(selectinload(Interview.candidate))
+        .options(selectinload(Interview.questions))
+        .where(Interview.id == interview.id)
+    )
+    interview = result.scalar_one()
+    
     # Send invitation emails in background (non-blocking)
     # Don't wait for email sending to complete - return success immediately
     try:
@@ -117,7 +127,6 @@ async def create_interview(
         # Send to candidate (with timeout protection)
         if candidate.email:
             try:
-                import threading
                 def send_candidate_email():
                     try:
                         email_service.send_interview_invitation(
