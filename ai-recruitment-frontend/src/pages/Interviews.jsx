@@ -214,19 +214,25 @@ export default function Interviews() {
                   {/* Action Button */}
                   <div className="mt-4 pt-4 border-t border-purple-500/20">
                     {interview.status === 'scheduled' && (
-                      <button className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all">
+                      <button 
+                        onClick={() => navigate(`/interview-room/${interview.id}`)}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all">
                         <Play className="w-4 h-4 inline mr-2" />
                         Start Interview
                       </button>
                     )}
                     {interview.status === 'in_progress' && (
-                      <button className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all">
+                      <button 
+                        onClick={() => navigate(`/interview-room/${interview.id}`)}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all">
                         <Video className="w-4 h-4 inline mr-2" />
                         Join Interview
                       </button>
                     )}
                     {interview.status === 'completed' && (
-                      <button className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all">
+                      <button 
+                        onClick={() => navigate(`/interviews/${interview.id}/analysis`)}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all">
                         <Eye className="w-4 h-4 inline mr-2" />
                         View Analysis
                       </button>

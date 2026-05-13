@@ -98,6 +98,12 @@ async def lifespan(app: FastAPI):
         logger.warning("⚠️  User seed failed", error=str(e))
 
     logger.info("✅ All systems ready. Platform is live.")
+    
+    # Start reminder scheduler
+    from app.services.reminder_scheduler import start_reminder_scheduler
+    start_reminder_scheduler()
+    logger.info("✅ Interview reminder scheduler started")
+    
     yield
 
     logger.info("🛑 Shutting down AI Recruitment Platform")

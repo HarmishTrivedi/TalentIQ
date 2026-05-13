@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Upload, Trash2, ChevronRight, User, RefreshCw, ChevronLeft } from 'lucide-react'
+import { Search, Upload, Trash2, ChevronRight, User, RefreshCw, ChevronLeft, Calendar } from 'lucide-react'
 import { candidatesApi } from '../services/api'
 import { SkeletonCard, EmptyState, TagList, Badge, ConfirmationModal } from '../components/ui'
 import { formatRelativeTime, getInitials, formatExperience, truncate } from '../utils/helpers'
@@ -116,6 +116,22 @@ export default function Candidates() {
                 )}
 
                 {skills.length > 0 && <TagList tags={skills} max={4} />}
+
+                {/* Schedule Interview Button */}
+                <Link
+                  to={`/interviews/schedule?candidateId=${c.id}`}
+                  className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #1d4ed8, #7c3aed)',
+                    color: 'white',
+                    border: 'none'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  <Calendar size={14} />
+                  Schedule Interview
+                </Link>
 
                 <div
                   className="flex items-center justify-end mt-4 pt-3 gap-1"

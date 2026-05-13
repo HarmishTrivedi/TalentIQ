@@ -26,7 +26,7 @@ export default function ScheduleInterview() {
     scheduled_date: '',
     scheduled_time: '',
     duration: 60,
-    interview_type: 'technical',
+    interview_types: [],
     description: '',
     meeting_link: '',
     additional_interviewers: [],
@@ -88,40 +88,51 @@ export default function ScheduleInterview() {
       const scheduledAt = new Date(`${formData.scheduled_date}T${formData.scheduled_time}`);
       
       const payload = {
-        candidate_id: formData.candidate_id,
+        candidate_id: formData.candidate_id || null,
         job_id: formData.job_id || null,
         title: formData.title,
-        scheduled_at: scheduledAt.toISOString(),
-        metadata: {
-          candidate_name: formData.candidate_name,
-          candidate_email: formData.candidate_email,
-          duration: formData.duration,
-          interview_type: formData.interview_type,
-          description: formData.description,
-          additional_interviewers: formData.additional_interviewers,
-          notes: formData.notes
-        }
+        scheduled_at: scheduledAt.toISOString()
       };
 
       const response = await api.post('/interviews', payload);
+      const interviewId = response.data.id;
       
       // Send email notifications
-      await api.post('/interviews/send-invitation', {
-        interview_id: response.data.id,
-        candidate_email: formData.candidate_email,
-        candidate_name: formData.candidate_name,
-        scheduled_at: scheduledAt.toISOString(),
-        duration: formData.duration,
-        meeting_link: `${window.location.origin}/interview-room/${response.data.id}`
-      });
+      try {
+        await api.post('/interviews/send-invitation', {
+          interview_id: interviewId,
+          candidate_email: formData.candidate_email,
+          candidate_name: formData.candidate_name,
+          interview_title: formData.title,
+          scheduled_at: scheduledAt.toISOString(),
+          duration: formData.duration,
+          meeting_link: `${window.location.origin}/interview-room/${interviewId}`,
+          recruiter_name: 'TalentIQ Team',
+          description: formData.description
+        });
+        
+        toast.success('Interview scheduled! Invitation emails sent.');
+      } catch (emailError) {
+        console.error('Email error:', emailError);
+        toast.success('Interview scheduled! (Email notification pending)');
+      }
 
-      toast.success('Interview scheduled successfully! Invitation sent.');
       navigate('/interviews');
     } catch (error) {
-      toast.error('Failed to schedule interview');
+      console.error('Schedule error:', error);
+      toast.error(error.response?.data?.detail || 'Failed to schedule interview');
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleInterviewType = (type) => {
+    setFormData(prev => {
+      const types = prev.interview_types.includes(type)
+        ? prev.interview_types.filter(t => t !== type)
+        : [...prev.interview_types, type];
+      return { ...prev, interview_types: types };
+    });
   };
 
   const interviewTypes = [
@@ -298,28 +309,41 @@ export default function ScheduleInterview() {
 
               <div>
                 <label className="block text-purple-300 text-sm font-semibold mb-2">
-                  Interview Type
+                  Interview Types (Select Multiple)
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   {interviewTypes.map((type) => {
                     const Icon = type.icon;
+                    const isSelected = formData.interview_types.includes(type.value);
                     return (
                       <button
                         key={type.value}
                         type="button"
-                        onClick={() => setFormData({ ...formData, interview_type: type.value })}
+                        onClick={() => toggleInterviewType(type.value)}
                         className={`p-4 rounded-xl border transition-all ${
-                          formData.interview_type === type.value
-                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 border-purple-500 text-white'
+                          isSelected
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 border-purple-500 text-white shadow-lg'
                             : 'bg-black/60 border-purple-500/20 text-purple-300 hover:border-purple-500/40'
                         }`}
                       >
                         <Icon className="w-5 h-5 mx-auto mb-2" />
                         <span className="text-xs font-semibold">{type.label}</span>
+                        {isSelected && (
+                          <div className="mt-1 text-xs">✓ Selected</div>
+                        )}
                       </button>
                     );
                   })}
                 </div>
+                {formData.interview_types.length > 0 && (
+                  <div className="mt-3 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                    <p className="text-sm text-purple-200">
+                      <strong>Selected:</strong> {formData.interview_types.map(t => 
+                        interviewTypes.find(opt => opt.value === t)?.label
+                      ).join(', ')}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
