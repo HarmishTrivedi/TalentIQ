@@ -99,13 +99,14 @@ async def lifespan(app: FastAPI):
 
     logger.info("✅ All systems ready. Platform is live.")
     
-    # Start reminder scheduler (disabled until database is migrated)
-    try:
-        from app.services.reminder_scheduler import start_reminder_scheduler
-        start_reminder_scheduler()
-        logger.info("✅ Interview reminder scheduler started")
-    except Exception as e:
-        logger.warning("⚠️  Reminder scheduler disabled (database migration needed)", error=str(e))
+    # Temporarily disable reminder scheduler until database is migrated
+    # Uncomment after running: ALTER TABLE interviews ADD COLUMN candidate_access_token VARCHAR(100);
+    # try:
+    #     from app.services.reminder_scheduler import start_reminder_scheduler
+    #     start_reminder_scheduler()
+    #     logger.info("✅ Interview reminder scheduler started")
+    # except Exception as e:
+    #     logger.warning("⚠️  Reminder scheduler disabled (database migration needed)", error=str(e))
     
     yield
 
