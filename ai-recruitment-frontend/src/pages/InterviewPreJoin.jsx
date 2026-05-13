@@ -25,6 +25,7 @@ export default function InterviewPreJoin() {
 
   useEffect(() => {
     loadInterview();
+    requestPermissions();
   }, [interviewId]);
 
   const loadInterview = async () => {
@@ -253,23 +254,13 @@ export default function InterviewPreJoin() {
                   </div>
 
                   {/* Request Permission Button */}
-                  {permissionStatus !== 'granted' && (
+                  {permissionStatus === 'denied' && (
                     <button
                       onClick={requestPermissions}
-                      disabled={permissionStatus === 'requesting'}
-                      className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
                     >
-                      {permissionStatus === 'requesting' ? (
-                        <>
-                          <Loader className="w-5 h-5 animate-spin" />
-                          Requesting permissions...
-                        </>
-                      ) : (
-                        <>
-                          <Settings className="w-5 h-5" />
-                          Allow Camera & Microphone
-                        </>
-                      )}
+                      <Settings className="w-5 h-5" />
+                      Try Again
                     </button>
                   )}
                 </div>
