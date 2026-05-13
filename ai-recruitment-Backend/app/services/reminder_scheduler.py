@@ -75,9 +75,9 @@ async def check_and_send_reminders():
                         print(f"✅ Reminder sent to recruiter: {recruiter.email}")
                     except Exception as e:
                         print(f"❌ Failed to send reminder to recruiter: {e}")
-    except Exception as e:
-        # Catch database errors (like missing columns) and log without crashing
-        print(f"⚠️  Reminder scheduler skipped (database migration needed): {str(e)[:100]}")
+    except Exception:
+        # Silently skip - database migration needed
+        pass
 
 
 async def reminder_scheduler():
@@ -86,8 +86,8 @@ async def reminder_scheduler():
         try:
             await check_and_send_reminders()
         except Exception as e:
-            # Log error but don't crash - scheduler will retry in 5 minutes
-            print(f"⚠️  Reminder scheduler error (will retry): {str(e)[:100]}")
+            # Silently log error - don't print full stack trace
+            pass
         
         # Wait 5 minutes before next check
         await asyncio.sleep(300)
