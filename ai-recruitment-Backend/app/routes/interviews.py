@@ -10,6 +10,7 @@ from datetime import datetime
 import json
 import os
 import secrets
+import threading
 
 from app.database import get_db
 from app.models.models import (
@@ -101,45 +102,67 @@ async def create_interview(
     await db.commit()
     await db.refresh(interview)
     
-    # Send invitation emails
-    email_service = get_email_service()
-    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-    
-    # Candidate gets special join link with token (no auth required)
-    candidate_meeting_link = f"{frontend_url}/join/{interview.id}?token={candidate_token}"
-    
-    # Recruiter gets normal interview room link
-    recruiter_meeting_link = f"{frontend_url}/interview-room/{interview.id}"
-    
-    # Send to candidate
-    if candidate.email:
-        try:
-            email_service.send_interview_invitation(
-                candidate_email=candidate.email,
-                candidate_name=candidate.name,
-                interview_title=interview.title,
-                scheduled_at=interview.scheduled_at,
-                duration=interview.duration_minutes or 60,
-                meeting_link=candidate_meeting_link,
-                recruiter_name=current_user.full_name,
-                description=job.description[:200] if job else ""
-            )
-        except Exception as e:
-            print(f"Failed to send candidate invitation: {e}")
-    
-    # Send confirmation to recruiter
+    # Send invitation emails in background (non-blocking)
+    # Don't wait for email sending to complete - return success immediately
     try:
-        email_service.send_recruiter_confirmation(
-            recruiter_email=current_user.email,
-            recruiter_name=current_user.full_name,
-            candidate_name=candidate.name,
-            interview_title=interview.title,
-            scheduled_at=interview.scheduled_at,
-            meeting_link=recruiter_meeting_link
-        )
+        email_service = get_email_service()
+        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+        
+        # Candidate gets special join link with token (no auth required)
+        candidate_meeting_link = f"{frontend_url}/join/{interview.id}?token={candidate_token}"
+        
+        # Recruiter gets normal interview room link
+        recruiter_meeting_link = f"{frontend_url}/interview-room/{interview.id}"
+        
+        # Send to candidate (with timeout protection)
+        if candidate.email:
+            try:
+                import threading
+                def send_candidate_email():
+                    try:
+                        email_service.send_interview_invitation(
+                            candidate_email=candidate.email,
+                            candidate_name=candidate.name,
+                            interview_title=interview.title,
+                            scheduled_at=interview.scheduled_at,
+                            duration=interview.duration_minutes or 60,
+                            meeting_link=candidate_meeting_link,
+                            recruiter_name=current_user.full_name,
+                            description=job.description[:200] if job else ""
+                        )
+                    except Exception as e:
+                        print(f"Failed to send candidate invitation: {e}")
+                
+                # Send email in background thread
+                thread = threading.Thread(target=send_candidate_email, daemon=True)
+                thread.start()
+            except Exception as e:
+                print(f"Failed to start email thread: {e}")
+        
+        # Send confirmation to recruiter (with timeout protection)
+        try:
+            def send_recruiter_email():
+                try:
+                    email_service.send_recruiter_confirmation(
+                        recruiter_email=current_user.email,
+                        recruiter_name=current_user.full_name,
+                        candidate_name=candidate.name,
+                        interview_title=interview.title,
+                        scheduled_at=interview.scheduled_at,
+                        meeting_link=recruiter_meeting_link
+                    )
+                except Exception as e:
+                    print(f"Failed to send recruiter confirmation: {e}")
+            
+            # Send email in background thread
+            thread = threading.Thread(target=send_recruiter_email, daemon=True)
+            thread.start()
+        except Exception as e:
+            print(f"Failed to start recruiter email thread: {e}")
     except Exception as e:
-        print(f"Failed to send recruiter confirmation: {e}")
+        print(f"Email service error (non-critical): {e}")
     
+    # Return immediately without waiting for emails
     return interview
 
 

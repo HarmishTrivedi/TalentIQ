@@ -22,7 +22,7 @@ class EmailService:
         self.frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
     
     def send_email(self, to_email: str, subject: str, html_content: str, text_content: str = None):
-        """Send email via SMTP"""
+        """Send email via SMTP with timeout protection"""
         try:
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
@@ -33,15 +33,20 @@ class EmailService:
                 msg.attach(MIMEText(text_content, 'plain'))
             msg.attach(MIMEText(html_content, 'html'))
             
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+            # Add timeout to prevent hanging
+            with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10) as server:
                 server.starttls()
                 if self.smtp_user and self.smtp_password:
                     server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)
             
+            print(f"Email sent successfully to {to_email}")
             return True
+        except smtplib.SMTPException as e:
+            print(f"SMTP error sending email to {to_email}: {e}")
+            return False
         except Exception as e:
-            print(f"Email send failed: {e}")
+            print(f"Email send failed to {to_email}: {e}")
             return False
     
     def send_interview_invitation(
