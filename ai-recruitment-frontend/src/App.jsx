@@ -32,6 +32,10 @@ const Terms = lazy(() => import('./pages/Terms'))
 const Security = lazy(() => import('./pages/Security'))
 const AccountSettings = lazy(() => import('./pages/AccountSettings'))
 const Pricing = lazy(() => import('./pages/Pricing'))
+const Interviews = lazy(() => import('./pages/Interviews'))
+const LiveInterview = lazy(() => import('./pages/LiveInterview'))
+const InterviewAnalysis = lazy(() => import('./pages/InterviewAnalysis'))
+const QuestionGenerator = lazy(() => import('./pages/QuestionGenerator'))
 
 function AdminRoute({ children }) {
   const { token, user } = useAuthStore()
@@ -96,6 +100,10 @@ export default function App() {
             <Route path="/plans" element={<RecruiterPlans />} />
             <Route path="/account" element={<AccountSettings />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/interviews" element={<Interviews />} />
+            <Route path="/interviews/:interviewId" element={<LiveInterview />} />
+            <Route path="/interviews/:interviewId/analysis" element={<InterviewAnalysis />} />
+            <Route path="/questions/generate" element={<QuestionGenerator />} />
 
             <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} />

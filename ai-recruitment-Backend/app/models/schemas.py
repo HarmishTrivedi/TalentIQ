@@ -242,3 +242,137 @@ class ErrorResponse(BaseModel):
 class SuccessResponse(BaseModel):
     message: str
     data: Optional[Dict[str, Any]] = None
+
+
+# ─── Interview Schemas ────────────────────────────────────────────────────────
+
+class InterviewCreate(BaseModel):
+    candidate_id: str
+    job_id: Optional[str] = None
+    title: str
+    scheduled_at: Optional[datetime] = None
+
+
+class InterviewUpdate(BaseModel):
+    title: Optional[str] = None
+    status: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+
+
+class InterviewQuestionResponse(BaseResponse):
+    id: str
+    question_text: str
+    category: str
+    difficulty: str
+    candidate_answer: Optional[str] = None
+    answer_quality_score: Optional[float] = None
+    technical_depth_score: Optional[float] = None
+    code_submitted: Optional[str] = None
+    code_quality_score: Optional[float] = None
+    asked_at: Optional[datetime] = None
+    answered_at: Optional[datetime] = None
+
+
+class InterviewResponse(BaseResponse):
+    id: str
+    candidate_id: str
+    job_id: Optional[str] = None
+    recruiter_id: str
+    title: str
+    status: str
+    scheduled_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    overall_score: Optional[float] = None
+    technical_score: Optional[float] = None
+    communication_score: Optional[float] = None
+    confidence_score: Optional[float] = None
+    fraud_risk_level: Optional[str] = None
+    ai_assistance_probability: Optional[float] = None
+    created_at: datetime
+    candidate: Optional[CandidateResponse] = None
+    questions: List[InterviewQuestionResponse] = []
+
+
+class InterviewAnalysisResponse(BaseResponse):
+    id: str
+    interview_id: str
+    overall_rating: float
+    technical_rating: float
+    communication_rating: float
+    coding_rating: float
+    confidence_rating: float
+    fraud_risk_level: str
+    ai_assistance_probability: float
+    plagiarism_indicators: Optional[List[str]] = None
+    tab_switching_count: int
+    copy_paste_count: int
+    candidate_strengths: Optional[List[str]] = None
+    candidate_weaknesses: Optional[List[str]] = None
+    hiring_recommendation: str
+    technical_fit: Optional[str] = None
+    improvement_areas: Optional[List[str]] = None
+    ai_summary: Optional[str] = None
+    important_moments: Optional[List[Dict[str, Any]]] = None
+    created_at: datetime
+
+
+class QuestionGenerateRequest(BaseModel):
+    category: str
+    difficulty: str
+    count: int = Field(default=1, ge=1, le=20)
+    candidate_id: Optional[str] = None
+    job_id: Optional[str] = None
+
+
+class QuestionTemplateResponse(BaseResponse):
+    id: str
+    question_text: str
+    category: str
+    difficulty: str
+    starter_code: Optional[str] = None
+    test_cases: Optional[List[Dict[str, Any]]] = None
+    tags: Optional[List[str]] = None
+    estimated_time_minutes: Optional[int] = None
+
+
+class InterviewRoundGenerateRequest(BaseModel):
+    job_id: Optional[str] = None
+    candidate_id: Optional[str] = None
+    beginner_count: int = 0
+    intermediate_count: int = 0
+    advanced_count: int = 0
+    expert_count: int = 0
+    categories: List[str] = []
+
+
+class LiveAnalysisUpdate(BaseModel):
+    interview_id: str
+    technical_score: float
+    communication_score: float
+    confidence_score: float
+    suspicion_level: float
+    current_insights: List[str]
+
+
+class SpeechTranscriptChunk(BaseModel):
+    interview_id: str
+    text: str
+    timestamp: datetime
+    speaker: str  # candidate or recruiter
+    confidence: float
+
+
+class CodingSubmission(BaseModel):
+    interview_id: str
+    question_id: str
+    code: str
+    language: str
+
+
+class InterviewEventCreate(BaseModel):
+    interview_id: str
+    event_type: str
+    event_data: Optional[Dict[str, Any]] = None
+    severity: Optional[str] = None

@@ -5,7 +5,8 @@ import {
   LayoutDashboard, Users, Upload, Briefcase,
   MessageSquare, Sparkles, LogOut, ShieldCheck,
   Target, Sun, Moon, User, Settings, Shield,
-  Bell, ChevronUp, Building2, Crown, ChevronRight, DollarSign
+  Bell, ChevronUp, Building2, Crown, ChevronRight, DollarSign,
+  Video, Brain, Wand2
 } from 'lucide-react'
 import { useAuthStore } from '../../store'
 import { useThemeStore } from '../../store/themeStore'
@@ -19,6 +20,8 @@ const navItems = [
   { to: '/candidates', icon: Users,           label: 'Talent Pool',   description: 'All Candidates' },
   { to: '/jobs',       icon: Briefcase,       label: 'Job Positions', description: 'Manage Openings' },
   { to: '/matching',   icon: Target,          label: 'AI Matching',   description: 'Smart Candidate Match' },
+  { to: '/interviews', icon: Video,           label: 'AI Interviews', description: 'Live Interview Intelligence' },
+  { to: '/questions/generate', icon: Wand2,   label: 'Question Gen',  description: 'AI Question Generator' },
   { to: '/chat',       icon: MessageSquare,   label: 'AI Assistant',  description: 'Chat with TalentIQ AI' },
   { to: '/pricing',    icon: DollarSign,      label: 'Pricing',       description: 'Plans & Billing' },
 ]

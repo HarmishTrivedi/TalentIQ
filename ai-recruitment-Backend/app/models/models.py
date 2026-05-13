@@ -226,3 +226,224 @@ class ChatMessage(Base):
 
     def __repr__(self):
         return f"<ChatMessage {self.role}: {self.content[:50]}>"
+
+
+# ─── Interview System Models ─────────────────────────────────────────────────
+
+class InterviewStatus(str, enum.Enum):
+    scheduled = "scheduled"
+    in_progress = "in_progress"
+    completed = "completed"
+    cancelled = "cancelled"
+
+
+class QuestionDifficulty(str, enum.Enum):
+    beginner = "beginner"
+    intermediate = "intermediate"
+    advanced = "advanced"
+    expert = "expert"
+
+
+class QuestionCategory(str, enum.Enum):
+    technical_frontend = "technical_frontend"
+    technical_backend = "technical_backend"
+    technical_ai_ml = "technical_ai_ml"
+    technical_dsa = "technical_dsa"
+    technical_database = "technical_database"
+    technical_devops = "technical_devops"
+    technical_cloud = "technical_cloud"
+    technical_security = "technical_security"
+    technical_system_design = "technical_system_design"
+    behavioral_hr = "behavioral_hr"
+    behavioral_leadership = "behavioral_leadership"
+    behavioral_communication = "behavioral_communication"
+    behavioral_teamwork = "behavioral_teamwork"
+    coding_algorithms = "coding_algorithms"
+    coding_debugging = "coding_debugging"
+    coding_sql = "coding_sql"
+
+
+class Interview(Base):
+    __tablename__ = "interviews"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    candidate_id: Mapped[str] = mapped_column(String(36), ForeignKey("candidates.id"), nullable=False, index=True)
+    job_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("jobs.id"), nullable=True, index=True)
+    recruiter_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[InterviewStatus] = mapped_column(SAEnum(InterviewStatus), default=InterviewStatus.scheduled)
+    
+    # Scheduling
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    duration_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
+    # Recording & Transcript
+    recording_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    transcript: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # AI Analysis Results
+    overall_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    technical_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    communication_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    confidence_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    coding_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    
+    # Fraud Detection
+    fraud_risk_level: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # low, medium, high
+    ai_assistance_probability: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    plagiarism_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    suspicious_activities: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    
+    # AI Generated Summary
+    strengths: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    weaknesses: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    hiring_recommendation: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Metadata
+    metadata_: Mapped[Optional[dict]] = mapped_column("metadata", JSON, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    candidate: Mapped["Candidate"] = relationship("Candidate", foreign_keys=[candidate_id])
+    job: Mapped[Optional["Job"]] = relationship("Job", foreign_keys=[job_id])
+    recruiter: Mapped["User"] = relationship("User", foreign_keys=[recruiter_id])
+    questions: Mapped[list["InterviewQuestion"]] = relationship("InterviewQuestion", back_populates="interview", cascade="all, delete-orphan")
+    events: Mapped[list["InterviewEvent"]] = relationship("InterviewEvent", back_populates="interview", cascade="all, delete-orphan")
+    analysis: Mapped[Optional["InterviewAnalysis"]] = relationship("InterviewAnalysis", back_populates="interview", uselist=False, cascade="all, delete-orphan")
+
+
+class InterviewQuestion(Base):
+    __tablename__ = "interview_questions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    interview_id: Mapped[str] = mapped_column(String(36), ForeignKey("interviews.id"), nullable=False, index=True)
+    
+    question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[QuestionCategory] = mapped_column(SAEnum(QuestionCategory), nullable=False)
+    difficulty: Mapped[QuestionDifficulty] = mapped_column(SAEnum(QuestionDifficulty), nullable=False)
+    
+    # Answer & Evaluation
+    candidate_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    answer_duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
+    # AI Evaluation
+    answer_quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    technical_depth_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    communication_quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ai_evaluation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Coding Question Specific
+    code_submitted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    code_language: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    code_execution_result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    code_quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    code_plagiarism_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    
+    # Metadata
+    asked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    answered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    
+    # Relationship
+    interview: Mapped["Interview"] = relationship("Interview", back_populates="questions")
+
+
+class InterviewEvent(Base):
+    __tablename__ = "interview_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    interview_id: Mapped[str] = mapped_column(String(36), ForeignKey("interviews.id"), nullable=False, index=True)
+    
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)  # tab_switch, copy_paste, pause, eye_movement, etc.
+    event_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    severity: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # low, medium, high
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    
+    # Relationship
+    interview: Mapped["Interview"] = relationship("Interview", back_populates="events")
+
+
+class InterviewAnalysis(Base):
+    __tablename__ = "interview_analysis"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    interview_id: Mapped[str] = mapped_column(String(36), ForeignKey("interviews.id"), nullable=False, unique=True, index=True)
+    
+    # Comprehensive Scores
+    overall_rating: Mapped[float] = mapped_column(Float, nullable=False)
+    technical_rating: Mapped[float] = mapped_column(Float, default=0.0)
+    communication_rating: Mapped[float] = mapped_column(Float, default=0.0)
+    coding_rating: Mapped[float] = mapped_column(Float, default=0.0)
+    confidence_rating: Mapped[float] = mapped_column(Float, default=0.0)
+    problem_solving_rating: Mapped[float] = mapped_column(Float, default=0.0)
+    
+    # Communication Analysis
+    speech_clarity: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    professionalism: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    filler_words_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    speaking_speed_wpm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    nervousness_indicators: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    
+    # Fraud Analysis
+    fraud_risk_level: Mapped[str] = mapped_column(String(50), default="low")
+    ai_assistance_probability: Mapped[float] = mapped_column(Float, default=0.0)
+    plagiarism_indicators: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    suspicious_behavior_timeline: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    tab_switching_count: Mapped[int] = mapped_column(Integer, default=0)
+    copy_paste_count: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # AI Generated Insights
+    candidate_strengths: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    candidate_weaknesses: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    hiring_recommendation: Mapped[str] = mapped_column(String(100), nullable=False)
+    technical_fit: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cultural_fit: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    improvement_areas: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    next_round_suggestion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Timeline
+    important_moments: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    strong_answers: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    weak_responses: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    
+    # Full AI Summary
+    ai_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationship
+    interview: Mapped["Interview"] = relationship("Interview", back_populates="analysis")
+
+
+class QuestionTemplate(Base):
+    __tablename__ = "question_templates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    
+    question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[QuestionCategory] = mapped_column(SAEnum(QuestionCategory), nullable=False, index=True)
+    difficulty: Mapped[QuestionDifficulty] = mapped_column(SAEnum(QuestionDifficulty), nullable=False, index=True)
+    
+    # For coding questions
+    starter_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    test_cases: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    expected_output: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Metadata
+    tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    estimated_time_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
+    created_by: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())

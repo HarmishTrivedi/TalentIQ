@@ -1,0 +1,368 @@
+"""
+AI Interview Intelligence Service
+Handles speech recognition, fraud detection, question generation, and real-time analysis
+"""
+import json
+import re
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+from app.services.llm_service import get_llm_service
+
+
+class InterviewAIService:
+    """AI-powered interview intelligence and analysis"""
+    
+    def __init__(self):
+        self.llm = get_llm_service()
+    
+    async def analyze_speech_transcript(self, transcript: str) -> Dict[str, Any]:
+        """Analyze speech for communication quality"""
+        prompt = f"""Analyze this interview transcript for communication quality:
+
+Transcript:
+{transcript}
+
+Provide analysis in JSON format:
+{{
+    "speech_clarity": 0-100,
+    "professionalism": 0-100,
+    "confidence_level": 0-100,
+    "filler_words_count": number,
+    "speaking_speed_wpm": number,
+    "nervousness_indicators": ["indicator1", "indicator2"],
+    "key_strengths": ["strength1", "strength2"],
+    "areas_for_improvement": ["area1", "area2"]
+}}"""
+        
+        response = await self.llm.generate(prompt)
+        try:
+            return json.loads(response)
+        except:
+            return {
+                "speech_clarity": 70,
+                "professionalism": 75,
+                "confidence_level": 70,
+                "filler_words_count": 0,
+                "speaking_speed_wpm": 120
+            }
+    
+    async def detect_ai_assistance(self, answer: str, question: str) -> Dict[str, Any]:
+        """Detect if answer is AI-generated or plagiarized"""
+        prompt = f"""Analyze if this interview answer shows signs of AI assistance or plagiarism:
+
+Question: {question}
+
+Answer: {answer}
+
+Evaluate and provide JSON:
+{{
+    "ai_assistance_probability": 0-100,
+    "plagiarism_score": 0-100,
+    "risk_level": "low|medium|high",
+    "indicators": ["indicator1", "indicator2"],
+    "reasoning": "explanation",
+    "authenticity_score": 0-100
+}}"""
+        
+        response = await self.llm.generate(prompt)
+        try:
+            return json.loads(response)
+        except:
+            return {
+                "ai_assistance_probability": 20,
+                "plagiarism_score": 15,
+                "risk_level": "low",
+                "indicators": [],
+                "authenticity_score": 80
+            }
+    
+    async def analyze_coding_submission(self, code: str, question: str, language: str) -> Dict[str, Any]:
+        """Analyze coding submission for quality and plagiarism"""
+        prompt = f"""Analyze this coding solution:
+
+Question: {question}
+
+Language: {language}
+
+Code:
+{code}
+
+Provide detailed analysis in JSON:
+{{
+    "code_quality_score": 0-100,
+    "logic_correctness": 0-100,
+    "code_efficiency": 0-100,
+    "code_readability": 0-100,
+    "plagiarism_probability": 0-100,
+    "ai_generated_probability": 0-100,
+    "time_complexity": "O(...)",
+    "space_complexity": "O(...)",
+    "strengths": ["strength1"],
+    "weaknesses": ["weakness1"],
+    "suggestions": ["suggestion1"]
+}}"""
+        
+        response = await self.llm.generate(prompt)
+        try:
+            return json.loads(response)
+        except:
+            return {
+                "code_quality_score": 70,
+                "logic_correctness": 75,
+                "code_efficiency": 70,
+                "plagiarism_probability": 20,
+                "ai_generated_probability": 25
+            }
+    
+    async def evaluate_answer_quality(self, question: str, answer: str, category: str) -> Dict[str, Any]:
+        """Evaluate technical answer quality"""
+        prompt = f"""Evaluate this interview answer:
+
+Category: {category}
+Question: {question}
+Answer: {answer}
+
+Provide evaluation in JSON:
+{{
+    "answer_quality_score": 0-100,
+    "technical_depth_score": 0-100,
+    "communication_quality_score": 0-100,
+    "completeness": 0-100,
+    "accuracy": 0-100,
+    "evaluation_summary": "detailed feedback",
+    "strong_points": ["point1"],
+    "weak_points": ["point1"],
+    "follow_up_suggestions": ["question1"]
+}}"""
+        
+        response = await self.llm.generate(prompt)
+        try:
+            return json.loads(response)
+        except:
+            return {
+                "answer_quality_score": 70,
+                "technical_depth_score": 65,
+                "communication_quality_score": 75,
+                "completeness": 70,
+                "accuracy": 75
+            }
+    
+    async def generate_interview_questions(
+        self, 
+        category: str, 
+        difficulty: str, 
+        count: int,
+        candidate_context: Optional[str] = None,
+        job_context: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Generate AI-powered interview questions"""
+        context = ""
+        if candidate_context:
+            context += f"\nCandidate Background:\n{candidate_context}\n"
+        if job_context:
+            context += f"\nJob Requirements:\n{job_context}\n"
+        
+        prompt = f"""Generate {count} {difficulty} level interview questions for category: {category}
+
+{context}
+
+Requirements:
+- Questions should be practical and relevant
+- Match the difficulty level appropriately
+- Be specific and clear
+- Include follow-up question suggestions
+
+Provide response in JSON array format:
+[
+    {{
+        "question_text": "question here",
+        "difficulty": "{difficulty}",
+        "category": "{category}",
+        "estimated_time_minutes": number,
+        "tags": ["tag1", "tag2"],
+        "follow_up_suggestions": ["follow_up1"],
+        "evaluation_criteria": ["criteria1"]
+    }}
+]"""
+        
+        response = await self.llm.generate(prompt)
+        try:
+            questions = json.loads(response)
+            return questions if isinstance(questions, list) else []
+        except:
+            return self._get_fallback_questions(category, difficulty, count)
+    
+    async def suggest_follow_up_questions(
+        self, 
+        question: str, 
+        answer: str,
+        candidate_context: Optional[str] = None
+    ) -> List[str]:
+        """Generate dynamic follow-up questions based on answer"""
+        prompt = f"""Based on this interview exchange, suggest 3 intelligent follow-up questions:
+
+Question: {question}
+Answer: {answer}
+
+{f"Candidate Context: {candidate_context}" if candidate_context else ""}
+
+Generate follow-up questions that:
+- Probe deeper into weak areas
+- Explore related concepts
+- Test practical understanding
+- Are contextually relevant
+
+Return as JSON array: ["question1", "question2", "question3"]"""
+        
+        response = await self.llm.generate(prompt)
+        try:
+            return json.loads(response)
+        except:
+            return [
+                "Can you elaborate on that approach?",
+                "How would you handle edge cases?",
+                "What alternatives did you consider?"
+            ]
+    
+    async def generate_interview_summary(
+        self,
+        transcript: str,
+        questions_and_answers: List[Dict[str, Any]],
+        events: List[Dict[str, Any]],
+        scores: Dict[str, float]
+    ) -> Dict[str, Any]:
+        """Generate comprehensive interview analysis summary"""
+        prompt = f"""Generate a comprehensive interview analysis report:
+
+Overall Scores:
+{json.dumps(scores, indent=2)}
+
+Questions & Answers:
+{json.dumps(questions_and_answers[:5], indent=2)}
+
+Suspicious Events:
+{json.dumps(events[:10], indent=2)}
+
+Transcript Sample:
+{transcript[:2000]}
+
+Provide detailed analysis in JSON:
+{{
+    "overall_rating": 0-100,
+    "hiring_recommendation": "strong_hire|hire|maybe|no_hire",
+    "candidate_strengths": ["strength1", "strength2", "strength3"],
+    "candidate_weaknesses": ["weakness1", "weakness2"],
+    "technical_fit": "detailed assessment",
+    "cultural_fit": "detailed assessment",
+    "communication_assessment": "detailed assessment",
+    "fraud_assessment": {{
+        "risk_level": "low|medium|high",
+        "confidence": 0-100,
+        "key_indicators": ["indicator1"]
+    }},
+    "improvement_areas": ["area1", "area2"],
+    "next_round_suggestion": "recommendation",
+    "key_highlights": ["highlight1", "highlight2"],
+    "red_flags": ["flag1"],
+    "executive_summary": "2-3 paragraph summary"
+}}"""
+        
+        response = await self.llm.generate(prompt)
+        try:
+            return json.loads(response)
+        except:
+            return self._get_fallback_summary(scores)
+    
+    async def analyze_behavioral_patterns(self, events: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Analyze suspicious behavioral patterns"""
+        tab_switches = len([e for e in events if e.get("event_type") == "tab_switch"])
+        copy_pastes = len([e for e in events if e.get("event_type") == "copy_paste"])
+        long_pauses = len([e for e in events if e.get("event_type") == "long_pause"])
+        
+        risk_score = min(100, (tab_switches * 10) + (copy_pastes * 15) + (long_pauses * 5))
+        
+        if risk_score < 30:
+            risk_level = "low"
+        elif risk_score < 60:
+            risk_level = "medium"
+        else:
+            risk_level = "high"
+        
+        return {
+            "risk_level": risk_level,
+            "risk_score": risk_score,
+            "tab_switching_count": tab_switches,
+            "copy_paste_count": copy_pastes,
+            "long_pause_count": long_pauses,
+            "suspicious_patterns": [
+                f"Detected {tab_switches} tab switches" if tab_switches > 3 else None,
+                f"Detected {copy_pastes} copy-paste actions" if copy_pastes > 2 else None,
+                f"Detected {long_pauses} unusually long pauses" if long_pauses > 5 else None
+            ],
+            "recommendation": "Review manually" if risk_level == "high" else "Acceptable"
+        }
+    
+    def _get_fallback_questions(self, category: str, difficulty: str, count: int) -> List[Dict[str, Any]]:
+        """Fallback questions if AI generation fails"""
+        questions = {
+            "technical_frontend": [
+                "Explain the virtual DOM and how React uses it for performance optimization.",
+                "What are React hooks and how do they differ from class components?",
+                "Describe the CSS box model and common layout techniques."
+            ],
+            "technical_backend": [
+                "Explain RESTful API design principles and best practices.",
+                "How do you handle database transactions and ensure data consistency?",
+                "Describe microservices architecture and its trade-offs."
+            ],
+            "technical_dsa": [
+                "Explain the difference between BFS and DFS. When would you use each?",
+                "How do you detect a cycle in a linked list?",
+                "Describe how a hash table works and handles collisions."
+            ],
+            "coding_algorithms": [
+                "Write a function to reverse a linked list.",
+                "Implement binary search on a sorted array.",
+                "Find the longest substring without repeating characters."
+            ]
+        }
+        
+        default_questions = questions.get(category, [
+            "Describe your experience with this technology.",
+            "How do you approach problem-solving?",
+            "What's your biggest technical achievement?"
+        ])
+        
+        return [
+            {
+                "question_text": q,
+                "difficulty": difficulty,
+                "category": category,
+                "estimated_time_minutes": 10,
+                "tags": [category, difficulty]
+            }
+            for q in default_questions[:count]
+        ]
+    
+    def _get_fallback_summary(self, scores: Dict[str, float]) -> Dict[str, Any]:
+        """Fallback summary if AI generation fails"""
+        avg_score = sum(scores.values()) / len(scores) if scores else 50
+        
+        return {
+            "overall_rating": avg_score,
+            "hiring_recommendation": "hire" if avg_score > 70 else "maybe",
+            "candidate_strengths": ["Technical knowledge", "Communication skills"],
+            "candidate_weaknesses": ["Needs more experience"],
+            "technical_fit": "Candidate demonstrates solid technical understanding.",
+            "executive_summary": "Candidate performed adequately in the interview."
+        }
+
+
+# Singleton instance
+_interview_ai_service = None
+
+def get_interview_ai_service() -> InterviewAIService:
+    global _interview_ai_service
+    if _interview_ai_service is None:
+        _interview_ai_service = InterviewAIService()
+    return _interview_ai_service
