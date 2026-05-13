@@ -19,23 +19,30 @@ export default function RecruiterAIPanel({ interviewId }) {
     current_answer_quality: 0,
     missing_points: [],
     correct_points: [],
-    incorrect_points: []
+    incorrect_points: [],
+    tab_switches: 0,
+    copy_paste: 0,
+    long_pauses: 0
   });
+  const [isInterviewActive, setIsInterviewActive] = useState(false);
 
   useEffect(() => {
-    // Simulate real-time updates
+    // Only update scores when interview is actually active
+    // In production, this would come from WebSocket real-time data
+    if (!isInterviewActive) return;
+
     const interval = setInterval(() => {
-      // In production, this would come from WebSocket
+      // Real-time updates would come from backend WebSocket
       setAnalysis(prev => ({
         ...prev,
-        technical_score: Math.min(100, prev.technical_score + Math.random() * 5),
-        communication_score: Math.min(100, prev.communication_score + Math.random() * 3),
-        confidence_score: Math.min(100, prev.confidence_score + Math.random() * 4)
+        technical_score: Math.min(100, prev.technical_score + Math.random() * 2),
+        communication_score: Math.min(100, prev.communication_score + Math.random() * 1.5),
+        confidence_score: Math.min(100, prev.confidence_score + Math.random() * 2)
       }));
-    }, 3000);
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isInterviewActive]);
 
   const ScoreCard = ({ label, value, icon: Icon, color }) => (
     <div className="bg-black/40 rounded-xl p-4 border border-purple-500/10">
@@ -136,15 +143,15 @@ export default function RecruiterAIPanel({ interviewId }) {
         <div className="space-y-2 text-xs">
           <div className="flex items-center justify-between p-2 bg-purple-500/10 rounded-lg">
             <span className="text-purple-300">Tab Switches</span>
-            <span className="text-white font-mono">0</span>
+            <span className="text-white font-mono">{analysis.tab_switches}</span>
           </div>
           <div className="flex items-center justify-between p-2 bg-purple-500/10 rounded-lg">
             <span className="text-purple-300">Copy-Paste</span>
-            <span className="text-white font-mono">0</span>
+            <span className="text-white font-mono">{analysis.copy_paste}</span>
           </div>
           <div className="flex items-center justify-between p-2 bg-purple-500/10 rounded-lg">
             <span className="text-purple-300">Long Pauses</span>
-            <span className="text-white font-mono">0</span>
+            <span className="text-white font-mono">{analysis.long_pauses}</span>
           </div>
         </div>
       </div>
@@ -289,8 +296,17 @@ export default function RecruiterAIPanel({ interviewId }) {
       {/* Activity Indicator */}
       <div className="pt-4 border-t border-purple-500/20">
         <div className="flex items-center justify-center gap-2 text-purple-300">
-          <Activity className="w-4 h-4 animate-pulse" />
-          <span className="text-xs">AI actively monitoring...</span>
+          {isInterviewActive ? (
+            <>
+              <Activity className="w-4 h-4 animate-pulse" />
+              <span className="text-xs">AI actively monitoring...</span>
+            </>
+          ) : (
+            <>
+              <Eye className="w-4 h-4" />
+              <span className="text-xs">Waiting for interview to start...</span>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -131,50 +131,44 @@ async def create_interview(
             "questions": []
         }
         
-        # Send emails in background (non-blocking)
+        # Send emails synchronously (blocking but reliable)
         try:
             email_service = get_email_service()
             frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
             
-            candidate_meeting_link = f"{frontend_url}/join/{interview.id}?token={candidate_token}"
-            recruiter_meeting_link = f"{frontend_url}/interview-room/{interview.id}"
+            candidate_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}?token={candidate_token}"
+            recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}"
             
-            # Send candidate email in background
+            # Send candidate email
             if candidate.email:
-                def send_candidate_email():
-                    try:
-                        email_service.send_interview_invitation(
-                            candidate_email=candidate.email,
-                            candidate_name=candidate.name,
-                            interview_title=interview.title,
-                            scheduled_at=interview.scheduled_at,
-                            duration=interview.duration_minutes or 60,
-                            meeting_link=candidate_meeting_link,
-                            recruiter_name=current_user.full_name,
-                            description=job.description[:200] if job else ""
-                        )
-                        print(f"✅ Candidate invitation sent to {candidate.email}")
-                    except Exception as e:
-                        print(f"❌ Failed to send candidate invitation: {e}")
-                
-                threading.Thread(target=send_candidate_email, daemon=True).start()
-            
-            # Send recruiter email in background
-            def send_recruiter_email():
                 try:
-                    email_service.send_recruiter_confirmation(
-                        recruiter_email=current_user.email,
-                        recruiter_name=current_user.full_name,
+                    email_service.send_interview_invitation(
+                        candidate_email=candidate.email,
                         candidate_name=candidate.name,
                         interview_title=interview.title,
                         scheduled_at=interview.scheduled_at,
-                        meeting_link=recruiter_meeting_link
+                        duration=interview.duration_minutes or 60,
+                        meeting_link=candidate_meeting_link,
+                        recruiter_name=current_user.full_name,
+                        description=job.description[:200] if job else ""
                     )
-                    print(f"✅ Recruiter confirmation sent to {current_user.email}")
+                    print(f"✅ Candidate invitation sent to {candidate.email}")
                 except Exception as e:
-                    print(f"❌ Failed to send recruiter confirmation: {e}")
+                    print(f"❌ Failed to send candidate invitation: {e}")
             
-            threading.Thread(target=send_recruiter_email, daemon=True).start()
+            # Send recruiter email
+            try:
+                email_service.send_recruiter_confirmation(
+                    recruiter_email=current_user.email,
+                    recruiter_name=current_user.full_name,
+                    candidate_name=candidate.name,
+                    interview_title=interview.title,
+                    scheduled_at=interview.scheduled_at,
+                    meeting_link=recruiter_meeting_link
+                )
+                print(f"✅ Recruiter confirmation sent to {current_user.email}")
+            except Exception as e:
+                print(f"❌ Failed to send recruiter confirmation: {e}")
             
         except Exception as e:
             print(f"⚠️ Email service error (non-critical): {e}")

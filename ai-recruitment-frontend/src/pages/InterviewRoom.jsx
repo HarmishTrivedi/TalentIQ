@@ -293,14 +293,23 @@ export default function InterviewRoom() {
   };
 
   const endInterview = async () => {
-    if (window.confirm('Are you sure you want to end this interview?')) {
-      try {
+    try {
+      if (isRecruiter) {
         await api.post(`/interviews/${interviewId}/end`);
-        toast.success('Interview ended');
-        navigate(`/interviews/${interviewId}/analysis`);
-      } catch (error) {
-        toast.error('Failed to end interview');
+        toast.success('Interview ended successfully');
+        cleanup();
+        navigate('/interviews');
+      } else {
+        toast.success('You have left the interview');
+        cleanup();
+        navigate('/');
       }
+    } catch (error) {
+      console.error('Error ending interview:', error);
+      toast.error('Failed to end interview');
+      // Still cleanup and navigate even if API fails
+      cleanup();
+      navigate(isRecruiter ? '/interviews' : '/');
     }
   };
 
@@ -387,10 +396,10 @@ export default function InterviewRoom() {
       <div className="flex-1 flex overflow-hidden">
         {/* Video Area */}
         <div className={`flex-1 flex flex-col p-4 ${isRecruiter ? 'pr-2' : ''}`}>
-          {/* Main Video Grid */}
-          <div className="flex-1 grid grid-cols-2 gap-4 mb-4">
-            {/* Remote Video (Candidate for Recruiter, Recruiter for Candidate) */}
-            <div className="relative bg-slate-900 rounded-2xl overflow-hidden">
+          {/* Main Video Grid - Larger candidate video */}
+          <div className="flex-1 flex gap-4 mb-4">
+            {/* Remote Video (Candidate for Recruiter, Recruiter for Candidate) - LARGER */}
+            <div className="relative bg-slate-900 rounded-2xl overflow-hidden flex-[2]">
               <video
                 ref={remoteVideoRef}
                 autoPlay
@@ -409,8 +418,8 @@ export default function InterviewRoom() {
               )}
             </div>
 
-            {/* Local Video */}
-            <div className="relative bg-slate-900 rounded-2xl overflow-hidden">
+            {/* Local Video - SMALLER */}
+            <div className="relative bg-slate-900 rounded-2xl overflow-hidden flex-1">
               <video
                 ref={localVideoRef}
                 autoPlay
