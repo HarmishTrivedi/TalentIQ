@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 export default function InterviewSchedule() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function InterviewSchedule() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, interviewId: null, title: '' });
 
   useEffect(() => {
     loadInterviews();
@@ -127,7 +129,7 @@ export default function InterviewSchedule() {
   };
 
   const handleStartInterview = (interviewId) => {
-    navigate(`/interview-room/${interviewId}`);
+    navigate(`/interview-prejoin/${interviewId}`);
   };
 
   const handleViewDetails = (interviewId, status) => {
@@ -143,10 +145,17 @@ export default function InterviewSchedule() {
   };
 
   const handleDelete = async (interviewId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this interview? This action cannot be undone.')) return;
-    
+    const interview = interviews.find(i => i.id === interviewId);
+    setDeleteDialog({
+      isOpen: true,
+      interviewId,
+      title: interview?.title || 'this interview'
+    });
+  };
+
+  const confirmDelete = async () => {
     try {
-      await api.delete(`/interviews/${interviewId}`);
+      await api.delete(`/interviews/${deleteDialog.interviewId}`);
       toast.success('Interview deleted permanently');
       loadInterviews();
     } catch (error) {
@@ -447,6 +456,18 @@ export default function InterviewSchedule() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={() => setDeleteDialog({ isOpen: false, interviewId: null, title: '' })}
+        onConfirm={confirmDelete}
+        title="Delete Interview"
+        message={`Are you sure you want to permanently delete "${deleteDialog.title}"? This action cannot be undone and will remove all associated data.`}
+        confirmText="Delete Permanently"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 }

@@ -255,21 +255,55 @@ async def list_interviews(
     return interviews_data
 
 
-@router.get("/{interview_id}", response_model=InterviewResponse)
+@router.get("/{interview_id}")
 async def get_interview(
     interview_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get interview details"""
-    interview = await db.get(Interview, interview_id)
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(Interview)
+        .options(selectinload(Interview.candidate))
+        .options(selectinload(Interview.job))
+        .where(Interview.id == interview_id)
+    )
+    interview = result.scalar_one_or_none()
+    
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
     
     if interview.recruiter_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
     
-    return interview
+    # Return dict to avoid lazy loading
+    return {
+        "id": interview.id,
+        "candidate_id": interview.candidate_id,
+        "job_id": interview.job_id,
+        "recruiter_id": interview.recruiter_id,
+        "title": interview.title,
+        "status": interview.status,
+        "scheduled_at": interview.scheduled_at,
+        "started_at": interview.started_at,
+        "ended_at": interview.ended_at,
+        "duration_minutes": interview.duration_minutes,
+        "interview_types": interview.interview_types,
+        "candidate_access_token": interview.candidate_access_token,
+        "created_at": interview.created_at,
+        "candidate": {
+            "id": interview.candidate.id,
+            "name": interview.candidate.name,
+            "email": interview.candidate.email,
+        } if interview.candidate else None,
+        "job": {
+            "id": interview.job.id,
+            "title": interview.job.title,
+            "company": interview.job.company,
+        } if interview.job else None
+    }
 
 
 @router.get("/join/{interview_id}", response_model=InterviewResponse)
@@ -289,7 +323,7 @@ async def get_interview_by_token(
     return interview
 
 
-@router.patch("/{interview_id}", response_model=InterviewResponse)
+@router.patch("/{interview_id}")
 async def update_interview(
     interview_id: str,
     data: InterviewUpdate,
@@ -309,13 +343,27 @@ async def update_interview(
     if data.status:
         interview.status = data.status
     if data.scheduled_at:
-        # Convert timezone-aware datetime to timezone-naive
         interview.scheduled_at = data.scheduled_at.replace(tzinfo=None) if data.scheduled_at.tzinfo else data.scheduled_at
     
     await db.commit()
     await db.refresh(interview)
     
-    return interview
+    # Return dict to avoid lazy loading
+    return {
+        "id": interview.id,
+        "candidate_id": interview.candidate_id,
+        "job_id": interview.job_id,
+        "recruiter_id": interview.recruiter_id,
+        "title": interview.title,
+        "status": interview.status,
+        "scheduled_at": interview.scheduled_at,
+        "started_at": interview.started_at,
+        "ended_at": interview.ended_at,
+        "duration_minutes": interview.duration_minutes,
+        "interview_types": interview.interview_types,
+        "created_at": interview.created_at,
+        "message": "Interview updated successfully"
+    }
 
 
 @router.delete("/{interview_id}")

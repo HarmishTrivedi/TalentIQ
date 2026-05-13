@@ -14,6 +14,7 @@ const JobDetail = lazy(() => import('./pages/JobDetail'))
 const Matching = lazy(() => import('./pages/Matching'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const InterviewRoom = lazy(() => import('./pages/InterviewRoom'))
+const InterviewPreJoin = lazy(() => import('./pages/InterviewPreJoin'))
 const ScheduleInterview = lazy(() => import('./pages/ScheduleInterview'))
 const InterviewSchedule = lazy(() => import('./pages/InterviewSchedule'))
 const AIInterviews = lazy(() => import('./pages/AIInterviews'))
@@ -113,6 +114,7 @@ export default function App() {
             <Route path="/interviews/schedule" element={<ScheduleInterview />} />
             <Route path="/interviews/:interviewId" element={<LiveInterview />} />
             <Route path="/interviews/:interviewId/analysis" element={<InterviewAnalysis />} />
+            <Route path="/interview-prejoin/:interviewId" element={<InterviewPreJoin />} />
             <Route path="/interview-room/:interviewId" element={<InterviewRoom />} />
             <Route path="/questions/generate" element={<QuestionGenerator />} />
 
