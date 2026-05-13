@@ -15,6 +15,7 @@ export default function ScheduleInterview() {
   
   const [loading, setLoading] = useState(false);
   const [candidate, setCandidate] = useState(null);
+  const [candidates, setCandidates] = useState([]);
   const [jobs, setJobs] = useState([]);
   
   const [formData, setFormData] = useState({
@@ -35,10 +36,20 @@ export default function ScheduleInterview() {
 
   useEffect(() => {
     loadJobs();
+    loadCandidates();
     if (candidateId) {
       loadCandidate(candidateId);
     }
   }, [candidateId]);
+
+  const loadCandidates = async () => {
+    try {
+      const response = await api.get('/candidates');
+      setCandidates(response.data.candidates || []);
+    } catch (error) {
+      console.error('Failed to load candidates');
+    }
+  };
 
   const loadCandidate = async (id) => {
     try {
@@ -72,13 +83,18 @@ export default function ScheduleInterview() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.candidate_name || !formData.candidate_email) {
-      toast.error('Please fill in candidate details');
+    if (!formData.candidate_id) {
+      toast.error('Please select a candidate');
       return;
     }
     
     if (!formData.scheduled_date || !formData.scheduled_time) {
       toast.error('Please select date and time');
+      return;
+    }
+
+    if (!formData.title) {
+      toast.error('Please enter interview title');
       return;
     }
 
@@ -88,43 +104,40 @@ export default function ScheduleInterview() {
       const scheduledAt = new Date(`${formData.scheduled_date}T${formData.scheduled_time}`);
       
       const payload = {
-        candidate_id: formData.candidate_id || null,
-        job_id: formData.job_id || null,
+        candidate_id: formData.candidate_id,
+        job_id: formData.job_id || undefined,
         title: formData.title,
         scheduled_at: scheduledAt.toISOString(),
-        duration_minutes: formData.duration,
-        interview_types: formData.interview_types
+        duration_minutes: parseInt(formData.duration),
+        interview_types: formData.interview_types.length > 0 ? formData.interview_types : ['technical']
       };
 
+      console.log('Submitting interview:', payload);
       const response = await api.post('/interviews', payload);
-      const interviewId = response.data.id;
       
-      // Send email notifications
-      try {
-        await api.post('/interviews/send-invitation', {
-          interview_id: interviewId,
-          candidate_email: formData.candidate_email,
-          candidate_name: formData.candidate_name,
-          interview_title: formData.title,
-          scheduled_at: scheduledAt.toISOString(),
-          duration: formData.duration,
-          meeting_link: `${window.location.origin}/interview-room/${interviewId}`,
-          recruiter_name: 'TalentIQ Team',
-          description: formData.description
-        });
-        
-        toast.success('Interview scheduled! Invitation emails sent.');
-      } catch (emailError) {
-        console.error('Email error:', emailError);
-        toast.success('Interview scheduled! (Email notification pending)');
-      }
-
+      toast.success('Interview scheduled successfully! Invitation email sent.');
       navigate('/interviews');
     } catch (error) {
       console.error('Schedule error:', error);
-      toast.error(error.response?.data?.detail || 'Failed to schedule interview');
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to schedule interview';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCandidateChange = (selectedCandidateId) => {
+    const selectedCandidate = candidates.find(c => c.id === selectedCandidateId);
+    if (selectedCandidate) {
+      setCandidate(selectedCandidate);
+      setFormData(prev => ({
+        ...prev,
+        candidate_id: selectedCandidateId,
+        candidate_name: selectedCandidate.name,
+        candidate_email: selectedCandidate.email || '',
+        title: `Interview with ${selectedCandidate.name}`,
+        description: `Technical interview for ${selectedCandidate.name}\n\nSkills: ${(selectedCandidate.skills?.technical || []).join(', ')}\nExperience: ${selectedCandidate.experience_years} years`
+      }));
     }
   };
 
@@ -183,6 +196,32 @@ export default function ScheduleInterview() {
               Candidate Information
             </h2>
             
+            {!candidateId && (
+              <div className="mb-4">
+                <label className="block text-purple-300 text-sm font-semibold mb-2">
+                  Select Candidate *
+                </label>
+                <select
+                  value={formData.candidate_id}
+                  onChange={(e) => handleCandidateChange(e.target.value)}
+                  className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                  required
+                >
+                  <option value="">Choose a candidate...</option>
+                  {candidates.map((cand) => (
+                    <option key={cand.id} value={cand.id}>
+                      {cand.name} - {cand.email}
+                    </option>
+                  ))}
+                </select>
+                {candidates.length === 0 && (
+                  <p className="text-sm text-orange-400 mt-2">
+                    No candidates found. Please upload candidate CVs first.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-purple-300 text-sm font-semibold mb-2">
@@ -195,6 +234,7 @@ export default function ScheduleInterview() {
                   className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500"
                   placeholder="John Doe"
                   required
+                  disabled={!!candidateId}
                 />
               </div>
 
@@ -209,6 +249,7 @@ export default function ScheduleInterview() {
                   className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500"
                   placeholder="john@example.com"
                   required
+                  disabled={!!candidateId}
                 />
               </div>
             </div>
