@@ -60,73 +60,87 @@ manager = ConnectionManager()
 
 # ─── Interview CRUD ───────────────────────────────────────────────────────────
 
-@router.post("", response_model=InterviewResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_interview(
     data: InterviewCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Create a new interview and send invitation emails"""
-    # Verify candidate exists
-    candidate = await db.get(Candidate, data.candidate_id)
-    if not candidate:
-        raise HTTPException(status_code=404, detail="Candidate not found")
-    
-    # Verify job exists if provided
-    job = None
-    if data.job_id:
-        job = await db.get(Job, data.job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
-    
-    # Generate unique candidate access token
-    candidate_token = secrets.token_urlsafe(32)
-    
-    # Convert timezone-aware datetime to timezone-naive (remove timezone info)
-    scheduled_at_naive = data.scheduled_at.replace(tzinfo=None) if data.scheduled_at and data.scheduled_at.tzinfo else data.scheduled_at
-    
-    interview = Interview(
-        candidate_id=data.candidate_id,
-        job_id=data.job_id,
-        recruiter_id=current_user.id,
-        title=data.title,
-        scheduled_at=scheduled_at_naive,
-        duration_minutes=data.duration_minutes if hasattr(data, 'duration_minutes') else 60,
-        status=InterviewStatus.scheduled,
-        candidate_access_token=candidate_token,
-        interview_types=data.interview_types if hasattr(data, 'interview_types') else [],
-        metadata_={"meeting_link": data.meeting_link if hasattr(data, 'meeting_link') else None}
-    )
-    
-    db.add(interview)
-    await db.commit()
-    await db.refresh(interview)
-    
-    # Eagerly load relationships to avoid lazy loading issues
-    from sqlalchemy.orm import selectinload
-    result = await db.execute(
-        select(Interview)
-        .options(selectinload(Interview.candidate))
-        .options(selectinload(Interview.questions))
-        .where(Interview.id == interview.id)
-    )
-    interview = result.scalar_one()
-    
-    # Send invitation emails in background (non-blocking)
-    # Don't wait for email sending to complete - return success immediately
     try:
-        email_service = get_email_service()
-        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+        # Verify candidate exists
+        candidate = await db.get(Candidate, data.candidate_id)
+        if not candidate:
+            raise HTTPException(status_code=404, detail="Candidate not found")
         
-        # Candidate gets special join link with token (no auth required)
-        candidate_meeting_link = f"{frontend_url}/join/{interview.id}?token={candidate_token}"
+        # Verify job exists if provided
+        job = None
+        if data.job_id:
+            job = await db.get(Job, data.job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="Job not found")
         
-        # Recruiter gets normal interview room link
-        recruiter_meeting_link = f"{frontend_url}/interview-room/{interview.id}"
+        # Generate unique candidate access token
+        candidate_token = secrets.token_urlsafe(32)
         
-        # Send to candidate (with timeout protection)
-        if candidate.email:
-            try:
+        # Handle datetime conversion
+        scheduled_at_naive = data.scheduled_at
+        if scheduled_at_naive and hasattr(scheduled_at_naive, 'tzinfo') and scheduled_at_naive.tzinfo:
+            scheduled_at_naive = scheduled_at_naive.replace(tzinfo=None)
+        
+        # Create interview
+        interview = Interview(
+            candidate_id=data.candidate_id,
+            job_id=data.job_id,
+            recruiter_id=current_user.id,
+            title=data.title,
+            scheduled_at=scheduled_at_naive,
+            duration_minutes=data.duration_minutes or 60,
+            status=InterviewStatus.scheduled,
+            candidate_access_token=candidate_token,
+            interview_types=data.interview_types or [],
+            metadata_={"meeting_link": data.meeting_link if hasattr(data, 'meeting_link') else None}
+        )
+        
+        db.add(interview)
+        await db.commit()
+        await db.refresh(interview)
+        
+        # Prepare response data (without relationships to avoid lazy loading)
+        response_data = {
+            "id": interview.id,
+            "candidate_id": interview.candidate_id,
+            "job_id": interview.job_id,
+            "recruiter_id": interview.recruiter_id,
+            "title": interview.title,
+            "status": interview.status,
+            "scheduled_at": interview.scheduled_at,
+            "started_at": interview.started_at,
+            "ended_at": interview.ended_at,
+            "duration_minutes": interview.duration_minutes,
+            "interview_types": interview.interview_types,
+            "candidate_access_token": interview.candidate_access_token,
+            "overall_score": interview.overall_score,
+            "technical_score": interview.technical_score,
+            "communication_score": interview.communication_score,
+            "confidence_score": interview.confidence_score,
+            "fraud_risk_level": interview.fraud_risk_level,
+            "ai_assistance_probability": interview.ai_assistance_probability,
+            "created_at": interview.created_at,
+            "candidate": None,
+            "questions": []
+        }
+        
+        # Send emails in background (non-blocking)
+        try:
+            email_service = get_email_service()
+            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+            
+            candidate_meeting_link = f"{frontend_url}/join/{interview.id}?token={candidate_token}"
+            recruiter_meeting_link = f"{frontend_url}/interview-room/{interview.id}"
+            
+            # Send candidate email in background
+            if candidate.email:
                 def send_candidate_email():
                     try:
                         email_service.send_interview_invitation(
@@ -139,17 +153,13 @@ async def create_interview(
                             recruiter_name=current_user.full_name,
                             description=job.description[:200] if job else ""
                         )
+                        print(f"✅ Candidate invitation sent to {candidate.email}")
                     except Exception as e:
-                        print(f"Failed to send candidate invitation: {e}")
+                        print(f"❌ Failed to send candidate invitation: {e}")
                 
-                # Send email in background thread
-                thread = threading.Thread(target=send_candidate_email, daemon=True)
-                thread.start()
-            except Exception as e:
-                print(f"Failed to start email thread: {e}")
-        
-        # Send confirmation to recruiter (with timeout protection)
-        try:
+                threading.Thread(target=send_candidate_email, daemon=True).start()
+            
+            # Send recruiter email in background
             def send_recruiter_email():
                 try:
                     email_service.send_recruiter_confirmation(
@@ -160,22 +170,26 @@ async def create_interview(
                         scheduled_at=interview.scheduled_at,
                         meeting_link=recruiter_meeting_link
                     )
+                    print(f"✅ Recruiter confirmation sent to {current_user.email}")
                 except Exception as e:
-                    print(f"Failed to send recruiter confirmation: {e}")
+                    print(f"❌ Failed to send recruiter confirmation: {e}")
             
-            # Send email in background thread
-            thread = threading.Thread(target=send_recruiter_email, daemon=True)
-            thread.start()
+            threading.Thread(target=send_recruiter_email, daemon=True).start()
+            
         except Exception as e:
-            print(f"Failed to start recruiter email thread: {e}")
+            print(f"⚠️ Email service error (non-critical): {e}")
+        
+        print(f"✅ Interview created successfully: {interview.id}")
+        return response_data
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Email service error (non-critical): {e}")
-    
-    # Return immediately without waiting for emails
-    return interview
+        print(f"❌ Error creating interview: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("", response_model=List[InterviewResponse])
+@router.get("")
 async def list_interviews(
     status: Optional[str] = None,
     candidate_id: Optional[str] = None,
@@ -185,6 +199,8 @@ async def list_interviews(
     current_user: User = Depends(get_current_user)
 ):
     """List interviews with filters"""
+    from sqlalchemy.orm import selectinload
+    
     query = select(Interview).where(Interview.recruiter_id == current_user.id)
     
     if status:
@@ -192,12 +208,51 @@ async def list_interviews(
     if candidate_id:
         query = query.where(Interview.candidate_id == candidate_id)
     
-    query = query.order_by(Interview.created_at.desc()).offset(skip).limit(limit)
+    # Eagerly load relationships
+    query = query.options(
+        selectinload(Interview.candidate),
+        selectinload(Interview.job)
+    ).order_by(Interview.created_at.desc()).offset(skip).limit(limit)
     
     result = await db.execute(query)
     interviews = result.scalars().all()
     
-    return interviews
+    # Convert to dict to avoid lazy loading
+    interviews_data = []
+    for interview in interviews:
+        interview_dict = {
+            "id": interview.id,
+            "candidate_id": interview.candidate_id,
+            "job_id": interview.job_id,
+            "recruiter_id": interview.recruiter_id,
+            "title": interview.title,
+            "status": interview.status,
+            "scheduled_at": interview.scheduled_at,
+            "started_at": interview.started_at,
+            "ended_at": interview.ended_at,
+            "duration_minutes": interview.duration_minutes,
+            "interview_types": interview.interview_types,
+            "overall_score": interview.overall_score,
+            "technical_score": interview.technical_score,
+            "communication_score": interview.communication_score,
+            "confidence_score": interview.confidence_score,
+            "fraud_risk_level": interview.fraud_risk_level,
+            "ai_assistance_probability": interview.ai_assistance_probability,
+            "created_at": interview.created_at,
+            "candidate": {
+                "id": interview.candidate.id,
+                "name": interview.candidate.name,
+                "email": interview.candidate.email,
+            } if interview.candidate else None,
+            "job": {
+                "id": interview.job.id,
+                "title": interview.job.title,
+                "company": interview.job.company,
+            } if interview.job else None
+        }
+        interviews_data.append(interview_dict)
+    
+    return interviews_data
 
 
 @router.get("/{interview_id}", response_model=InterviewResponse)
