@@ -37,27 +37,94 @@ ROLE DETAILS:
 - Key Skills: {key_skills}
 - Additional Notes: {extra_notes}
 
-Generate a comprehensive, well-structured JD with these exact sections:
+Generate a comprehensive, well-structured JD in MARKDOWN format with these exact sections:
+
+# {role_title}
+
+**Company:** {company}  
+**Location:** {location}  
+**Job Type:** {job_type}  
+**Experience:** {experience_years}  
+
+---
 
 ## About the Role
-[2-3 sentences describing the role and its impact]
+
+[Write 2-3 compelling sentences describing the role, its impact, and why it's exciting. Be specific about what the person will do and achieve.]
+
+---
 
 ## Key Responsibilities
-[8-10 bullet points of specific responsibilities]
+
+- [Specific responsibility with action verb - be detailed]
+- [Another key responsibility - mention technologies/tools]
+- [Responsibility related to team collaboration]
+- [Responsibility about project ownership]
+- [Responsibility about technical decisions]
+- [Responsibility about code quality/best practices]
+- [Responsibility about mentoring or leadership]
+- [Responsibility about stakeholder communication]
+- [Additional responsibility if relevant]
+- [Final key responsibility]
+
+---
 
 ## Required Qualifications
-[6-8 bullet points of must-have requirements]
+
+- [Specific years of experience with technology/domain]
+- [Specific technical skill or framework - be precise]
+- [Another must-have technical skill]
+- [Soft skill or methodology requirement]
+- [Educational requirement or equivalent experience]
+- [Communication or collaboration requirement]
+- [Problem-solving or analytical skill]
+- [Additional must-have qualification]
+
+---
 
 ## Preferred Qualifications
-[4-5 bullet points of nice-to-have skills]
+
+- [Nice-to-have technical skill or certification]
+- [Experience with specific tools or platforms]
+- [Additional programming language or framework]
+- [Industry-specific knowledge]
+- [Leadership or mentoring experience]
+
+---
 
 ## What We Offer
-[5-6 bullet points of benefits and perks]
+
+- 💰 Competitive salary and equity/stock options
+- 🏥 Flexible work arrangements (remote/hybrid options)
+- 📚 Professional development and learning budget
+- 🏋️ Health, dental, and wellness benefits
+- 🌴 Generous PTO and work-life balance
+- 🚀 Opportunity to work on cutting-edge technology
+
+---
 
 ## About {company}
-[2-3 sentences about the company culture and mission]
 
-Make it professional, specific, engaging, and realistic. Use action verbs. Be specific about technologies and skills. Do NOT use placeholder text."""
+[Write 2-3 sentences about the company's mission, culture, values, and what makes it a great place to work. Be authentic and specific.]
+
+---
+
+**How to Apply:**  
+Interested candidates should submit their resume and portfolio through our careers portal.
+
+*{company} is an equal opportunity employer. We celebrate diversity and are committed to creating an inclusive environment for all employees.*
+
+---
+
+IMPORTANT INSTRUCTIONS:
+- Use REAL, SPECIFIC details - NO placeholder text like "[Company Name]" or "[Technology]"
+- Mention actual technologies, frameworks, and tools relevant to {role_title}
+- Be professional but engaging
+- Use action verbs (Lead, Design, Implement, Collaborate, etc.)
+- Make responsibilities and qualifications realistic and achievable
+- Ensure the JD is ready to post immediately without any editing
+- Format everything in clean Markdown
+"""
 
 
 @router.post("/generate-jd")
@@ -65,28 +132,35 @@ async def generate_jd(
     request: JDGenerateRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Generate a professional Job Description using AI."""
+    """Generate a professional Job Description using AI with perfect formatting."""
     from app.services.llm_service import get_llm_service
     llm = get_llm_service()
 
     prompt = JD_GENERATION_PROMPT
-    prompt = prompt.replace("{role_title}", request.role_title or "Not specified")
-    prompt = prompt.replace("{company}", request.company or "Our Company")
+    prompt = prompt.replace("{role_title}", request.role_title or "Software Engineer")
+    prompt = prompt.replace("{company}", request.company or "TechCorp")
     prompt = prompt.replace("{industry}", request.industry or "Technology")
-    prompt = prompt.replace("{experience_years}", request.experience_years or "Not specified")
+    prompt = prompt.replace("{experience_years}", request.experience_years or "3-5 years")
     prompt = prompt.replace("{location}", request.location or "Remote")
     prompt = prompt.replace("{job_type}", request.job_type or "Full-time")
-    prompt = prompt.replace("{key_skills}", request.key_skills or "Not specified")
+    prompt = prompt.replace("{key_skills}", request.key_skills or "Programming, Problem Solving")
     prompt = prompt.replace("{extra_notes}", request.extra_notes or "None")
 
     jd_text = await llm.generate(
         prompt=prompt,
-        system_prompt="You are a senior HR professional and technical recruiter. Write compelling, accurate, professional job descriptions.",
+        system_prompt="You are a senior HR professional and technical recruiter with 15+ years of experience. Write compelling, accurate, professional job descriptions in perfect Markdown format. Be specific, realistic, and engaging. Never use placeholder text.",
         temperature=0.7,
-        max_tokens=2000,
+        max_tokens=2500,
     )
 
-    return { "jd": jd_text }
+    return {
+        "jd": jd_text,
+        "formatted": True,
+        "role_title": request.role_title,
+        "company": request.company or "TechCorp",
+        "location": request.location or "Remote",
+        "job_type": request.job_type or "Full-time"
+    }
 
 
 @router.post("", response_model=JobResponse, status_code=201)

@@ -17,6 +17,7 @@ from app.utils.auth import (
     decode_token, get_current_user,
 )
 from app.config import settings
+from app.services.email_service import get_email_service
 
 
 class ProfileUpdate(BaseModel):
@@ -77,7 +78,21 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         phone=user_data.phone,
     )
     db.add(user)
-    await db.flush()
+    await db.commit()
+    await db.refresh(user)
+    
+    # Send welcome email to new recruiter
+    try:
+        email_service = get_email_service()
+        email_service.send_welcome_email(
+            recruiter_email=user.email,
+            recruiter_name=user.full_name,
+            company_name=user_data.company_name if hasattr(user_data, 'company_name') else None
+        )
+    except Exception as e:
+        print(f"Failed to send welcome email: {e}")
+        # Don't fail registration if email fails
+    
     return user
 
 

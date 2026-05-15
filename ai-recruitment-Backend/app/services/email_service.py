@@ -671,6 +671,231 @@ TalentIQ Team
 """
         
         return self.send_email(recruiter_email, subject, html_content)
+    
+    def send_welcome_email(
+        self,
+        recruiter_email: str,
+        recruiter_name: str,
+        company_name: str = None
+    ):
+        """Send stylish welcome email to new recruiter"""
+        
+        subject = f"🎉 Welcome to TalentIQ - Your AI-Powered Recruitment Journey Begins!"
+        
+        company_greeting = f" from {company_name}" if company_name else ""
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 0; background: #0a0b14; }}
+        .container {{ max-width: 650px; margin: 0 auto; background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899); padding: 50px 20px; }}
+        .card {{ background: white; border-radius: 24px; padding: 50px 40px; box-shadow: 0 25px 70px rgba(0,0,0,0.4); }}
+        .logo-section {{ text-align: center; margin-bottom: 40px; }}
+        .logo-text {{ font-size: 48px; font-weight: 900; background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; }}
+        .tagline {{ color: #64748b; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin-top: 8px; }}
+        h1 {{ color: #1e293b; font-size: 32px; margin-bottom: 15px; line-height: 1.2; }}
+        .subtitle {{ color: #64748b; font-size: 18px; margin-bottom: 35px; line-height: 1.6; }}
+        .welcome-box {{ background: linear-gradient(135deg, #f0f9ff, #fae8ff); border: 2px solid #c084fc; padding: 30px; margin: 30px 0; border-radius: 16px; text-align: center; }}
+        .welcome-box h2 {{ color: #7c3aed; font-size: 24px; margin: 0 0 10px 0; }}
+        .welcome-box p {{ color: #6b21a8; font-size: 16px; margin: 0; font-weight: 500; }}
+        .features-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 35px 0; }}
+        .feature-card {{ background: #f8fafc; border-left: 4px solid #6366f1; padding: 20px; border-radius: 12px; transition: all 0.3s; }}
+        .feature-card:hover {{ background: #f1f5f9; transform: translateX(5px); }}
+        .feature-icon {{ font-size: 28px; margin-bottom: 10px; }}
+        .feature-title {{ color: #1e293b; font-weight: 700; font-size: 16px; margin-bottom: 8px; }}
+        .feature-desc {{ color: #64748b; font-size: 14px; line-height: 1.5; }}
+        .cta-section {{ text-align: center; margin: 40px 0; }}
+        .button {{ display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 18px 45px; text-decoration: none; border-radius: 14px; font-weight: 700; font-size: 17px; margin: 10px; box-shadow: 0 8px 30px rgba(99,102,241,0.4); transition: all 0.3s; }}
+        .button:hover {{ box-shadow: 0 12px 40px rgba(99,102,241,0.6); transform: translateY(-2px); }}
+        .button-secondary {{ background: linear-gradient(135deg, #10b981, #3b82f6); box-shadow: 0 8px 30px rgba(16,185,129,0.4); }}
+        .button-secondary:hover {{ box-shadow: 0 12px 40px rgba(16,185,129,0.6); }}
+        .stats-box {{ background: linear-gradient(135deg, #fef3c7, #fed7aa); border: 2px solid #f59e0b; padding: 25px; margin: 30px 0; border-radius: 16px; }}
+        .stats-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center; margin-top: 20px; }}
+        .stat-item {{ }}
+        .stat-number {{ font-size: 32px; font-weight: 900; color: #92400e; margin-bottom: 5px; }}
+        .stat-label {{ font-size: 13px; color: #78350f; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }}
+        .tips-section {{ background: #dbeafe; border-left: 4px solid #3b82f6; padding: 25px; margin: 30px 0; border-radius: 12px; }}
+        .tips-title {{ color: #1e40af; font-weight: 700; font-size: 18px; margin-bottom: 15px; }}
+        .tips-list {{ margin: 0; padding-left: 25px; }}
+        .tips-list li {{ color: #1e3a8a; margin: 10px 0; font-size: 15px; line-height: 1.6; }}
+        .support-box {{ background: #f0fdf4; border: 2px solid #10b981; padding: 25px; margin: 30px 0; border-radius: 16px; text-align: center; }}
+        .support-box h3 {{ color: #065f46; font-size: 20px; margin: 0 0 10px 0; }}
+        .support-box p {{ color: #047857; margin: 5px 0; font-size: 15px; }}
+        .footer {{ text-align: center; color: #94a3b8; font-size: 14px; margin-top: 40px; padding-top: 30px; border-top: 2px solid #e2e8f0; }}
+        .footer-links {{ margin: 20px 0; }}
+        .footer-links a {{ color: #6366f1; text-decoration: none; margin: 0 15px; font-weight: 600; }}
+        .social-links {{ margin: 20px 0; }}
+        .social-links a {{ display: inline-block; margin: 0 10px; color: #8b5cf6; font-size: 24px; text-decoration: none; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo-section">
+                <div class="logo-text">✨ TalentIQ</div>
+                <div class="tagline">AI-Powered Recruitment Platform</div>
+            </div>
+            
+            <h1>Welcome to the Future of Hiring{company_greeting}! 🚀</h1>
+            <p class="subtitle">
+                Hi <strong>{recruiter_name}</strong>, we're thrilled to have you on board! 
+                Get ready to revolutionize your recruitment process with the power of AI.
+            </p>
+            
+            <div class="welcome-box">
+                <h2>🎉 Your Account is Ready!</h2>
+                <p>You now have access to the most advanced AI recruitment platform</p>
+            </div>
+            
+            <div class="stats-box">
+                <h3 style="color: #92400e; font-size: 20px; margin: 0 0 15px 0; text-align: center;">🔥 Platform Capabilities</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number">10x</div>
+                        <div class="stat-label">Faster Hiring</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">95%</div>
+                        <div class="stat-label">Match Accuracy</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">AI</div>
+                        <div class="stat-label">Powered</div>
+                    </div>
+                </div>
+            </div>
+            
+            <h2 style="color: #1e293b; font-size: 24px; margin: 35px 0 20px 0;">🎯 What You Can Do:</h2>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📄</div>
+                    <div class="feature-title">Smart CV Analysis</div>
+                    <div class="feature-desc">Upload CVs and let AI extract skills, experience, and insights instantly</div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <div class="feature-title">AI Matching</div>
+                    <div class="feature-desc">Match candidates to jobs with 95%+ accuracy using advanced algorithms</div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎥</div>
+                    <div class="feature-title">Live AI Interviews</div>
+                    <div class="feature-desc">Conduct interviews with real-time AI analysis and fraud detection</div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <div class="feature-title">AI Assistant</div>
+                    <div class="feature-desc">Chat with AI to get insights, generate questions, and make decisions</div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <div class="feature-title">Analytics Dashboard</div>
+                    <div class="feature-desc">Track metrics, view insights, and optimize your hiring process</div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <div class="feature-title">Auto JD Generation</div>
+                    <div class="feature-desc">Create perfect job descriptions with AI in seconds</div>
+                </div>
+            </div>
+            
+            <div class="cta-section">
+                <a href="{self.frontend_url}/dashboard" class="button">🚀 Go to Dashboard</a>
+                <a href="{self.frontend_url}/upload" class="button button-secondary">📄 Upload First CV</a>
+            </div>
+            
+            <div class="tips-section">
+                <div class="tips-title">💡 Quick Start Guide:</div>
+                <ul class="tips-list">
+                    <li><strong>Step 1:</strong> Upload candidate CVs or create job descriptions</li>
+                    <li><strong>Step 2:</strong> Let AI analyze and match candidates to positions</li>
+                    <li><strong>Step 3:</strong> Schedule AI-powered interviews with one click</li>
+                    <li><strong>Step 4:</strong> Review AI-generated insights and make informed decisions</li>
+                    <li><strong>Step 5:</strong> Track your hiring pipeline and optimize continuously</li>
+                </ul>
+            </div>
+            
+            <div class="support-box">
+                <h3>🤝 Need Help? We're Here!</h3>
+                <p>📧 Email: support@talentiq.ai</p>
+                <p>💬 Live Chat: Available in dashboard</p>
+                <p>📚 Documentation: Comprehensive guides available</p>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #e0e7ff, #fce7f3); border: 2px solid #a78bfa; padding: 25px; margin: 30px 0; border-radius: 16px; text-align: center;">
+                <p style="margin: 0; color: #5b21b6; font-size: 16px; font-weight: 600;">
+                    🎁 <strong>Special Offer:</strong> You're currently on our <strong>FREE BETA</strong> plan with all features unlocked!
+                </p>
+            </div>
+            
+            <div class="footer">
+                <p style="font-size: 16px; color: #475569; font-weight: 600; margin-bottom: 15px;">
+                    Ready to transform your hiring process? Let's get started! 🚀
+                </p>
+                
+                <div class="footer-links">
+                    <a href="{self.frontend_url}/dashboard">Dashboard</a>
+                    <a href="{self.frontend_url}/pricing">Pricing</a>
+                    <a href="{self.frontend_url}/privacy">Privacy</a>
+                    <a href="{self.frontend_url}/terms">Terms</a>
+                </div>
+                
+                <p style="margin-top: 25px; color: #cbd5e1; font-size: 13px;">
+                    © 2024 TalentIQ - AI-Powered Recruitment Platform<br>
+                    You're receiving this email because you created an account on TalentIQ
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        
+        text_content = f"""
+Welcome to TalentIQ - Your AI-Powered Recruitment Journey Begins!
+
+Hi {recruiter_name}{company_greeting},
+
+We're thrilled to have you on board! You now have access to the most advanced AI recruitment platform.
+
+What You Can Do:
+- Smart CV Analysis: Upload CVs and let AI extract insights instantly
+- AI Matching: Match candidates to jobs with 95%+ accuracy
+- Live AI Interviews: Conduct interviews with real-time AI analysis
+- AI Assistant: Chat with AI for insights and decisions
+- Analytics Dashboard: Track metrics and optimize hiring
+- Auto JD Generation: Create perfect job descriptions with AI
+
+Quick Start:
+1. Upload candidate CVs or create job descriptions
+2. Let AI analyze and match candidates
+3. Schedule AI-powered interviews
+4. Review AI insights and make decisions
+5. Track and optimize your pipeline
+
+Get Started: {self.frontend_url}/dashboard
+
+Need Help?
+Email: support@talentiq.ai
+Live Chat: Available in dashboard
+
+You're currently on our FREE BETA plan with all features unlocked!
+
+Ready to transform your hiring process? Let's get started!
+
+Best regards,
+The TalentIQ Team
+"""
+        
+        return self.send_email(recruiter_email, subject, html_content, text_content)
 
 
 # Singleton instance
