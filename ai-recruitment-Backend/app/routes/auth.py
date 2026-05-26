@@ -9,6 +9,7 @@ from pydantic import BaseModel, EmailStr
 import os, uuid, shutil
 
 from app.database import get_db
+from app.database import AsyncSessionLocal
 from app.models.models import User
 from app.models.schemas import UserCreate, UserLogin, UserResponse, TokenResponse
 from app.utils.auth import (
@@ -82,25 +83,33 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
     
-    # Send welcome email to new recruiter - CRITICAL
-    print(f"🎯 Attempting to send welcome email to: {user.email}")
-    try:
-        email_service = get_email_service()
-        success = email_service.send_welcome_email(
-            recruiter_email=user.email,
-            recruiter_name=user.full_name,
-            company_name=user.company_name if hasattr(user, 'company_name') else None
-        )
-        if success:
-            user.welcome_email_sent = True
-            await db.commit()
-            print(f"✅ Welcome email sent successfully to: {user.email}")
-        else:
-            print(f"❌ Welcome email failed to send to: {user.email}")
-    except Exception as e:
-        print(f"❌ ERROR sending welcome email: {str(e)}")
-        import traceback
-        traceback.print_exc()
+    # Send welcome email asynchronously (non-blocking)
+    print(f"🎯 New user registered: {user.email}")
+    import asyncio
+    
+    async def send_welcome_async():
+        try:
+            email_service = get_email_service()
+            success = email_service.send_welcome_email(
+                recruiter_email=user.email,
+                recruiter_name=user.full_name,
+                company_name=user.company_name if hasattr(user, 'company_name') else None
+            )
+            if success:
+                async with AsyncSessionLocal() as db_session:
+                    result = await db_session.execute(select(User).where(User.id == user.id))
+                    user_update = result.scalar_one_or_none()
+                    if user_update:
+                        user_update.welcome_email_sent = True
+                        await db_session.commit()
+                print(f"✅ Welcome email sent: {user.email}")
+            else:
+                print(f"❌ Welcome email failed: {user.email}")
+        except Exception as e:
+            print(f"❌ Welcome email error: {str(e)}")
+    
+    # Fire and forget - don't wait for email
+    asyncio.create_task(send_welcome_async())
     
     return user
 

@@ -81,29 +81,36 @@ async def google_callback(code: str = None, error: str = None, db: AsyncSession 
                 welcome_email_sent=False,
             )
             db.add(user)
-            await db.flush()
+            await db.commit()
+            await db.refresh(user)
             
-            # Send welcome email to new Google OAuth user
-            print(f"🎯 New Google OAuth user detected: {user.email}")
-            try:
-                from app.services.email_service import get_email_service
-                email_service = get_email_service()
-                success = email_service.send_welcome_email(
-                    recruiter_email=user.email,
-                    recruiter_name=user.full_name,
-                    company_name=None
-                )
-                if success:
-                    user.welcome_email_sent = True
-                    print(f"✅ Welcome email sent to new Google user: {user.email}")
-                else:
-                    print(f"❌ Failed to send welcome email to: {user.email}")
-            except Exception as e:
-                print(f"❌ ERROR sending welcome email to Google user: {str(e)}")
-                import traceback
-                traceback.print_exc()
-
-        await db.commit()
+            # Send welcome email asynchronously (non-blocking)
+            print(f"🎯 New Google OAuth user: {user.email}")
+            import asyncio
+            from app.services.email_service import get_email_service
+            
+            async def send_welcome_async():
+                try:
+                    email_service = get_email_service()
+                    success = email_service.send_welcome_email(
+                        recruiter_email=user.email,
+                        recruiter_name=user.full_name,
+                        company_name=None
+                    )
+                    if success:
+                        async with db.begin():
+                            user.welcome_email_sent = True
+                            await db.commit()
+                        print(f"✅ Welcome email sent: {user.email}")
+                    else:
+                        print(f"❌ Welcome email failed: {user.email}")
+                except Exception as e:
+                    print(f"❌ Welcome email error: {str(e)}")
+            
+            # Fire and forget - don't wait for email
+            asyncio.create_task(send_welcome_async())
+        else:
+            await db.commit()
         access_token = create_access_token({"sub": user.id})
         refresh_token = create_refresh_token({"sub": user.id})
         return RedirectResponse(
