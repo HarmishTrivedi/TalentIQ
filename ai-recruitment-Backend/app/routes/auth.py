@@ -81,17 +81,23 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
     
-    # Send welcome email to new recruiter
+    # Send welcome email to new recruiter - CRITICAL
+    print(f"🎯 Attempting to send welcome email to: {user.email}")
     try:
         email_service = get_email_service()
-        email_service.send_welcome_email(
+        success = email_service.send_welcome_email(
             recruiter_email=user.email,
             recruiter_name=user.full_name,
-            company_name=user_data.company_name if hasattr(user_data, 'company_name') else None
+            company_name=user.company_name if hasattr(user, 'company_name') else None
         )
+        if success:
+            print(f"✅ Welcome email sent successfully to: {user.email}")
+        else:
+            print(f"❌ Welcome email failed to send to: {user.email}")
     except Exception as e:
-        print(f"Failed to send welcome email: {e}")
-        # Don't fail registration if email fails
+        print(f"❌ ERROR sending welcome email: {str(e)}")
+        import traceback
+        traceback.print_exc()
     
     return user
 
@@ -246,3 +252,38 @@ async def upload_avatar(
     current_user.avatar_url = f"/uploads/{filename}"
     await db.commit()
     return {"avatar_url": current_user.avatar_url}
+
+
+@router.post("/send-welcome-email")
+async def send_welcome_email_manually(
+    current_user: User = Depends(get_current_user)
+):
+    """Manually send welcome email to current user (for testing/resend)"""
+    try:
+        email_service = get_email_service()
+        success = email_service.send_welcome_email(
+            recruiter_email=current_user.email,
+            recruiter_name=current_user.full_name,
+            company_name=current_user.company_name
+        )
+        
+        if success:
+            return {
+                "message": "Welcome email sent successfully",
+                "email": current_user.email,
+                "success": True
+            }
+        else:
+            return {
+                "message": "Failed to send welcome email",
+                "email": current_user.email,
+                "success": False
+            }
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error sending welcome email: {error_details}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send email: {str(e)}"
+        )
