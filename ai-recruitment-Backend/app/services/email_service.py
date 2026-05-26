@@ -2,14 +2,11 @@
 Email Notification Service for Interview System
 Handles interview invitations, reminders, and confirmations
 """
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 import os
 import asyncio
 import time
+import httpx
 
 class EmailService:
     """Email service for interview notifications with DB logging and retry queue"""
@@ -19,24 +16,20 @@ class EmailService:
         from dotenv import load_dotenv
         load_dotenv()
         
-        self.smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-        self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        self.smtp_user = os.getenv('SMTP_USER', '')
-        self.smtp_password = os.getenv('SMTP_PASSWORD', '')
-        self.from_email = os.getenv('FROM_EMAIL', 'noreply@talentiq.ai')
+        self.from_email = os.getenv('RESEND_FROM_EMAIL', 'onboarding@resend.dev')
         self.from_name = os.getenv('FROM_NAME', 'TalentIQ')
         self.frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+        self.resend_api_key = os.getenv('RESEND_API_KEY', '')
+        self.resend_api_url = os.getenv('RESEND_API_URL', 'https://api.resend.com/emails')
         
         # Debug: Print configuration (without password)
         print(f"[EMAIL] Email Service Initialized:")
-        print(f"   SMTP Server: {self.smtp_server}:{self.smtp_port}")
-        print(f"   SMTP User: {self.smtp_user}")
         print(f"   From Email: {self.from_email}")
-        print(f"   Password Set: {bool(self.smtp_password)}")
+        print(f"   Resend API Key Set: {bool(self.resend_api_key)}")
         
-        if not self.smtp_user or not self.smtp_password:
-            print("⚠️  WARNING: SMTP credentials not configured! Emails will fail.")
-            print("   Please set SMTP_USER and SMTP_PASSWORD in .env file")
+        if not self.resend_api_key:
+            print("[WARNING] Resend credentials not configured. Emails will fail.")
+            print("   Please set RESEND_API_KEY and RESEND_FROM_EMAIL in the environment")
     
     async def _log_email_to_db(self, recipient_email: str, email_type: str, subject: str, status: str, failure_reason: str = None, related_entity_id: str = None):
         """Log email activity to database asynchronously"""
@@ -61,87 +54,67 @@ class EmailService:
             print(f"[WARNING] Failed to log email to database: {e}")
     
     def send_email_with_retry(self, to_email: str, subject: str, html_content: str, text_content: str = None, email_type: str = "general", related_entity_id: str = None, max_retries: int = 3):
-        """Send email with retry logic and exponential backoff"""
-        # Check if SMTP is configured
-        if not self.smtp_user or not self.smtp_password:
-            error_msg = "SMTP credentials not configured. Cannot send email."
-            print(f"[ERROR] {error_msg}")
+        """Send transactional email through Resend's HTTP API with retries."""
+        if not self.resend_api_key:
+            print("[ERROR] RESEND_API_KEY not configured. Cannot send email.")
             return False
-        
+
+        payload = {
+            "from": f"{self.from_name} <{self.from_email}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content,
+        }
+        if text_content:
+            payload["text"] = text_content
+
+        headers = {
+            "Authorization": f"Bearer {self.resend_api_key}",
+            "Content-Type": "application/json",
+        }
+        if related_entity_id:
+            headers["Idempotency-Key"] = f"{email_type}-{related_entity_id}-{to_email}"[:256]
+
+        error_msg = None
         for attempt in range(max_retries):
             try:
-                msg = MIMEMultipart('alternative')
-                msg['Subject'] = subject
-                msg['From'] = f"{self.from_name} <{self.from_email}>"
-                msg['To'] = to_email
-                
-                if text_content:
-                    msg.attach(MIMEText(text_content, 'plain'))
-                msg.attach(MIMEText(html_content, 'html'))
-                
-                print(f"[EMAIL] Attempting to send email to {to_email} (attempt {attempt + 1}/{max_retries})")
-                
-                # Add timeout to prevent hanging
-                with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=15) as server:
-                    server.set_debuglevel(0)  # Set to 1 for debugging
-                    server.starttls()
-                    server.login(self.smtp_user, self.smtp_password)
-                    server.send_message(msg)
-                
-                print(f"[OK] Email sent successfully to {to_email}")
-                
-                # Log success to DB asynchronously
-                try:
-                    import asyncio
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'sent', related_entity_id=related_entity_id))
-                except:
-                    pass  # Ignore logging errors
+                with httpx.Client(timeout=15.0) as client:
+                    response = client.post(
+                        self.resend_api_url,
+                        headers=headers,
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                print(f"[OK] Email accepted by Resend for {to_email}")
+                self._schedule_email_log(to_email, email_type, subject, 'sent', related_entity_id=related_entity_id)
                 return True
-                
-            except smtplib.SMTPException as e:
-                error_msg = f"SMTP error (attempt {attempt + 1}/{max_retries}): {e}"
+            except httpx.HTTPError as exc:
+                error_msg = f"Resend delivery failed (attempt {attempt + 1}/{max_retries}): {exc}"
                 print(f"[ERROR] {error_msg}")
-                
                 if attempt < max_retries - 1:
-                    # Exponential backoff: 2^attempt seconds
-                    wait_time = 2 ** attempt
-                    print(f"[WAIT] Retrying in {wait_time} seconds...")
-                    time.sleep(wait_time)
-                else:
-                    # Final failure - log to DB
-                    try:
-                        import asyncio
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'failed', failure_reason=error_msg, related_entity_id=related_entity_id))
-                    except:
-                        pass
-                    return False
-                    
-            except Exception as e:
-                error_msg = f"Email send failed (attempt {attempt + 1}/{max_retries}): {e}"
-                print(f"[ERROR] {error_msg}")
-                
-                if attempt < max_retries - 1:
-                    wait_time = 2 ** attempt
-                    print(f"[WAIT] Retrying in {wait_time} seconds...")
-                    time.sleep(wait_time)
-                else:
-                    try:
-                        import asyncio
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'failed', failure_reason=error_msg, related_entity_id=related_entity_id))
-                    except:
-                        pass
-                    return False
-        
+                    time.sleep(2 ** attempt)
+
+        self._schedule_email_log(
+            to_email, email_type, subject, 'failed',
+            failure_reason=error_msg, related_entity_id=related_entity_id
+        )
         return False
+
+    def _schedule_email_log(self, recipient_email: str, email_type: str, subject: str, status: str, failure_reason: str = None, related_entity_id: str = None):
+        """Log delivery results when invoked inside an async request or worker."""
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(
+                self._log_email_to_db(
+                    recipient_email, email_type, subject, status,
+                    failure_reason=failure_reason, related_entity_id=related_entity_id
+                )
+            )
+        except RuntimeError:
+            pass
     
     def send_email(self, to_email: str, subject: str, html_content: str, text_content: str = None, email_type: str = "general", related_entity_id: str = None):
-        """Send email via SMTP with timeout protection and activity logging"""
+        """Send email via the configured transactional HTTP provider."""
         return self.send_email_with_retry(to_email, subject, html_content, text_content, email_type, related_entity_id)
     
     def send_interview_invitation(
@@ -153,7 +126,8 @@ class EmailService:
         duration: int,
         meeting_link: str,
         recruiter_name: str = "TalentIQ Team",
-        description: str = ""
+        description: str = "",
+        related_entity_id: str = None
     ):
         """Send interview invitation to candidate"""
         
@@ -271,7 +245,7 @@ Best regards,
 TalentIQ Team
 """
         
-        return self.send_email(candidate_email, subject, html_content, text_content)
+        return self.send_email(candidate_email, subject, html_content, text_content, email_type="interview_invitation", related_entity_id=related_entity_id)
     
     def send_interview_reminder(
         self,
@@ -280,7 +254,8 @@ TalentIQ Team
         interview_title: str,
         scheduled_at: datetime,
         meeting_link: str,
-        recruiter_name: str = "TalentIQ Team"
+        recruiter_name: str = "TalentIQ Team",
+        related_entity_id: str = None
     ):
         """Send interview reminder 30 minutes before to candidate"""
         
@@ -405,7 +380,7 @@ Good luck!
 TalentIQ Team
 """
         
-        return self.send_email(candidate_email, subject, html_content, text_content)
+        return self.send_email(candidate_email, subject, html_content, text_content, email_type="interview_reminder", related_entity_id=related_entity_id)
     
     def send_recruiter_interview_reminder(
         self,
@@ -415,7 +390,8 @@ TalentIQ Team
         interview_title: str,
         scheduled_at: datetime,
         meeting_link: str,
-        candidate_email: str = None
+        candidate_email: str = None,
+        related_entity_id: str = None
     ):
         """Send interview reminder 30 minutes before to recruiter"""
         
@@ -539,7 +515,7 @@ Good luck!
 TalentIQ Team
 """
         
-        return self.send_email(recruiter_email, subject, html_content, text_content)
+        return self.send_email(recruiter_email, subject, html_content, text_content, email_type="interview_reminder", related_entity_id=related_entity_id)
     
     def send_recruiter_interview_invitation(
         self,
@@ -642,7 +618,7 @@ Best regards,
 TalentIQ Team
 """
         
-        return self.send_email(recruiter_email, subject, html_content, text_content, email_type="interview_invitation")
+        return self.send_email(recruiter_email, subject, html_content, text_content, email_type="interview_scheduled")
     
     def send_recruiter_confirmation(
         self,
@@ -651,7 +627,8 @@ TalentIQ Team
         candidate_name: str,
         interview_title: str,
         scheduled_at: datetime,
-        meeting_link: str
+        meeting_link: str,
+        related_entity_id: str = None
     ):
         """Send confirmation to recruiter"""
         
@@ -698,7 +675,7 @@ TalentIQ Team
 </html>
 """
         
-        return self.send_email(recruiter_email, subject, html_content)
+        return self.send_email(recruiter_email, subject, html_content, email_type="interview_scheduled", related_entity_id=related_entity_id)
     
     def send_candidate_application_confirmation(
         self,
@@ -874,7 +851,8 @@ TalentIQ Team
         self,
         recruiter_email: str,
         recruiter_name: str,
-        company_name: str = None
+        company_name: str = None,
+        related_entity_id: str = None
     ):
         """Send stylish welcome email to new recruiter"""
         
@@ -1093,7 +1071,7 @@ Best regards,
 The TalentIQ Team
 """
         
-        return self.send_email(recruiter_email, subject, html_content, text_content)
+        return self.send_email(recruiter_email, subject, html_content, text_content, email_type="welcome", related_entity_id=related_entity_id)
 
 
 # Singleton instance

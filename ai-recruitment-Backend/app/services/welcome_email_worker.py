@@ -3,7 +3,6 @@ Background Email Worker
 Sends welcome emails to new users without blocking registration/OAuth
 """
 import asyncio
-from datetime import datetime, timedelta
 from sqlalchemy import select
 from app.database import AsyncSessionLocal
 from app.models.models import User
@@ -14,14 +13,12 @@ async def send_pending_welcome_emails():
     """Find users who need welcome emails and send them"""
     try:
         async with AsyncSessionLocal() as db:
-            # Find users created in last 5 minutes who haven't received welcome email
-            five_min_ago = datetime.utcnow() - timedelta(minutes=5)
-            
+            # Retry until delivery succeeds, including users created through OAuth.
             result = await db.execute(
                 select(User)
                 .where(User.welcome_email_sent == False)
-                .where(User.created_at >= five_min_ago)
-                .where(User.role == 'recruiter')  # Only send to recruiters
+                .where(User.role == 'recruiter')
+                .limit(50)
             )
             users = result.scalars().all()
             
@@ -33,10 +30,12 @@ async def send_pending_welcome_emails():
             for user in users:
                 try:
                     print(f"[EMAIL] Sending welcome email to: {user.email}")
-                    success = email_service.send_welcome_email(
+                    success = await asyncio.to_thread(
+                        email_service.send_welcome_email,
                         recruiter_email=user.email,
                         recruiter_name=user.full_name,
-                        company_name=user.company_name if hasattr(user, 'company_name') else None
+                        company_name=user.company_name if hasattr(user, 'company_name') else None,
+                        related_entity_id=user.id
                     )
                     
                     if success:

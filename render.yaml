@@ -49,6 +49,14 @@ services:
         value: https://talentiq-backend.onrender.com
       - key: FRONTEND_URL
         value: https://talentiq-frontend.onrender.com
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: FROM_NAME
+        value: TalentIQ
+      - key: REMINDER_CRON_SECRET
+        generateValue: true
 
   # ── Frontend (React → Static Site) ────────────────────────────────────────
   - type: web

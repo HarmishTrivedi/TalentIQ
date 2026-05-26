@@ -2,7 +2,7 @@
 Interview Management Routes
 Handles interview CRUD, real-time WebSocket, AI analysis, and question generation
 """
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
 from typing import List, Optional
@@ -10,7 +10,6 @@ from datetime import datetime
 import json
 import os
 import secrets
-import threading
 
 from app.database import get_db
 from app.models.models import (
@@ -27,6 +26,7 @@ from app.models.schemas import (
 from app.utils.auth import get_current_user
 from app.services.interview_ai_service import get_interview_ai_service
 from app.services.email_service import get_email_service
+from app.services.reminder_scheduler import check_and_send_reminders
 
 router = APIRouter(prefix="/interviews", tags=["Interviews"])
 
@@ -63,6 +63,7 @@ manager = ConnectionManager()
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_interview(
     data: InterviewCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -103,6 +104,13 @@ async def create_interview(
         )
         
         db.add(interview)
+        await db.flush()
+
+        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+        candidate_meeting_link = f"{frontend_url}/join/{interview.id}?token={candidate_token}"
+        recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}"
+        interview.meeting_url = candidate_meeting_link
+
         await db.commit()
         await db.refresh(interview)
         
@@ -120,6 +128,7 @@ async def create_interview(
             "duration_minutes": interview.duration_minutes,
             "interview_types": interview.interview_types,
             "candidate_access_token": interview.candidate_access_token,
+            "meeting_url": interview.meeting_url,
             "overall_score": interview.overall_score,
             "technical_score": interview.technical_score,
             "communication_score": interview.communication_score,
@@ -136,12 +145,6 @@ async def create_interview(
             try:
                 print(f"📧 [BACKGROUND] Starting email sending for interview {interview.id}")
                 email_service = get_email_service()
-                frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-                
-                # Generate meeting links
-                candidate_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}?token={candidate_token}"
-                recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}"
-                
                 print(f"📧 Candidate meeting link: {candidate_meeting_link}")
                 print(f"📧 Recruiter meeting link: {recruiter_meeting_link}")
                 
@@ -157,7 +160,8 @@ async def create_interview(
                             duration=interview.duration_minutes or 60,
                             meeting_link=candidate_meeting_link,
                             recruiter_name=current_user.full_name,
-                            description=job.description[:200] if job else ""
+                            description=job.description[:200] if job else "",
+                            related_entity_id=interview.id
                         )
                         if success:
                             print(f"✅ Candidate invitation sent to {candidate.email}")
@@ -180,7 +184,8 @@ async def create_interview(
                             candidate_name=candidate.name,
                             interview_title=interview.title,
                             scheduled_at=interview.scheduled_at,
-                            meeting_link=recruiter_meeting_link
+                            meeting_link=recruiter_meeting_link,
+                            related_entity_id=interview.id
                         )
                         if success:
                             print(f"✅ Recruiter confirmation sent to {current_user.email}")
@@ -199,9 +204,7 @@ async def create_interview(
                 import traceback
                 traceback.print_exc()
         
-        # Start background thread for email sending
-        email_thread = threading.Thread(target=send_emails_background, daemon=True)
-        email_thread.start()
+        background_tasks.add_task(send_emails_background)
         
         print(f"✅ Interview created successfully: {interview.id}")
         print(f"📧 Emails being sent in background...")
@@ -818,6 +821,16 @@ async def interview_websocket(
 
 # ─── Email Notifications ──────────────────────────────────────────────────────
 
+@router.post("/reminders/process")
+async def process_due_reminders(x_reminder_secret: str = Header(default="")):
+    """Run due reminders for an external scheduler on sleeping deployments."""
+    expected_secret = os.getenv("REMINDER_CRON_SECRET", "")
+    if not expected_secret or not secrets.compare_digest(x_reminder_secret, expected_secret):
+        raise HTTPException(status_code=401, detail="Invalid reminder scheduler secret")
+    await check_and_send_reminders()
+    return {"message": "Due reminders processed"}
+
+
 @router.post("/send-invitation")
 async def send_interview_invitation(
     data: dict,
@@ -860,7 +873,9 @@ async def send_interview_reminder(
         raise HTTPException(status_code=400, detail="Candidate not found")
     
     email_service = get_email_service()
-    meeting_link = interview.metadata_.get("meeting_link") if interview.metadata_ else f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/interview-room/{interview_id}"
+    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+    meeting_link = interview.meeting_url or f"{frontend_url}/join/{interview_id}?token={interview.candidate_access_token}"
+    recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview_id}"
     
     results = {"candidate": False, "recruiter": False}
     
@@ -873,7 +888,8 @@ async def send_interview_reminder(
                 interview_title=interview.title,
                 scheduled_at=interview.scheduled_at,
                 meeting_link=meeting_link,
-                recruiter_name=recruiter.full_name if recruiter else "TalentIQ Team"
+                recruiter_name=recruiter.full_name if recruiter else "TalentIQ Team",
+                related_entity_id=interview.id
             )
         except Exception as e:
             print(f"Failed to send candidate reminder: {e}")
@@ -887,8 +903,9 @@ async def send_interview_reminder(
                 candidate_name=candidate.name,
                 interview_title=interview.title,
                 scheduled_at=interview.scheduled_at,
-                meeting_link=meeting_link,
-                candidate_email=candidate.email
+                meeting_link=recruiter_meeting_link,
+                candidate_email=candidate.email,
+                related_entity_id=interview.id
             )
         except Exception as e:
             print(f"Failed to send recruiter reminder: {e}")
