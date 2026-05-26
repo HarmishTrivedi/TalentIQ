@@ -1,0 +1,48 @@
+"""
+SMTP Diagnostic for Render
+Add this to your auth.py routes temporarily to test SMTP
+"""
+
+@router.get("/smtp-test")
+async def smtp_test():
+    """Test SMTP configuration on Render"""
+    import os
+    import smtplib
+    
+    result = {
+        "smtp_configured": False,
+        "smtp_server": os.getenv('SMTP_SERVER', 'NOT SET'),
+        "smtp_port": os.getenv('SMTP_PORT', 'NOT SET'),
+        "smtp_user": os.getenv('SMTP_USER', 'NOT SET'),
+        "smtp_password": "SET" if os.getenv('SMTP_PASSWORD') else "NOT SET",
+        "from_email": os.getenv('FROM_EMAIL', 'NOT SET'),
+        "connection_test": "NOT TESTED",
+        "error": None
+    }
+    
+    # Test SMTP connection
+    try:
+        smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        smtp_user = os.getenv('SMTP_USER', '')
+        smtp_password = os.getenv('SMTP_PASSWORD', '')
+        
+        if not smtp_user or not smtp_password:
+            result["error"] = "SMTP credentials not configured in environment variables"
+            return result
+        
+        # Try to connect
+        with smtplib.SMTP(smtp_server, smtp_port, timeout=5) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            result["connection_test"] = "SUCCESS"
+            result["smtp_configured"] = True
+            
+    except smtplib.SMTPAuthenticationError as e:
+        result["connection_test"] = "FAILED"
+        result["error"] = f"Authentication failed: {str(e)}"
+    except Exception as e:
+        result["connection_test"] = "FAILED"
+        result["error"] = f"Connection error: {str(e)}"
+    
+    return result

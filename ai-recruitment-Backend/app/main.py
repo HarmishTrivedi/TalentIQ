@@ -99,6 +99,14 @@ async def lifespan(app: FastAPI):
 
     logger.info("✅ All systems ready. Platform is live.")
     
+    # Start welcome email worker
+    try:
+        from app.services.welcome_email_worker import start_welcome_email_worker
+        start_welcome_email_worker()
+        logger.info("✅ Welcome email worker started")
+    except Exception as e:
+        logger.warning("⚠️  Welcome email worker failed to start", error=str(e))
+    
     # Start reminder scheduler
     try:
         from app.services.reminder_scheduler import start_reminder_scheduler

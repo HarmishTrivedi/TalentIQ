@@ -4,7 +4,6 @@ import { ArrowRight } from 'lucide-react'
 import { useAuthStore } from '../store'
 import { getInitials } from '../utils/helpers'
 import { BrandMark } from '../components/premium/PremiumUI'
-import CosmicUniverse from '../components/cosmic/CosmicUniverse'
 
 function useTime() {
   const h = new Date().getHours()
@@ -20,6 +19,10 @@ export default function RecruiterWelcome() {
   const [visible, setVisible] = useState(false)
   const { greeting, emoji }   = useTime()
   const firstName = user?.full_name?.split(' ')[0] || 'there'
+  
+  // Check if user is new (created within last 2 minutes)
+  const isNewUser = user?.created_at ? 
+    (new Date() - new Date(user.created_at)) < 2 * 60 * 1000 : false
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80)
@@ -32,7 +35,15 @@ export default function RecruiterWelcome() {
   }
 
   return (
-    <CosmicUniverse showNodes={false} className="text-white">
+    <div className="relative min-h-screen bg-black text-white overflow-hidden">
+      {/* Stylish background effects */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-500/5 rounded-full blur-[100px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.03)_1px,transparent_1px)] bg-[size:80px_80px]" />
+      </div>
+      
       <div className={`relative z-10 flex min-h-screen flex-col items-center justify-center px-5 py-5 transition-all duration-500 ${going ? 'opacity-0 scale-[0.97]' : 'opacity-100'}`}>
 
         {/* Logo top-left */}
@@ -61,7 +72,7 @@ export default function RecruiterWelcome() {
 
           {/* Headline */}
           <h1 className="font-title font-black text-white mb-4 leading-tight" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', animation: 'fadeUp 0.7s 200ms both' }}>
-            Welcome back,<br />
+            {isNewUser ? 'Welcome' : 'Welcome back'},<br />
             <span className="bg-gradient-to-r from-cyan-300 to-fuchsia-300 bg-clip-text text-transparent">{firstName}.</span>
           </h1>
 
@@ -105,7 +116,7 @@ export default function RecruiterWelcome() {
         <KeyboardEnter onEnter={proceed} />
         <style>{`@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }`}</style>
       </div>
-    </CosmicUniverse>
+    </div>
   )
 }
 

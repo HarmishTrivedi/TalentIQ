@@ -186,6 +186,7 @@ export default function Register() {
   const [showPw, setShowPw] = useState(false)
   const [showCPw, setShowCPw] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [isOAuthFlow, setIsOAuthFlow] = useState(false)
 
   useEffect(() => {
     const els = shellRef.current?.querySelectorAll('[data-reveal]') || []
@@ -218,6 +219,9 @@ export default function Register() {
   }, [searchParams, navigate])
 
   const handleGoogleOAuth = () => {
+    setIsOAuthFlow(true)
+    setTouched({})
+    setErrors({})
     const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
     window.location.href = `${backendUrl}/api/v1/auth/oauth/google/login`
   }
@@ -226,22 +230,24 @@ export default function Register() {
     const { name, value } = e.target
     setForm(prev => {
       const next = { ...prev, [name]: value }
-      if (touched[name]) {
+      if (touched[name] && !isOAuthFlow) {
         setErrors(errs => ({ ...errs, [name]: validate(name, value, next) }))
       }
-      if (name === 'password' && touched.confirm_password) {
+      if (name === 'password' && touched.confirm_password && !isOAuthFlow) {
         setErrors(errs => ({ ...errs, confirm_password: validate('confirm_password', next.confirm_password, next) }))
       }
       return next
     })
     if (submitError) setSubmitError('')
-  }, [touched, submitError])
+  }, [touched, submitError, isOAuthFlow])
 
   const handleBlur = useCallback((e) => {
     const { name, value } = e.target
-    setTouched(prev => ({ ...prev, [name]: true }))
-    setErrors(prev => ({ ...prev, [name]: validate(name, value, form) }))
-  }, [form])
+    if (!isOAuthFlow) {
+      setTouched(prev => ({ ...prev, [name]: true }))
+      setErrors(prev => ({ ...prev, [name]: validate(name, value, form) }))
+    }
+  }, [form, isOAuthFlow])
 
   const togglePw = useCallback((e) => { e.preventDefault(); setShowPw(p => !p) }, [])
   const toggleCPw = useCallback((e) => { e.preventDefault(); setShowCPw(p => !p) }, [])
@@ -259,6 +265,7 @@ export default function Register() {
     e.preventDefault()
     if (isLoading) return
     setSubmitError('')
+    setIsOAuthFlow(false)
     if (!validateAll()) return
 
     const { score } = getPasswordStrength(form.password)

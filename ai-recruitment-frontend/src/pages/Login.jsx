@@ -82,6 +82,7 @@ export default function Login() {
   const [errors, setErrors] = useState({})
   const [showPw, setShowPw] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [isOAuthFlow, setIsOAuthFlow] = useState(false)
 
   // ── OAuth callback handler ──────────────────────────────────────────────────
   useEffect(() => {
@@ -113,6 +114,9 @@ export default function Login() {
 
   // ── Google OAuth (untouched) ────────────────────────────────────────────────
   const handleGoogleOAuth = () => {
+    setIsOAuthFlow(true)
+    setTouched({})
+    setErrors({})
     const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
     window.location.href = `${apiBase}/api/v1/auth/oauth/google/login`
   }
@@ -133,17 +137,19 @@ export default function Login() {
   const handleChange = useCallback((e) => {
     const { name, value } = e.target
     setForm(prev => ({ ...prev, [name]: value }))
-    if (touched[name]) {
+    if (touched[name] && !isOAuthFlow) {
       setErrors(prev => ({ ...prev, [name]: validate(name, value) }))
     }
     if (submitError) setSubmitError('')
-  }, [touched, validate, submitError])
+  }, [touched, validate, submitError, isOAuthFlow])
 
   const handleBlur = useCallback((e) => {
     const { name, value } = e.target
-    setTouched(prev => ({ ...prev, [name]: true }))
-    setErrors(prev => ({ ...prev, [name]: validate(name, value) }))
-  }, [validate])
+    if (!isOAuthFlow) {
+      setTouched(prev => ({ ...prev, [name]: true }))
+      setErrors(prev => ({ ...prev, [name]: validate(name, value) }))
+    }
+  }, [validate, isOAuthFlow])
 
   // ── Password toggle — onMouseDown prevents focus loss ──────────────────────
   const togglePassword = useCallback((e) => {
@@ -156,6 +162,7 @@ export default function Login() {
     e.preventDefault()
     if (isLoading) return
     setSubmitError('')
+    setIsOAuthFlow(false)
 
     const emailErr = validate('email', form.email)
     const pwErr = validate('password', form.password)

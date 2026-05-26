@@ -83,26 +83,8 @@ async def google_callback(code: str = None, error: str = None, db: AsyncSession 
             await db.commit()
             await db.refresh(user)
             
-            # Send welcome email in background (completely non-blocking)
-            import asyncio
-            from concurrent.futures import ThreadPoolExecutor
-            
-            def send_email_sync():
-                try:
-                    from app.services.email_service import get_email_service
-                    email_service = get_email_service()
-                    email_service.send_welcome_email(
-                        recruiter_email=email,
-                        recruiter_name=user_info.get("name", email.split("@")[0]),
-                        company_name=None
-                    )
-                    print(f"✅ Welcome email sent: {email}")
-                except Exception as e:
-                    print(f"❌ Welcome email error: {str(e)}")
-            
-            # Run in thread pool to avoid blocking
-            executor = ThreadPoolExecutor(max_workers=1)
-            asyncio.get_event_loop().run_in_executor(executor, send_email_sync)
+            # NO EMAIL SENDING HERE - Will be sent by background worker
+            print(f"✅ New Google user created: {email}")
 
         # Generate tokens and redirect immediately
         access_token = create_access_token({"sub": user.id})
