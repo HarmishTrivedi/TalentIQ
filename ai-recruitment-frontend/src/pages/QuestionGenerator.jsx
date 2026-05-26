@@ -59,6 +59,11 @@ export default function QuestionGenerator() {
     toast.success('Questions saved to template library!');
   };
 
+  const handleRemoveQuestion = (index) => {
+    setGeneratedQuestions((previous) => previous.filter((_, questionIndex) => questionIndex !== index));
+    toast.success('Question removed');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 p-6">
       <div className="max-w-7xl mx-auto">
@@ -208,7 +213,7 @@ export default function QuestionGenerator() {
                           </span>
                         )}
                       </div>
-                      <button className="p-2 hover:bg-red-500/20 rounded-lg transition-colors">
+                      <button onClick={() => handleRemoveQuestion(index)} className="p-2 hover:bg-red-500/20 rounded-lg transition-colors" aria-label={`Remove question ${index + 1}`}>
                         <Trash2 className="w-4 h-4 text-red-400" />
                       </button>
                     </div>

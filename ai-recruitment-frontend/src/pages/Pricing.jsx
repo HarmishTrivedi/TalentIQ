@@ -1,5 +1,6 @@
 import React from 'react'
 import { Check, Sparkles, Zap, Crown, Rocket, Star } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 const PLANS = [
   {
@@ -90,6 +91,18 @@ const PLANS = [
 ]
 
 export default function Pricing() {
+  const contactSales = () => {
+    window.location.href = 'mailto:sales@talentiq.ai?subject=TalentIQ%20Enterprise%20Pricing'
+  }
+
+  const handlePlanAction = (plan) => {
+    if (plan.name === 'Enterprise') {
+      contactSales()
+      return
+    }
+    toast('Paid plans will be available after the free beta.')
+  }
+
   return (
     <div className="p-6 page-enter">
       <div className="max-w-7xl mx-auto">
@@ -187,6 +200,7 @@ export default function Pricing() {
 
               {/* CTA */}
               <button
+                onClick={() => handlePlanAction(plan)}
                 disabled={plan.current}
                 className="w-full h-11 rounded-2xl font-bold text-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 style={plan.current
@@ -247,7 +261,7 @@ export default function Pricing() {
           <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
             Contact our sales team for enterprise pricing and custom features.
           </p>
-          <button className="btn-primary px-8 h-11">
+          <button onClick={contactSales} className="btn-primary px-8 h-11">
             <Rocket size={16} /> Contact Sales
           </button>
         </div>

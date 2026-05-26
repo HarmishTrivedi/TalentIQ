@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Sparkles, Send, Bot, User } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 function Bar({ pct, color, delay }) {
   return (
@@ -179,10 +180,10 @@ export function ProductShowcase() {
 
                   <div className="mt-4 flex items-center gap-2 rounded-xl p-2" style={{ background: 'rgba(255,255,255,0.05)' }}>
                     <input type="text" placeholder="Ask anything…" className="flex-1 bg-transparent text-xs outline-none text-white placeholder:text-white/40" readOnly />
-                    <button type="button" className="grid h-7 w-7 place-items-center rounded-lg"
+                    <Link to="/register" aria-label="Start using TalentIQ" className="grid h-7 w-7 place-items-center rounded-lg"
                       style={{ background: 'linear-gradient(135deg, #0080ff, #65F7FF)' }}>
                       <Send className="h-3 w-3 text-white" />
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>

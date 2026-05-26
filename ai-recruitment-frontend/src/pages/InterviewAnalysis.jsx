@@ -36,6 +36,32 @@ export default function InterviewAnalysis() {
     }
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: `TalentIQ interview analysis${interview?.title ? ` - ${interview.title}` : ''}`,
+      text: 'View the TalentIQ interview analysis report.',
+      url: window.location.href
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        toast.success('Report link copied');
+      }
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        toast.error('Unable to share report');
+      }
+    }
+  };
+
+  const handleExport = () => {
+    toast.success('Use the print dialog to save the report as PDF');
+    window.print();
+  };
+
   const getRecommendationColor = (recommendation) => {
     const colors = {
       'strong_hire': 'from-green-500 to-emerald-500',
@@ -103,11 +129,11 @@ export default function InterviewAnalysis() {
             </div>
 
             <div className="flex gap-3">
-              <button className="px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-all border border-purple-500/20">
+              <button onClick={handleShare} className="px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-all border border-purple-500/20">
                 <Share2 className="w-4 h-4 inline mr-2" />
                 Share
               </button>
-              <button className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all">
+              <button onClick={handleExport} className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all">
                 <Download className="w-4 h-4 inline mr-2" />
                 Export PDF
               </button>

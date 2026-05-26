@@ -30,6 +30,7 @@ export default function LiveInterview() {
   });
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [questions, setQuestions] = useState([]);
+  const [answeredQuestions, setAnsweredQuestions] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   
   const wsRef = useRef(null);
@@ -193,6 +194,25 @@ export default function LiveInterview() {
     } catch (error) {
       toast.error('Failed to end interview');
     }
+  };
+
+  const advanceQuestion = () => {
+    const currentIndex = questions.indexOf(currentQuestion);
+    if (currentIndex < questions.length - 1) {
+      setCurrentQuestion(questions[currentIndex + 1]);
+      return true;
+    }
+    toast('This is the final question');
+    return false;
+  };
+
+  const markQuestionAnswered = () => {
+    if (!currentQuestion) return;
+    setAnsweredQuestions((previous) => (
+      previous.includes(currentQuestion.id) ? previous : [...previous, currentQuestion.id]
+    ));
+    toast.success('Question marked as answered');
+    advanceQuestion();
   };
 
   const handleInterviewEvent = (event) => {
@@ -383,11 +403,11 @@ export default function LiveInterview() {
                     </div>
 
                     <div className="flex gap-3 mt-8">
-                      <button className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all">
+                      <button onClick={markQuestionAnswered} className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all">
                         <CheckCircle className="w-4 h-4 inline mr-2" />
-                        Mark as Answered
+                        {answeredQuestions.includes(currentQuestion.id) ? 'Answered' : 'Mark as Answered'}
                       </button>
-                      <button className="px-6 py-3 bg-purple-500/20 text-purple-300 rounded-xl font-semibold hover:bg-purple-500/30 transition-all border border-purple-500/20">
+                      <button onClick={advanceQuestion} className="px-6 py-3 bg-purple-500/20 text-purple-300 rounded-xl font-semibold hover:bg-purple-500/30 transition-all border border-purple-500/20">
                         Next Question
                       </button>
                     </div>

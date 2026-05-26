@@ -284,7 +284,7 @@ export function PremiumTopbar({ title, isAdminPath }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.04] text-cyan-100/70 transition hover:text-white">
+          <button onClick={() => navigate('/account?setting=notifications')} title="Notification settings" className="flex h-10 w-10 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.04] text-cyan-100/70 transition hover:text-white">
             <Bell size={16} />
           </button>
           {user?.role === 'admin' && (
