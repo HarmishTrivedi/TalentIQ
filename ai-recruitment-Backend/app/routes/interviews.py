@@ -134,6 +134,7 @@ async def create_interview(
         # Send emails in background thread (non-blocking)
         def send_emails_background():
             try:
+                print(f"📧 [BACKGROUND] Starting email sending for interview {interview.id}")
                 email_service = get_email_service()
                 frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
                 
@@ -141,10 +142,14 @@ async def create_interview(
                 candidate_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}?token={candidate_token}"
                 recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}"
                 
+                print(f"📧 Candidate meeting link: {candidate_meeting_link}")
+                print(f"📧 Recruiter meeting link: {recruiter_meeting_link}")
+                
                 # Send candidate email
                 if candidate.email:
+                    print(f"📧 Sending invitation to candidate: {candidate.email}")
                     try:
-                        email_service.send_interview_invitation(
+                        success = email_service.send_interview_invitation(
                             candidate_email=candidate.email,
                             candidate_name=candidate.name,
                             interview_title=interview.title,
@@ -154,26 +159,45 @@ async def create_interview(
                             recruiter_name=current_user.full_name,
                             description=job.description[:200] if job else ""
                         )
-                        print(f"✅ Candidate invitation sent to {candidate.email}")
+                        if success:
+                            print(f"✅ Candidate invitation sent to {candidate.email}")
+                        else:
+                            print(f"❌ Failed to send candidate invitation to {candidate.email}")
                     except Exception as e:
-                        print(f"❌ Failed to send candidate invitation: {e}")
+                        print(f"❌ Exception sending candidate invitation: {e}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"⚠️ No email address for candidate {candidate.name}")
                 
                 # Send recruiter email
-                try:
-                    email_service.send_recruiter_confirmation(
-                        recruiter_email=current_user.email,
-                        recruiter_name=current_user.full_name,
-                        candidate_name=candidate.name,
-                        interview_title=interview.title,
-                        scheduled_at=interview.scheduled_at,
-                        meeting_link=recruiter_meeting_link
-                    )
-                    print(f"✅ Recruiter confirmation sent to {current_user.email}")
-                except Exception as e:
-                    print(f"❌ Failed to send recruiter confirmation: {e}")
+                if current_user.email:
+                    print(f"📧 Sending confirmation to recruiter: {current_user.email}")
+                    try:
+                        success = email_service.send_recruiter_confirmation(
+                            recruiter_email=current_user.email,
+                            recruiter_name=current_user.full_name,
+                            candidate_name=candidate.name,
+                            interview_title=interview.title,
+                            scheduled_at=interview.scheduled_at,
+                            meeting_link=recruiter_meeting_link
+                        )
+                        if success:
+                            print(f"✅ Recruiter confirmation sent to {current_user.email}")
+                        else:
+                            print(f"❌ Failed to send recruiter confirmation to {current_user.email}")
+                    except Exception as e:
+                        print(f"❌ Exception sending recruiter confirmation: {e}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"⚠️ No email address for recruiter {current_user.full_name}")
                     
+                print(f"📧 [BACKGROUND] Email sending completed for interview {interview.id}")
             except Exception as e:
                 print(f"⚠️ Email service error (non-critical): {e}")
+                import traceback
+                traceback.print_exc()
         
         # Start background thread for email sending
         email_thread = threading.Thread(target=send_emails_background, daemon=True)
