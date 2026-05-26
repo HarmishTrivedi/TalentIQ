@@ -83,10 +83,6 @@ async def create_interview(
         # Generate unique candidate access token
         candidate_token = secrets.token_urlsafe(32)
         
-        # Generate permanent meeting URL
-        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-        meeting_url = f"{frontend_url}/join/{interview.id if hasattr(interview, 'id') else 'TEMP'}?token={candidate_token}"
-        
         # Handle datetime conversion
         scheduled_at_naive = data.scheduled_at
         if scheduled_at_naive and hasattr(scheduled_at_naive, 'tzinfo') and scheduled_at_naive.tzinfo:
@@ -102,17 +98,11 @@ async def create_interview(
             duration_minutes=data.duration_minutes or 60,
             status=InterviewStatus.scheduled,
             candidate_access_token=candidate_token,
-            meeting_url=None,  # Will be set after commit
             interview_types=data.interview_types or [],
             metadata_={"meeting_link": data.meeting_link if hasattr(data, 'meeting_link') else None}
         )
         
         db.add(interview)
-        await db.commit()
-        await db.refresh(interview)
-        
-        # Now set the permanent meeting URL with actual interview ID
-        interview.meeting_url = f"{frontend_url}/join/{interview.id}?token={candidate_token}"
         await db.commit()
         await db.refresh(interview)
         
@@ -144,12 +134,13 @@ async def create_interview(
         # Send emails synchronously (blocking but reliable)
         try:
             email_service = get_email_service()
+            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
             
-            # Use the permanent meeting_url from database
-            candidate_meeting_link = interview.meeting_url
-            recruiter_meeting_link = f"{frontend_url}/join/{interview.id}"  # Recruiter doesn't need token
+            # Generate meeting links
+            candidate_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}?token={candidate_token}"
+            recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}"
             
-            # Send candidate invitation email
+            # Send candidate email
             if candidate.email:
                 try:
                     email_service.send_interview_invitation(
@@ -166,21 +157,19 @@ async def create_interview(
                 except Exception as e:
                     print(f"❌ Failed to send candidate invitation: {e}")
             
-            # Send recruiter invitation email (with join button, not just confirmation)
+            # Send recruiter email
             try:
-                email_service.send_recruiter_interview_invitation(
+                email_service.send_recruiter_confirmation(
                     recruiter_email=current_user.email,
                     recruiter_name=current_user.full_name,
                     candidate_name=candidate.name,
                     interview_title=interview.title,
                     scheduled_at=interview.scheduled_at,
-                    duration=interview.duration_minutes or 60,
-                    meeting_link=recruiter_meeting_link,
-                    candidate_email=candidate.email
+                    meeting_link=recruiter_meeting_link
                 )
-                print(f"✅ Recruiter invitation sent to {current_user.email}")
+                print(f"✅ Recruiter confirmation sent to {current_user.email}")
             except Exception as e:
-                print(f"❌ Failed to send recruiter invitation: {e}")
+                print(f"❌ Failed to send recruiter confirmation: {e}")
             
         except Exception as e:
             print(f"⚠️ Email service error (non-critical): {e}")
@@ -192,6 +181,8 @@ async def create_interview(
         raise
     except Exception as e:
         print(f"❌ Error creating interview: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
