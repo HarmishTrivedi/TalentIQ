@@ -38,18 +38,25 @@ export default function QuestionGenerator() {
   ];
 
   const handleGenerate = async () => {
+    const requestedCount = Math.min(20, Math.max(1, Math.round(Number(count) || 1)));
+    setCount(requestedCount);
     setIsGenerating(true);
     try {
       const response = await api.post('/interviews/questions/generate', {
         category,
         difficulty,
-        count
+        count: requestedCount
       });
-      
-      setGeneratedQuestions(response.data);
-      toast.success(`Generated ${response.data.length} questions!`);
+      const questions = Array.isArray(response.data)
+        ? response.data.filter((question) => question?.question_text?.trim())
+        : [];
+      if (questions.length === 0) {
+        throw new Error('No valid questions returned');
+      }
+      setGeneratedQuestions(questions);
+      toast.success(`Generated ${questions.length} questions!`);
     } catch (error) {
-      toast.error('Failed to generate questions');
+      toast.error('Unable to generate questions. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -139,7 +146,10 @@ export default function QuestionGenerator() {
                   min="1"
                   max="20"
                   value={count}
-                  onChange={(e) => setCount(parseInt(e.target.value))}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setCount(Number.isFinite(value) ? value : 1);
+                  }}
                   className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500"
                 />
               </div>

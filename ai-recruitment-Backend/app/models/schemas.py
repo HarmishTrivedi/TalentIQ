@@ -341,6 +341,20 @@ class QuestionTemplateResponse(BaseResponse):
     test_cases: Optional[List[Dict[str, Any]]] = None
     tags: Optional[List[str]] = None
     estimated_time_minutes: Optional[int] = None
+    follow_up_suggestions: Optional[List[str]] = None
+    evaluation_criteria: Optional[List[str]] = None
+
+
+class GeneratedQuestionResponse(BaseModel):
+    question_text: str
+    category: str
+    difficulty: str
+    starter_code: Optional[str] = None
+    test_cases: Optional[List[Dict[str, Any]]] = None
+    tags: Optional[List[str]] = None
+    estimated_time_minutes: Optional[int] = None
+    follow_up_suggestions: Optional[List[str]] = None
+    evaluation_criteria: Optional[List[str]] = None
 
 
 class InterviewRoundGenerateRequest(BaseModel):

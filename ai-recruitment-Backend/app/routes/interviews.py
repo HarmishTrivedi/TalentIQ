@@ -21,7 +21,7 @@ from app.models.schemas import (
     InterviewCreate, InterviewUpdate, InterviewResponse,
     InterviewAnalysisResponse, QuestionGenerateRequest,
     InterviewRoundGenerateRequest, InterviewQuestionResponse,
-    QuestionTemplateResponse, LiveAnalysisUpdate, SpeechTranscriptChunk,
+    GeneratedQuestionResponse, LiveAnalysisUpdate, SpeechTranscriptChunk,
     CodingSubmission, InterviewEventCreate, SuccessResponse
 )
 from app.utils.auth import get_current_user
@@ -475,7 +475,7 @@ async def end_interview(
 
 # ─── Question Management ──────────────────────────────────────────────────────
 
-@router.post("/questions/generate", response_model=List[QuestionTemplateResponse])
+@router.post("/questions/generate", response_model=List[GeneratedQuestionResponse])
 async def generate_questions(
     data: QuestionGenerateRequest,
     db: AsyncSession = Depends(get_db),

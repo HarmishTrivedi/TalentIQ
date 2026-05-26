@@ -185,11 +185,13 @@ Provide response in JSON array format:
     }}
 ]"""
         
-        response = await self.llm.generate(prompt)
         try:
-            questions = json.loads(response)
-            return questions if isinstance(questions, list) else []
-        except:
+            questions = await self.llm.generate_json(
+                prompt,
+                system_prompt="You create high-quality interview questions. Return a JSON array only."
+            )
+            return self._normalize_questions(questions, category, difficulty, count)
+        except Exception:
             return self._get_fallback_questions(category, difficulty, count)
     
     async def suggest_follow_up_questions(
@@ -308,22 +310,114 @@ Provide detailed analysis in JSON:
             "technical_frontend": [
                 "Explain the virtual DOM and how React uses it for performance optimization.",
                 "What are React hooks and how do they differ from class components?",
-                "Describe the CSS box model and common layout techniques."
+                "Describe the CSS box model and common layout techniques.",
+                "How would you diagnose and improve a slow-rendering frontend page?",
+                "How do you design accessible form interactions and validate them?"
             ],
             "technical_backend": [
                 "Explain RESTful API design principles and best practices.",
                 "How do you handle database transactions and ensure data consistency?",
-                "Describe microservices architecture and its trade-offs."
+                "Describe microservices architecture and its trade-offs.",
+                "How would you design authentication and authorization for a multi-tenant API?",
+                "How do you diagnose a slow endpoint in production?"
+            ],
+            "technical_ai_ml": [
+                "How do you detect data leakage when training a machine learning model?",
+                "Explain the trade-offs between precision and recall for a screening model.",
+                "How would you monitor model quality after deployment?",
+                "How do embeddings support semantic search, and what failure cases matter?",
+                "Describe an approach for evaluating an LLM-powered feature."
             ],
             "technical_dsa": [
                 "Explain the difference between BFS and DFS. When would you use each?",
                 "How do you detect a cycle in a linked list?",
-                "Describe how a hash table works and handles collisions."
+                "Describe how a hash table works and handles collisions.",
+                "How would you choose between a heap and a sorted collection?",
+                "Explain the time and space complexity of merging overlapping intervals."
+            ],
+            "technical_database": [
+                "How do indexes improve query performance, and when can they hurt writes?",
+                "Explain transaction isolation levels and a practical concurrency issue.",
+                "How would you investigate and optimize a slow SQL query?",
+                "When would you choose normalization versus denormalization?",
+                "How would you migrate a large production table with minimal downtime?"
+            ],
+            "technical_devops": [
+                "How would you design a CI/CD pipeline with safe rollback?",
+                "Explain how containers differ from virtual machines operationally.",
+                "How do you monitor and respond to a production deployment regression?",
+                "How would you manage secrets across environments?",
+                "Describe a reliable zero-downtime deployment strategy."
+            ],
+            "technical_cloud": [
+                "How would you design a highly available web application in the cloud?",
+                "When would you use managed queues in a distributed system?",
+                "How do you balance cost, reliability, and performance in cloud architecture?",
+                "Explain an approach to disaster recovery and backups.",
+                "How would you secure cloud storage containing sensitive documents?"
+            ],
+            "technical_security": [
+                "How would you protect an API from common authentication attacks?",
+                "Explain the risk of injection vulnerabilities and practical mitigations.",
+                "How should sensitive data be encrypted in transit and at rest?",
+                "How would you respond to a suspected credential leak?",
+                "Describe secure file upload validation for user-provided resumes."
+            ],
+            "technical_system_design": [
+                "Design a scalable notification system and explain key trade-offs.",
+                "How would you design search for a large candidate database?",
+                "Design a real-time collaboration feature with reliable updates.",
+                "How would you scale a read-heavy API while preserving consistency?",
+                "Design an audit log system for sensitive recruitment actions."
             ],
             "coding_algorithms": [
                 "Write a function to reverse a linked list.",
                 "Implement binary search on a sorted array.",
-                "Find the longest substring without repeating characters."
+                "Find the longest substring without repeating characters.",
+                "Merge overlapping intervals and describe the complexity.",
+                "Return the top K most frequent values in an array."
+            ],
+            "coding_debugging": [
+                "A request intermittently times out under load. Describe your debugging process.",
+                "Find and fix a race condition in a shared counter implementation.",
+                "How would you debug a memory leak in a long-running service?",
+                "A UI displays stale API data after updates. How do you isolate the bug?",
+                "Explain how you would reproduce and fix an environment-only failure."
+            ],
+            "coding_sql": [
+                "Write a query to return the top candidate score for each job.",
+                "Write a query to find duplicate email addresses in a candidate table.",
+                "How would you paginate a large ordered result set efficiently?",
+                "Write a query to calculate monthly interview completion counts.",
+                "Explain how you would optimize a multi-table reporting query."
+            ],
+            "behavioral_hr": [
+                "Tell me about a challenging work situation and how you handled it.",
+                "What motivates you in your next role?",
+                "Describe feedback you received and how you acted on it.",
+                "How do you prioritize when multiple deadlines conflict?",
+                "Why does this opportunity align with your goals?"
+            ],
+            "behavioral_leadership": [
+                "Describe a time you led a team through uncertainty.",
+                "How have you handled disagreement within your team?",
+                "Tell me about a decision you made with incomplete information.",
+                "How do you mentor or develop less experienced colleagues?",
+                "Describe an outcome you owned when plans failed."
+            ],
+            "behavioral_communication": [
+                "Tell me about a time you explained a complex topic to a non-technical audience.",
+                "How do you ensure stakeholders stay aligned during a project?",
+                "Describe a difficult conversation and how you approached it.",
+                "How do you communicate delays or risks?",
+                "Give an example of adapting your communication style."
+            ],
+            "behavioral_teamwork": [
+                "Describe a successful cross-functional collaboration.",
+                "Tell me about a conflict with a teammate and how it was resolved.",
+                "How have you supported a colleague during a difficult project?",
+                "Describe your role on a team that achieved a difficult goal.",
+                "How do you build trust when joining a new team?"
             ]
         }
         
@@ -333,16 +427,81 @@ Provide detailed analysis in JSON:
             "What's your biggest technical achievement?"
         ])
         
-        return [
-            {
-                "question_text": q,
+        generated = []
+        for index in range(count):
+            base_question = default_questions[index % len(default_questions)]
+            text = base_question if index < len(default_questions) else f"{base_question} Provide a different real-world example for scenario {index + 1}."
+            generated.append({
+                "question_text": text,
                 "difficulty": difficulty,
                 "category": category,
-                "estimated_time_minutes": 10,
-                "tags": [category, difficulty]
-            }
-            for q in default_questions[:count]
-        ]
+                "estimated_time_minutes": self._estimate_time(difficulty),
+                "tags": [category.replace("_", " "), difficulty],
+                "follow_up_suggestions": ["Can you explain your reasoning and the trade-offs involved?"],
+                "evaluation_criteria": ["Clarity of explanation", "Practical judgment", "Depth appropriate to the level"]
+            })
+        return generated
+
+    def _normalize_questions(
+        self,
+        questions: Any,
+        category: str,
+        difficulty: str,
+        count: int
+    ) -> List[Dict[str, Any]]:
+        """Validate AI output and fill incomplete responses with usable questions."""
+        if not isinstance(questions, list):
+            return self._get_fallback_questions(category, difficulty, count)
+
+        normalized = []
+        seen = set()
+        for question in questions:
+            if not isinstance(question, dict):
+                continue
+            text = str(question.get("question_text", "")).strip()
+            if not text or text.lower() in seen:
+                continue
+            seen.add(text.lower())
+            normalized.append({
+                "question_text": text,
+                "difficulty": difficulty,
+                "category": category,
+                "estimated_time_minutes": self._safe_minutes(question.get("estimated_time_minutes"), difficulty),
+                "tags": self._string_list(question.get("tags")) or [category.replace("_", " "), difficulty],
+                "follow_up_suggestions": self._string_list(question.get("follow_up_suggestions")) or [
+                    "Can you expand on your approach and the trade-offs involved?"
+                ],
+                "evaluation_criteria": self._string_list(question.get("evaluation_criteria")) or [
+                    "Clarity of explanation", "Technical accuracy", "Practical judgment"
+                ]
+            })
+            if len(normalized) == count:
+                break
+
+        if len(normalized) < count:
+            fallback = self._get_fallback_questions(category, difficulty, count)
+            for question in fallback:
+                if question["question_text"].lower() not in seen:
+                    normalized.append(question)
+                    seen.add(question["question_text"].lower())
+                if len(normalized) == count:
+                    break
+
+        return normalized[:count]
+
+    def _safe_minutes(self, value: Any, difficulty: str) -> int:
+        try:
+            return max(3, min(45, int(value)))
+        except (TypeError, ValueError):
+            return self._estimate_time(difficulty)
+
+    def _estimate_time(self, difficulty: str) -> int:
+        return {"beginner": 5, "intermediate": 8, "advanced": 12, "expert": 15}.get(difficulty, 8)
+
+    def _string_list(self, value: Any) -> List[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(item).strip() for item in value if str(item).strip()]
     
     def _get_fallback_summary(self, scores: Dict[str, float]) -> Dict[str, Any]:
         """Fallback summary if AI generation fails"""
