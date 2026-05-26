@@ -21,6 +21,7 @@ async def send_pending_welcome_emails():
                 select(User)
                 .where(User.welcome_email_sent == False)
                 .where(User.created_at >= five_min_ago)
+                .where(User.role == 'recruiter')  # Only send to recruiters
             )
             users = result.scalars().all()
             
@@ -31,7 +32,7 @@ async def send_pending_welcome_emails():
             
             for user in users:
                 try:
-                    print(f"📧 Sending welcome email to: {user.email}")
+                    print(f"[EMAIL] Sending welcome email to: {user.email}")
                     success = email_service.send_welcome_email(
                         recruiter_email=user.email,
                         recruiter_name=user.full_name,
@@ -41,15 +42,15 @@ async def send_pending_welcome_emails():
                     if success:
                         user.welcome_email_sent = True
                         await db.commit()
-                        print(f"✅ Welcome email sent: {user.email}")
+                        print(f"[OK] Welcome email sent: {user.email}")
                     else:
-                        print(f"❌ Welcome email failed: {user.email}")
+                        print(f"[ERROR] Welcome email failed: {user.email}")
                         
                 except Exception as e:
-                    print(f"❌ Error sending welcome email to {user.email}: {str(e)}")
+                    print(f"[ERROR] Error sending welcome email to {user.email}: {str(e)}")
                     
     except Exception as e:
-        print(f"❌ Welcome email worker error: {str(e)}")
+        print(f"[ERROR] Welcome email worker error: {str(e)}")
 
 
 async def welcome_email_worker():
@@ -58,7 +59,7 @@ async def welcome_email_worker():
         try:
             await send_pending_welcome_emails()
         except Exception as e:
-            print(f"❌ Worker error: {str(e)}")
+            print(f"[ERROR] Worker error: {str(e)}")
         
         # Wait 30 seconds before next check
         await asyncio.sleep(30)
@@ -67,4 +68,4 @@ async def welcome_email_worker():
 def start_welcome_email_worker():
     """Start the welcome email worker in background"""
     asyncio.create_task(welcome_email_worker())
-    print("✅ Welcome email worker started")
+    print("[OK] Welcome email worker started")

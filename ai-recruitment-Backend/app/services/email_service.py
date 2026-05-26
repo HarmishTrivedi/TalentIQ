@@ -15,6 +15,10 @@ class EmailService:
     """Email service for interview notifications with DB logging and retry queue"""
     
     def __init__(self):
+        # Load environment variables
+        from dotenv import load_dotenv
+        load_dotenv()
+        
         self.smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
         self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
         self.smtp_user = os.getenv('SMTP_USER', '')
@@ -22,6 +26,17 @@ class EmailService:
         self.from_email = os.getenv('FROM_EMAIL', 'noreply@talentiq.ai')
         self.from_name = os.getenv('FROM_NAME', 'TalentIQ')
         self.frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+        
+        # Debug: Print configuration (without password)
+        print(f"[EMAIL] Email Service Initialized:")
+        print(f"   SMTP Server: {self.smtp_server}:{self.smtp_port}")
+        print(f"   SMTP User: {self.smtp_user}")
+        print(f"   From Email: {self.from_email}")
+        print(f"   Password Set: {bool(self.smtp_password)}")
+        
+        if not self.smtp_user or not self.smtp_password:
+            print("⚠️  WARNING: SMTP credentials not configured! Emails will fail.")
+            print("   Please set SMTP_USER and SMTP_PASSWORD in .env file")
     
     async def _log_email_to_db(self, recipient_email: str, email_type: str, subject: str, status: str, failure_reason: str = None, related_entity_id: str = None):
         """Log email activity to database asynchronously"""
@@ -41,12 +56,18 @@ class EmailService:
                 )
                 db.add(log_entry)
                 await db.commit()
-                print(f"📧 Email logged to DB: {email_type} to {recipient_email} - {status}")
+                print(f"[EMAIL] Email logged to DB: {email_type} to {recipient_email} - {status}")
         except Exception as e:
-            print(f"⚠️ Failed to log email to database: {e}")
+            print(f"[WARNING] Failed to log email to database: {e}")
     
     def send_email_with_retry(self, to_email: str, subject: str, html_content: str, text_content: str = None, email_type: str = "general", related_entity_id: str = None, max_retries: int = 3):
         """Send email with retry logic and exponential backoff"""
+        # Check if SMTP is configured
+        if not self.smtp_user or not self.smtp_password:
+            error_msg = "SMTP credentials not configured. Cannot send email."
+            print(f"[ERROR] {error_msg}")
+            return False
+        
         for attempt in range(max_retries):
             try:
                 msg = MIMEMultipart('alternative')
@@ -58,43 +79,63 @@ class EmailService:
                     msg.attach(MIMEText(text_content, 'plain'))
                 msg.attach(MIMEText(html_content, 'html'))
                 
+                print(f"[EMAIL] Attempting to send email to {to_email} (attempt {attempt + 1}/{max_retries})")
+                
                 # Add timeout to prevent hanging
-                with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10) as server:
+                with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=15) as server:
+                    server.set_debuglevel(0)  # Set to 1 for debugging
                     server.starttls()
-                    if self.smtp_user and self.smtp_password:
-                        server.login(self.smtp_user, self.smtp_password)
+                    server.login(self.smtp_user, self.smtp_password)
                     server.send_message(msg)
                 
-                print(f"✅ Email sent successfully to {to_email}")
+                print(f"[OK] Email sent successfully to {to_email}")
                 
                 # Log success to DB asynchronously
-                asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'sent', related_entity_id=related_entity_id))
+                try:
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'sent', related_entity_id=related_entity_id))
+                except:
+                    pass  # Ignore logging errors
                 return True
                 
             except smtplib.SMTPException as e:
                 error_msg = f"SMTP error (attempt {attempt + 1}/{max_retries}): {e}"
-                print(f"❌ {error_msg}")
+                print(f"[ERROR] {error_msg}")
                 
                 if attempt < max_retries - 1:
                     # Exponential backoff: 2^attempt seconds
                     wait_time = 2 ** attempt
-                    print(f"⏳ Retrying in {wait_time} seconds...")
+                    print(f"[WAIT] Retrying in {wait_time} seconds...")
                     time.sleep(wait_time)
                 else:
                     # Final failure - log to DB
-                    asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'failed', failure_reason=error_msg, related_entity_id=related_entity_id))
+                    try:
+                        import asyncio
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'failed', failure_reason=error_msg, related_entity_id=related_entity_id))
+                    except:
+                        pass
                     return False
                     
             except Exception as e:
                 error_msg = f"Email send failed (attempt {attempt + 1}/{max_retries}): {e}"
-                print(f"❌ {error_msg}")
+                print(f"[ERROR] {error_msg}")
                 
                 if attempt < max_retries - 1:
                     wait_time = 2 ** attempt
-                    print(f"⏳ Retrying in {wait_time} seconds...")
+                    print(f"[WAIT] Retrying in {wait_time} seconds...")
                     time.sleep(wait_time)
                 else:
-                    asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'failed', failure_reason=error_msg, related_entity_id=related_entity_id))
+                    try:
+                        import asyncio
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'failed', failure_reason=error_msg, related_entity_id=related_entity_id))
+                    except:
+                        pass
                     return False
         
         return False
@@ -1006,7 +1047,7 @@ TalentIQ Team
                 </div>
                 
                 <p style="margin-top: 25px; color: #cbd5e1; font-size: 13px;">
-                    © 2024 TalentIQ - AI-Powered Recruitment Platform<br>
+                    © 2026 TalentIQ - AI-Powered Recruitment Platform<br>
                     You're receiving this email because you created an account on TalentIQ
                 </p>
             </div>
