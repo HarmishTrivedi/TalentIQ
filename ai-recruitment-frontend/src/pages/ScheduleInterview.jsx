@@ -352,30 +352,42 @@ export default function ScheduleInterview() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-purple-300 text-sm font-semibold mb-2">
+                  <label className="block text-purple-300 text-sm font-semibold mb-2 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
                     Date *
                   </label>
-                  <input
-                    type="date"
-                    value={formData.scheduled_date}
-                    onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
-                    min={today}
-                    className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={formData.scheduled_date}
+                      onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
+                      min={today}
+                      className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all [color-scheme:dark]"
+                      style={{
+                        colorScheme: 'dark'
+                      }}
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-purple-300 text-sm font-semibold mb-2">
+                  <label className="block text-purple-300 text-sm font-semibold mb-2 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
                     Time *
                   </label>
-                  <input
-                    type="time"
-                    value={formData.scheduled_time}
-                    onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
-                    className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={formData.scheduled_time}
+                      onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
+                      className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all [color-scheme:dark]"
+                      style={{
+                        colorScheme: 'dark'
+                      }}
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div>
