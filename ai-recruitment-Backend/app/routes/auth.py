@@ -9,7 +9,6 @@ from pydantic import BaseModel, EmailStr
 import os, uuid, shutil
 
 from app.database import get_db
-from app.database import AsyncSessionLocal
 from app.models.models import User
 from app.models.schemas import UserCreate, UserLogin, UserResponse, TokenResponse
 from app.utils.auth import (
@@ -83,33 +82,25 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
     
-    # Send welcome email asynchronously (non-blocking)
-    print(f"🎯 New user registered: {user.email}")
+    # Send welcome email in background (completely non-blocking)
     import asyncio
+    from concurrent.futures import ThreadPoolExecutor
     
-    async def send_welcome_async():
+    def send_email_sync():
         try:
             email_service = get_email_service()
-            success = email_service.send_welcome_email(
-                recruiter_email=user.email,
-                recruiter_name=user.full_name,
-                company_name=user.company_name if hasattr(user, 'company_name') else None
+            email_service.send_welcome_email(
+                recruiter_email=email,
+                recruiter_name=user_data.full_name,
+                company_name=user_data.company_name
             )
-            if success:
-                async with AsyncSessionLocal() as db_session:
-                    result = await db_session.execute(select(User).where(User.id == user.id))
-                    user_update = result.scalar_one_or_none()
-                    if user_update:
-                        user_update.welcome_email_sent = True
-                        await db_session.commit()
-                print(f"✅ Welcome email sent: {user.email}")
-            else:
-                print(f"❌ Welcome email failed: {user.email}")
+            print(f"✅ Welcome email sent: {email}")
         except Exception as e:
             print(f"❌ Welcome email error: {str(e)}")
     
-    # Fire and forget - don't wait for email
-    asyncio.create_task(send_welcome_async())
+    # Run in thread pool to avoid blocking
+    executor = ThreadPoolExecutor(max_workers=1)
+    asyncio.get_event_loop().run_in_executor(executor, send_email_sync)
     
     return user
 

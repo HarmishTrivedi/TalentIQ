@@ -40,7 +40,7 @@ async def google_callback(code: str = None, error: str = None, db: AsyncSession 
         return RedirectResponse(url=f"{settings.frontend_url}/login?error=oauth_failed")
     try:
         redirect_uri = f"{settings.backend_url}/api/v1/auth/oauth/google/callback"
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             # Exchange code for token
             token_resp = await client.post(GOOGLE_TOKEN_URL, data={
                 "code": code,
@@ -68,9 +68,8 @@ async def google_callback(code: str = None, error: str = None, db: AsyncSession 
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
         
-        is_new_user = False
         if not user:
-            is_new_user = True
+            # Create new user
             user = User(
                 email=email,
                 full_name=user_info.get("name", email.split("@")[0]),
@@ -84,33 +83,28 @@ async def google_callback(code: str = None, error: str = None, db: AsyncSession 
             await db.commit()
             await db.refresh(user)
             
-            # Send welcome email asynchronously (non-blocking)
-            print(f"🎯 New Google OAuth user: {user.email}")
+            # Send welcome email in background (completely non-blocking)
             import asyncio
-            from app.services.email_service import get_email_service
+            from concurrent.futures import ThreadPoolExecutor
             
-            async def send_welcome_async():
+            def send_email_sync():
                 try:
+                    from app.services.email_service import get_email_service
                     email_service = get_email_service()
-                    success = email_service.send_welcome_email(
-                        recruiter_email=user.email,
-                        recruiter_name=user.full_name,
+                    email_service.send_welcome_email(
+                        recruiter_email=email,
+                        recruiter_name=user_info.get("name", email.split("@")[0]),
                         company_name=None
                     )
-                    if success:
-                        async with db.begin():
-                            user.welcome_email_sent = True
-                            await db.commit()
-                        print(f"✅ Welcome email sent: {user.email}")
-                    else:
-                        print(f"❌ Welcome email failed: {user.email}")
+                    print(f"✅ Welcome email sent: {email}")
                 except Exception as e:
                     print(f"❌ Welcome email error: {str(e)}")
             
-            # Fire and forget - don't wait for email
-            asyncio.create_task(send_welcome_async())
-        else:
-            await db.commit()
+            # Run in thread pool to avoid blocking
+            executor = ThreadPoolExecutor(max_workers=1)
+            asyncio.get_event_loop().run_in_executor(executor, send_email_sync)
+
+        # Generate tokens and redirect immediately
         access_token = create_access_token({"sub": user.id})
         refresh_token = create_refresh_token({"sub": user.id})
         return RedirectResponse(
