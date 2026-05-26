@@ -44,8 +44,8 @@ async def check_and_send_reminders():
                 # Get recruiter
                 recruiter = await db.get(User, interview.recruiter_id)
                 
-                # Send reminder to candidate
-                meeting_link = f"{frontend_url}/interview-room/{interview.id}"
+                # Use meeting_url from database (permanent URL)
+                meeting_link = interview.meeting_url or f"{frontend_url}/join/{interview.id}?token={interview.candidate_access_token}"
                 
                 try:
                     email_service.send_interview_reminder(
@@ -60,7 +60,8 @@ async def check_and_send_reminders():
                 except Exception as e:
                     print(f"❌ Failed to send reminder to candidate: {e}")
                 
-                # Send reminder to recruiter
+                # Send reminder to recruiter (same URL without token)
+                recruiter_meeting_link = f"{frontend_url}/join/{interview.id}"
                 if recruiter and recruiter.email:
                     try:
                         email_service.send_recruiter_interview_reminder(
@@ -69,7 +70,7 @@ async def check_and_send_reminders():
                             candidate_name=candidate.name,
                             interview_title=interview.title,
                             scheduled_at=interview.scheduled_at,
-                            meeting_link=meeting_link,
+                            meeting_link=recruiter_meeting_link,
                             candidate_email=candidate.email
                         )
                         print(f"✅ Reminder sent to recruiter: {recruiter.email}")

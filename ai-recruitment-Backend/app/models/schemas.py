@@ -289,6 +289,7 @@ class InterviewResponse(BaseResponse):
     duration_minutes: Optional[int] = None
     interview_types: Optional[List[str]] = []
     candidate_access_token: Optional[str] = None
+    meeting_url: Optional[str] = None
     overall_score: Optional[float] = None
     technical_score: Optional[float] = None
     communication_score: Optional[float] = None

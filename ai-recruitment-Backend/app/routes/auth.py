@@ -76,6 +76,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         age=user_data.age,
         gender=user_data.gender,
         phone=user_data.phone,
+        welcome_email_sent=False,
     )
     db.add(user)
     await db.commit()
@@ -91,6 +92,8 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
             company_name=user.company_name if hasattr(user, 'company_name') else None
         )
         if success:
+            user.welcome_email_sent = True
+            await db.commit()
             print(f"✅ Welcome email sent successfully to: {user.email}")
         else:
             print(f"❌ Welcome email failed to send to: {user.email}")

@@ -20,6 +20,25 @@ def generate_uuid():
     return str(uuid.uuid4())
 
 
+# ─── Email Activity Log Model ────────────────────────────────────────────────
+
+class EmailActivityLog(Base):
+    __tablename__ = "email_activity_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    recipient_email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    email_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    subject: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False)  # sent, failed, pending
+    failure_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    related_entity_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    def __repr__(self):
+        return f"<EmailActivityLog {self.email_type} to {self.recipient_email}: {self.status}>"
+
+
 # ─── Enums ───────────────────────────────────────────────────────────────────
 
 class UserRole(str, enum.Enum):
@@ -58,6 +77,7 @@ class User(Base):
     role_in_company: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    welcome_email_sent: Mapped[bool] = mapped_column(Boolean, default=False)  # Track if welcome email was sent
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -276,6 +296,7 @@ class Interview(Base):
     
     # Candidate Access
     candidate_access_token: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True, index=True)
+    meeting_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # Permanent meeting URL for candidate
     interview_types: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # ["Technical", "HR", "Coding"]
     
     # Scheduling

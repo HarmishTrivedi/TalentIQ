@@ -91,6 +91,8 @@ export default function App() {
           
           {/* Candidate Join - No Auth Required */}
           <Route path="/join/:interviewId" element={<CandidateJoin />} />
+          <Route path="/interview-prejoin/:interviewId" element={<InterviewPreJoin />} />
+          <Route path="/interview-room/:interviewId" element={<InterviewRoom />} />
 
           <Route path="/welcome" element={<PrivateRoute><RecruiterWelcome /></PrivateRoute>} />
 
@@ -114,8 +116,6 @@ export default function App() {
             <Route path="/interviews/schedule" element={<ScheduleInterview />} />
             <Route path="/interviews/:interviewId" element={<LiveInterview />} />
             <Route path="/interviews/:interviewId/analysis" element={<InterviewAnalysis />} />
-            <Route path="/interview-prejoin/:interviewId" element={<InterviewPreJoin />} />
-            <Route path="/interview-room/:interviewId" element={<InterviewRoom />} />
             <Route path="/questions/generate" element={<QuestionGenerator />} />
 
             <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

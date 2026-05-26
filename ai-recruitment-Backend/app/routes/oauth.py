@@ -67,7 +67,10 @@ async def google_callback(code: str = None, error: str = None, db: AsyncSession 
 
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
+        
+        is_new_user = False
         if not user:
+            is_new_user = True
             user = User(
                 email=email,
                 full_name=user_info.get("name", email.split("@")[0]),
@@ -75,10 +78,32 @@ async def google_callback(code: str = None, error: str = None, db: AsyncSession 
                 role="recruiter",
                 is_active=True,
                 avatar_url=user_info.get("picture"),
+                welcome_email_sent=False,
             )
             db.add(user)
             await db.flush()
+            
+            # Send welcome email to new Google OAuth user
+            print(f"🎯 New Google OAuth user detected: {user.email}")
+            try:
+                from app.services.email_service import get_email_service
+                email_service = get_email_service()
+                success = email_service.send_welcome_email(
+                    recruiter_email=user.email,
+                    recruiter_name=user.full_name,
+                    company_name=None
+                )
+                if success:
+                    user.welcome_email_sent = True
+                    print(f"✅ Welcome email sent to new Google user: {user.email}")
+                else:
+                    print(f"❌ Failed to send welcome email to: {user.email}")
+            except Exception as e:
+                print(f"❌ ERROR sending welcome email to Google user: {str(e)}")
+                import traceback
+                traceback.print_exc()
 
+        await db.commit()
         access_token = create_access_token({"sub": user.id})
         refresh_token = create_refresh_token({"sub": user.id})
         return RedirectResponse(

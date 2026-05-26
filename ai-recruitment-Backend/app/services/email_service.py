@@ -8,9 +8,11 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from typing import Optional
 import os
+import asyncio
+import time
 
 class EmailService:
-    """Email service for interview notifications"""
+    """Email service for interview notifications with DB logging and retry queue"""
     
     def __init__(self):
         self.smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
@@ -21,33 +23,85 @@ class EmailService:
         self.from_name = os.getenv('FROM_NAME', 'TalentIQ')
         self.frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
     
-    def send_email(self, to_email: str, subject: str, html_content: str, text_content: str = None):
-        """Send email via SMTP with timeout protection"""
+    async def _log_email_to_db(self, recipient_email: str, email_type: str, subject: str, status: str, failure_reason: str = None, related_entity_id: str = None):
+        """Log email activity to database asynchronously"""
         try:
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = f"{self.from_name} <{self.from_email}>"
-            msg['To'] = to_email
+            from app.database import AsyncSessionLocal
+            from app.models.models import EmailActivityLog
             
-            if text_content:
-                msg.attach(MIMEText(text_content, 'plain'))
-            msg.attach(MIMEText(html_content, 'html'))
-            
-            # Add timeout to prevent hanging
-            with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
-            
-            print(f"Email sent successfully to {to_email}")
-            return True
-        except smtplib.SMTPException as e:
-            print(f"SMTP error sending email to {to_email}: {e}")
-            return False
+            async with AsyncSessionLocal() as db:
+                log_entry = EmailActivityLog(
+                    recipient_email=recipient_email,
+                    email_type=email_type,
+                    subject=subject,
+                    status=status,
+                    failure_reason=failure_reason,
+                    related_entity_id=related_entity_id,
+                    sent_at=datetime.utcnow() if status == 'sent' else None
+                )
+                db.add(log_entry)
+                await db.commit()
+                print(f"📧 Email logged to DB: {email_type} to {recipient_email} - {status}")
         except Exception as e:
-            print(f"Email send failed to {to_email}: {e}")
-            return False
+            print(f"⚠️ Failed to log email to database: {e}")
+    
+    def send_email_with_retry(self, to_email: str, subject: str, html_content: str, text_content: str = None, email_type: str = "general", related_entity_id: str = None, max_retries: int = 3):
+        """Send email with retry logic and exponential backoff"""
+        for attempt in range(max_retries):
+            try:
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = subject
+                msg['From'] = f"{self.from_name} <{self.from_email}>"
+                msg['To'] = to_email
+                
+                if text_content:
+                    msg.attach(MIMEText(text_content, 'plain'))
+                msg.attach(MIMEText(html_content, 'html'))
+                
+                # Add timeout to prevent hanging
+                with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10) as server:
+                    server.starttls()
+                    if self.smtp_user and self.smtp_password:
+                        server.login(self.smtp_user, self.smtp_password)
+                    server.send_message(msg)
+                
+                print(f"✅ Email sent successfully to {to_email}")
+                
+                # Log success to DB asynchronously
+                asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'sent', related_entity_id=related_entity_id))
+                return True
+                
+            except smtplib.SMTPException as e:
+                error_msg = f"SMTP error (attempt {attempt + 1}/{max_retries}): {e}"
+                print(f"❌ {error_msg}")
+                
+                if attempt < max_retries - 1:
+                    # Exponential backoff: 2^attempt seconds
+                    wait_time = 2 ** attempt
+                    print(f"⏳ Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    # Final failure - log to DB
+                    asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'failed', failure_reason=error_msg, related_entity_id=related_entity_id))
+                    return False
+                    
+            except Exception as e:
+                error_msg = f"Email send failed (attempt {attempt + 1}/{max_retries}): {e}"
+                print(f"❌ {error_msg}")
+                
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    print(f"⏳ Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    asyncio.create_task(self._log_email_to_db(to_email, email_type, subject, 'failed', failure_reason=error_msg, related_entity_id=related_entity_id))
+                    return False
+        
+        return False
+    
+    def send_email(self, to_email: str, subject: str, html_content: str, text_content: str = None, email_type: str = "general", related_entity_id: str = None):
+        """Send email via SMTP with timeout protection and activity logging"""
+        return self.send_email_with_retry(to_email, subject, html_content, text_content, email_type, related_entity_id)
     
     def send_interview_invitation(
         self,
@@ -445,6 +499,109 @@ TalentIQ Team
 """
         
         return self.send_email(recruiter_email, subject, html_content, text_content)
+    
+    def send_recruiter_interview_invitation(
+        self,
+        recruiter_email: str,
+        recruiter_name: str,
+        candidate_name: str,
+        interview_title: str,
+        scheduled_at: datetime,
+        duration: int,
+        meeting_link: str,
+        candidate_email: str = None
+    ):
+        """Send interview invitation to recruiter with join button"""
+        
+        date_str = scheduled_at.strftime("%A, %B %d, %Y")
+        time_str = scheduled_at.strftime("%I:%M %p")
+        
+        subject = f"Interview Scheduled: {candidate_name} - {interview_title}"
+        
+        candidate_info = ""
+        if candidate_email:
+            candidate_info = f"<p><strong>📧 Candidate Email:</strong> {candidate_email}</p>"
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 0; background: #0a0b14; }}
+        .container {{ max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #10b981, #3b82f6); padding: 40px 20px; }}
+        .card {{ background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }}
+        .logo {{ text-align: center; margin-bottom: 30px; }}
+        .logo-text {{ font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        h1 {{ color: #059669; font-size: 28px; margin-bottom: 10px; }}
+        .subtitle {{ color: #64748b; font-size: 16px; margin-bottom: 30px; }}
+        .info-box {{ background: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 8px; }}
+        .info-box p {{ margin: 8px 0; color: #334155; }}
+        .info-label {{ font-weight: 700; color: #1e293b; }}
+        .button {{ display: inline-block; background: linear-gradient(135deg, #10b981, #3b82f6); color: white; padding: 16px 40px; text-decoration: none; border-radius: 12px; font-weight: 700; margin: 20px 0; box-shadow: 0 4px 20px rgba(16,185,129,0.3); }}
+        .button:hover {{ box-shadow: 0 6px 30px rgba(16,185,129,0.5); }}
+        .footer {{ text-align: center; color: #94a3b8; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <div class="logo-text">✨ TalentIQ</div>
+            </div>
+            
+            <h1>✅ Interview Scheduled Successfully</h1>
+            <p class="subtitle">Hi {recruiter_name}, your interview has been confirmed!</p>
+            
+            <div class="info-box">
+                <p><strong>📅 Date:</strong> {date_str}</p>
+                <p><strong>🕐 Time:</strong> {time_str}</p>
+                <p><strong>⏱️ Duration:</strong> {duration} minutes</p>
+                <p><strong>📄 Interview:</strong> {interview_title}</p>
+                <p><strong>👤 Candidate:</strong> {candidate_name}</p>
+                {candidate_info}
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="{meeting_link}" class="button">🎥 Join Interview</a>
+            </div>
+            
+            <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 8px;">
+                <p style="margin: 0; color: #1e40af; font-weight: 600;">📧 The candidate has been notified and will receive a reminder 30 minutes before the interview.</p>
+            </div>
+            
+            <div class="footer">
+                <p>This is an automated invitation from TalentIQ AI Recruitment Platform</p>
+                <p style="margin-top: 20px; color: #cbd5e1;">
+                    <a href="{self.frontend_url}" style="color: #059669; text-decoration: none;">Visit TalentIQ Dashboard</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        
+        text_content = f"""
+Interview Scheduled: {candidate_name} - {interview_title}
+
+Hi {recruiter_name},
+
+Your interview has been confirmed!
+
+Date: {date_str}
+Time: {time_str}
+Duration: {duration} minutes
+Candidate: {candidate_name}
+
+Join the interview: {meeting_link}
+
+The candidate has been notified and will receive a reminder 30 minutes before.
+
+Best regards,
+TalentIQ Team
+"""
+        
+        return self.send_email(recruiter_email, subject, html_content, text_content, email_type="interview_invitation")
     
     def send_recruiter_confirmation(
         self,
