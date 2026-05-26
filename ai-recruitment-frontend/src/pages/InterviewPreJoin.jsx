@@ -1,308 +1,196 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import {
-  Video, VideoOff, Mic, MicOff, Settings, CheckCircle, AlertCircle, Loader
-} from 'lucide-react';
-import toast from 'react-hot-toast';
-import api from '../services/api';
+import React, { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { CheckCircle, Loader, Mic, MicOff, Signal, Speaker, User, Video, VideoOff } from 'lucide-react'
+import toast from 'react-hot-toast'
+import api from '../services/api'
+import { useAuthStore } from '../store'
+
+function StatusRow({ icon: Icon, label, value, ready }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3">
+      <div className="flex items-center gap-3 text-sm text-slate-200"><Icon size={17} className="text-violet-300" />{label}</div>
+      <span className={`text-xs font-medium ${ready ? 'text-emerald-300' : 'text-amber-300'}`}>{value}</span>
+    </div>
+  )
+}
 
 export default function InterviewPreJoin() {
-  const { interviewId } = useParams();
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const token = searchParams.get('token');
-  
-  const [interview, setInterview] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [isVideoOn, setIsVideoOn] = useState(true);
-  const [isAudioOn, setIsAudioOn] = useState(true);
-  const [mediaStream, setMediaStream] = useState(null);
-  const [permissionStatus, setPermissionStatus] = useState('pending'); // pending, granted, denied
-  const [deviceError, setDeviceError] = useState(null);
-  
-  const videoRef = useRef(null);
+  const { interviewId } = useParams()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const token = searchParams.get('token')
+  const [interview, setInterview] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [displayName, setDisplayName] = useState(user?.full_name || '')
+  const [isVideoOn, setIsVideoOn] = useState(true)
+  const [isAudioOn, setIsAudioOn] = useState(true)
+  const [mediaStream, setMediaStream] = useState(null)
+  const [permissionStatus, setPermissionStatus] = useState('pending')
+  const [deviceError, setDeviceError] = useState('')
+  const [speakerTested, setSpeakerTested] = useState(false)
+  const [networkQuality, setNetworkQuality] = useState(navigator.onLine ? 'Good' : 'Offline')
+  const videoRef = useRef(null)
 
   useEffect(() => {
-    loadInterview();
-    requestPermissions();
-  }, [interviewId]);
+    loadInterview()
+    requestPermissions()
+    const updateConnection = () => setNetworkQuality(navigator.onLine ? 'Good' : 'Offline')
+    window.addEventListener('online', updateConnection)
+    window.addEventListener('offline', updateConnection)
+    return () => {
+      window.removeEventListener('online', updateConnection)
+      window.removeEventListener('offline', updateConnection)
+      mediaStream?.getTracks().forEach((track) => track.stop())
+    }
+  }, [interviewId])
+
+  useEffect(() => {
+    if (videoRef.current && mediaStream) {
+      videoRef.current.srcObject = mediaStream
+      videoRef.current.play().catch(console.error)
+    }
+  }, [loading, mediaStream])
 
   const loadInterview = async () => {
     try {
-      let response;
-      if (token) {
-        response = await api.get(`/interviews/join/${interviewId}?token=${token}`);
-      } else {
-        response = await api.get(`/interviews/${interviewId}`);
-      }
-      setInterview(response.data);
+      const response = token
+        ? await api.get(`/interviews/join/${interviewId}?token=${token}`)
+        : await api.get(`/interviews/${interviewId}`)
+      setInterview(response.data)
+      if (!displayName && response.data.candidate?.name) setDisplayName(response.data.candidate.name)
     } catch (error) {
-      toast.error('Failed to load interview');
-      navigate('/');
+      toast.error('Failed to load interview')
+      navigate('/')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const requestPermissions = async () => {
-    setPermissionStatus('requesting');
-    setDeviceError(null);
-    
+    setPermissionStatus('requesting')
+    setDeviceError('')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
-      
-      setMediaStream(stream);
-      setPermissionStatus('granted');
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(console.error);
-      }
-      
-      toast.success('Camera and microphone ready!');
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      })
+      setMediaStream(stream)
+      setPermissionStatus('granted')
     } catch (error) {
-      console.error('Permission error:', error);
-      setPermissionStatus('denied');
-      
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        setDeviceError('Permission denied. Please allow camera and microphone access.');
-      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        setDeviceError('No camera or microphone found. Please connect a device.');
-      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-        setDeviceError('Camera or microphone is already in use by another application.');
-      } else {
-        setDeviceError('Could not access camera/microphone. Please check your settings.');
-      }
+      console.error('Permission error:', error)
+      setPermissionStatus('denied')
+      setDeviceError('Camera and microphone are unavailable. You may still join and enable devices later.')
     }
-  };
+  }
 
   const toggleVideo = () => {
-    if (mediaStream) {
-      const videoTrack = mediaStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoOn(videoTrack.enabled);
-      }
+    const track = mediaStream?.getVideoTracks()[0]
+    if (track) {
+      track.enabled = !track.enabled
+      setIsVideoOn(track.enabled)
     }
-  };
+  }
 
   const toggleAudio = () => {
-    if (mediaStream) {
-      const audioTrack = mediaStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsAudioOn(audioTrack.enabled);
-      }
+    const track = mediaStream?.getAudioTracks()[0]
+    if (track) {
+      track.enabled = !track.enabled
+      setIsAudioOn(track.enabled)
     }
-  };
+  }
+
+  const testSpeaker = () => {
+    const context = new (window.AudioContext || window.webkitAudioContext)()
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.frequency.value = 440
+    gain.gain.value = 0.06
+    oscillator.start()
+    oscillator.stop(context.currentTime + 0.18)
+    oscillator.onended = () => context.close()
+    setSpeakerTested(true)
+    toast.success('Speaker test played')
+  }
 
   const joinInterview = () => {
-    if (permissionStatus === 'granted') {
-      // Pass the media stream to the interview room
-      const params = new URLSearchParams();
-      if (token) params.append('token', token);
-      params.append('hasMedia', 'true');
-      navigate(`/interview-room/${interviewId}?${params.toString()}`, {
-        state: { mediaStream }
-      });
-    } else {
-      // Join without media
-      const params = new URLSearchParams();
-      if (token) params.append('token', token);
-      params.append('hasMedia', 'false');
-      navigate(`/interview-room/${interviewId}?${params.toString()}`);
+    if (!displayName.trim()) {
+      toast.error('Please enter your display name')
+      return
     }
-  };
+    const params = new URLSearchParams()
+    if (token) params.append('token', token)
+    params.append('name', displayName.trim())
+    params.append('hasMedia', permissionStatus === 'granted' ? 'true' : 'false')
+    navigate(`/interview-room/${interviewId}?${params.toString()}`, { state: { mediaStream } })
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <Loader className="w-16 h-16 text-purple-400 animate-spin mx-auto mb-4" />
-          <p className="text-purple-300">Loading interview...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-[#070812]">
+        <Loader className="h-10 w-10 animate-spin text-violet-300" />
       </div>
-    );
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl w-full"
-      >
-        <div className="bg-black/40 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">
-              {interview?.title || 'Interview Room'}
-            </h1>
-            <p className="text-purple-300">
-              Get ready to join your interview
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Video Preview */}
-            <div className="space-y-4">
-              <div className="relative bg-slate-900 rounded-2xl overflow-hidden aspect-video">
-                {permissionStatus === 'granted' ? (
-                  <>
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover mirror"
-                    />
-                    {!isVideoOn && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-                        <div className="w-24 h-24 rounded-full bg-purple-500/20 flex items-center justify-center">
-                          <VideoOff className="w-12 h-12 text-purple-400" />
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <Video className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-                      <p className="text-purple-300">Camera preview will appear here</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Controls */}
-              {permissionStatus === 'granted' && (
-                <div className="flex items-center justify-center gap-4">
-                  <button
-                    onClick={toggleVideo}
-                    className={`p-4 rounded-xl transition-all ${
-                      isVideoOn
-                        ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
-                        : 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
-                    }`}
-                  >
-                    {isVideoOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
-                  </button>
-
-                  <button
-                    onClick={toggleAudio}
-                    className={`p-4 rounded-xl transition-all ${
-                      isAudioOn
-                        ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
-                        : 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
-                    }`}
-                  >
-                    {isAudioOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
-                  </button>
+    <div className="relative min-h-screen overflow-hidden bg-[#070812] px-4 py-8 text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.25),transparent_34%),radial-gradient(circle_at_80%_70%,rgba(79,70,229,0.15),transparent_35%)]" />
+      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="relative mx-auto max-w-6xl">
+        <header className="mb-8 text-center">
+          <p className="mb-3 text-xs font-medium uppercase tracking-[0.25em] text-violet-300">TalentIQ interview</p>
+          <h1 className="text-3xl font-semibold sm:text-4xl">Ready to join?</h1>
+          <p className="mt-3 text-sm text-slate-400">{interview?.title || 'Interview meeting'} · Check your setup before entering</p>
+        </header>
+        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.85fr]">
+          <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-3 shadow-2xl backdrop-blur-xl">
+            <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-900">
+              <video ref={videoRef} autoPlay playsInline muted className="mirror h-full w-full object-cover" />
+              {(permissionStatus !== 'granted' || !isVideoOn) && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400">
+                  <div className="mb-3 rounded-full bg-violet-500/20 p-6 text-violet-300"><User size={42} /></div>
+                  <p className="text-sm">{permissionStatus === 'denied' ? 'Camera unavailable' : 'Camera is off'}</p>
                 </div>
               )}
-            </div>
-
-            {/* Setup Instructions */}
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold text-white mb-4">Setup Checklist</h2>
-                
-                <div className="space-y-3">
-                  {/* Permission Status */}
-                  <div className={`p-4 rounded-xl border ${
-                    permissionStatus === 'granted'
-                      ? 'bg-green-500/10 border-green-500/30'
-                      : permissionStatus === 'denied'
-                      ? 'bg-red-500/10 border-red-500/30'
-                      : 'bg-purple-500/10 border-purple-500/30'
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      {permissionStatus === 'granted' ? (
-                        <CheckCircle className="w-5 h-5 text-green-400" />
-                      ) : permissionStatus === 'denied' ? (
-                        <AlertCircle className="w-5 h-5 text-red-400" />
-                      ) : (
-                        <Settings className="w-5 h-5 text-purple-400" />
-                      )}
-                      <div className="flex-1">
-                        <p className={`font-semibold ${
-                          permissionStatus === 'granted'
-                            ? 'text-green-300'
-                            : permissionStatus === 'denied'
-                            ? 'text-red-300'
-                            : 'text-purple-300'
-                        }`}>
-                          Camera & Microphone
-                        </p>
-                        {deviceError && (
-                          <p className="text-sm text-red-300 mt-1">{deviceError}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Request Permission Button */}
-                  {permissionStatus === 'denied' && (
-                    <button
-                      onClick={requestPermissions}
-                      className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Settings className="w-5 h-5" />
-                      Try Again
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Tips */}
-              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                <h3 className="text-blue-300 font-semibold mb-2">💡 Tips for a great interview:</h3>
-                <ul className="space-y-1 text-sm text-blue-200">
-                  <li>• Find a quiet, well-lit space</li>
-                  <li>• Test your camera and microphone</li>
-                  <li>• Close unnecessary applications</li>
-                  <li>• Have your resume ready</li>
-                  <li>• Prepare questions about the role</li>
-                </ul>
-              </div>
-
-              {/* Join Button */}
-              <div className="space-y-3">
-                <button
-                  onClick={joinInterview}
-                  className="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-green-500/50 transition-all"
-                >
-                  Join Interview
+              <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-3 rounded-full border border-white/10 bg-slate-950/65 p-2 backdrop-blur-xl">
+                <button type="button" onClick={toggleAudio} className={`rounded-full p-3 ${isAudioOn ? 'bg-white/10' : 'bg-red-500'}`} aria-label="Toggle microphone">
+                  {isAudioOn ? <Mic size={19} /> : <MicOff size={19} />}
                 </button>
-                
-                {permissionStatus !== 'granted' && (
-                  <p className="text-center text-sm text-purple-300">
-                    You can join without camera/microphone and enable them later
-                  </p>
-                )}
+                <button type="button" onClick={toggleVideo} className={`rounded-full p-3 ${isVideoOn ? 'bg-white/10' : 'bg-red-500'}`} aria-label="Toggle camera">
+                  {isVideoOn ? <Video size={19} /> : <VideoOff size={19} />}
+                </button>
               </div>
             </div>
-          </div>
+            {permissionStatus === 'denied' && (
+              <button type="button" onClick={requestPermissions} className="mt-3 w-full rounded-xl border border-violet-300/20 bg-violet-500/10 px-4 py-3 text-sm text-violet-100 hover:bg-violet-500/20">
+                Retry camera and microphone access
+              </button>
+            )}
+          </section>
+          <section className="space-y-4 rounded-3xl border border-white/10 bg-white/[0.045] p-5 backdrop-blur-xl sm:p-6">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-400">Display name</label>
+              <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Enter your name" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-violet-400/50" />
+            </div>
+            <StatusRow icon={Video} label="Camera" value={permissionStatus === 'granted' && isVideoOn ? 'Ready' : 'Off'} ready={permissionStatus === 'granted' && isVideoOn} />
+            <StatusRow icon={Mic} label="Microphone" value={permissionStatus === 'granted' && isAudioOn ? 'Ready' : 'Off'} ready={permissionStatus === 'granted' && isAudioOn} />
+            <button type="button" onClick={testSpeaker} className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-slate-200 hover:bg-white/[0.07]">
+              <span className="flex items-center gap-3"><Speaker size={17} className="text-violet-300" /> Speaker test</span>
+              <span className={speakerTested ? 'text-xs text-emerald-300' : 'text-xs text-slate-400'}>{speakerTested ? 'Played' : 'Test'}</span>
+            </button>
+            <StatusRow icon={Signal} label="Network quality" value={networkQuality} ready={networkQuality === 'Good'} />
+            {deviceError && <p className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-200">{deviceError}</p>}
+            <button type="button" onClick={joinInterview} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-4 text-sm font-semibold shadow-lg shadow-violet-900/30 hover:bg-violet-500">
+              <CheckCircle size={18} /> Join interview
+            </button>
+            <p className="text-center text-xs text-slate-500">Your device settings can be changed after joining.</p>
+          </section>
         </div>
       </motion.div>
-
-      <style jsx>{`
-        .mirror {
-          transform: scaleX(-1);
-        }
-      `}</style>
+      <style jsx>{`.mirror { transform: scaleX(-1); }`}</style>
     </div>
-  );
+  )
 }

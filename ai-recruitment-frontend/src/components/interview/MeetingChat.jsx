@@ -1,108 +1,64 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { X, Send, Smile } from 'lucide-react';
-import { useAuthStore } from '../../store';
+import React, { useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
+import { Paperclip, Send, X } from 'lucide-react'
 
-export default function MeetingChat({ interviewId, onClose }) {
-  const { user } = useAuthStore();
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+export default function MeetingChat({ messages = [], onSend, onClose }) {
+  const [newMessage, setNewMessage] = useState('')
+  const messagesEndRef = useRef(null)
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
-  const handleSend = (e) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
-
-    const message = {
-      id: Date.now(),
-      sender: user?.full_name || 'You',
-      text: newMessage,
-      timestamp: new Date(),
-      isOwn: true
-    };
-
-    setMessages([...messages, message]);
-    setNewMessage('');
-  };
+  const handleSend = (event) => {
+    event.preventDefault()
+    const text = newMessage.trim()
+    if (!text) return
+    onSend(text)
+    setNewMessage('')
+  }
 
   return (
-    <motion.div
-      initial={{ x: 300, opacity: 0 }}
+    <motion.aside
+      initial={{ x: 420, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 300, opacity: 0 }}
-      className="fixed right-0 top-0 bottom-0 w-96 bg-black/60 backdrop-blur-xl border-l border-purple-500/20 flex flex-col z-50"
+      exit={{ x: 420, opacity: 0 }}
+      className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur-2xl"
     >
-      {/* Header */}
-      <div className="p-4 border-b border-purple-500/20 flex items-center justify-between">
-        <h3 className="text-white font-bold">Chat</h3>
-        <button
-          onClick={onClose}
-          className="p-2 hover:bg-purple-500/20 rounded-lg transition-colors"
-        >
-          <X className="w-5 h-5 text-purple-400" />
+      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        <div>
+          <h2 className="text-sm font-semibold text-white">Meeting chat</h2>
+          <p className="text-xs text-slate-400">Messages in this interview</p>
+        </div>
+        <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Close chat">
+          <X size={18} />
         </button>
       </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+      <div className="flex-1 space-y-4 overflow-y-auto p-5 custom-scrollbar">
         {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-purple-300/50 text-sm">
-            No messages yet
-          </div>
-        ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                  msg.isOwn
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                    : 'bg-purple-500/20 text-purple-100'
-                }`}
-              >
-                {!msg.isOwn && (
-                  <p className="text-xs opacity-70 mb-1">{msg.sender}</p>
-                )}
-                <p className="text-sm">{msg.text}</p>
-                <p className="text-xs opacity-60 mt-1">
-                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
+          <div className="flex h-full items-center justify-center text-sm text-slate-500">No messages yet</div>
+        ) : messages.map((message) => (
+          <div key={message.id} className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${message.isOwn ? 'bg-violet-600 text-white' : 'border border-white/10 bg-white/[0.05] text-slate-100'}`}>
+              {!message.isOwn && <p className="mb-1 text-xs font-medium text-violet-300">{message.sender}</p>}
+              <p className="text-sm">{message.text}</p>
+              <p className="mt-1 text-[11px] opacity-60">{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
             </div>
-          ))
-        )}
+          </div>
+        ))}
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Input */}
-      <form onSubmit={handleSend} className="p-4 border-t border-purple-500/20">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white placeholder-purple-300/50 focus:outline-none focus:border-purple-500"
-          />
-          <button
-            type="submit"
-            disabled={!newMessage.trim()}
-            className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Send className="w-5 h-5" />
+      <form onSubmit={handleSend} className="border-t border-white/10 p-4">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
+          <button type="button" disabled title="File sharing ready for integration" className="rounded-xl p-2 text-slate-500">
+            <Paperclip size={18} />
+          </button>
+          <input value={newMessage} onChange={(event) => setNewMessage(event.target.value)} placeholder="Send a message" className="flex-1 bg-transparent px-1 text-sm text-white outline-none placeholder:text-slate-500" />
+          <button type="submit" disabled={!newMessage.trim()} className="rounded-xl bg-violet-600 p-2.5 text-white transition hover:bg-violet-500 disabled:opacity-40">
+            <Send size={17} />
           </button>
         </div>
       </form>
-    </motion.div>
-  );
+    </motion.aside>
+  )
 }

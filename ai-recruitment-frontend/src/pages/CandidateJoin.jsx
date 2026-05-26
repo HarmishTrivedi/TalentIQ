@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   Video, VideoOff, Mic, MicOff, Settings, Monitor,
   User, Clock, Calendar, Briefcase, CheckCircle, AlertCircle,
-  Loader, ChevronDown
+  Loader, ChevronDown, Signal, Speaker
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -27,6 +27,8 @@ export default function CandidateJoin() {
   const [selectedMicrophone, setSelectedMicrophone] = useState('');
   const [showDeviceSettings, setShowDeviceSettings] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [speakerTested, setSpeakerTested] = useState(false);
+  const [networkQuality, setNetworkQuality] = useState(navigator.onLine ? 'Good' : 'Offline');
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -40,11 +42,16 @@ export default function CandidateJoin() {
   }, [interviewId, token]);
 
   useEffect(() => {
+    const updateConnection = () => setNetworkQuality(navigator.onLine ? 'Good' : 'Offline');
+    window.addEventListener('online', updateConnection);
+    window.addEventListener('offline', updateConnection);
     return () => {
       // Cleanup media stream on unmount
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
+      window.removeEventListener('online', updateConnection);
+      window.removeEventListener('offline', updateConnection);
     };
   }, []);
 
@@ -193,6 +200,21 @@ export default function CandidateJoin() {
     }
   };
 
+  const testSpeaker = () => {
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.frequency.value = 440;
+    gain.gain.value = 0.06;
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.18);
+    oscillator.onended = () => context.close();
+    setSpeakerTested(true);
+    toast.success('Speaker test played');
+  };
+
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -229,7 +251,7 @@ export default function CandidateJoin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-violet-950/40 to-slate-950 flex items-center justify-center p-6">
       <div className="max-w-6xl w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Side - Video Preview */}
@@ -419,6 +441,21 @@ export default function CandidateJoin() {
                 placeholder="Enter your full name"
                 className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all"
               />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={testSpeaker}
+                className="flex items-center justify-between px-4 py-3 bg-slate-900/60 border border-slate-700/50 rounded-xl text-slate-200 hover:border-violet-400/40 transition-all"
+              >
+                <span className="flex items-center gap-2 text-sm"><Speaker className="w-4 h-4 text-violet-300" /> Speaker Test</span>
+                <span className={`text-xs ${speakerTested ? 'text-emerald-300' : 'text-slate-400'}`}>{speakerTested ? 'Played' : 'Test'}</span>
+              </button>
+              <div className="flex items-center justify-between px-4 py-3 bg-slate-900/60 border border-slate-700/50 rounded-xl text-slate-200">
+                <span className="flex items-center gap-2 text-sm"><Signal className="w-4 h-4 text-violet-300" /> Network</span>
+                <span className={`text-xs ${networkQuality === 'Good' ? 'text-emerald-300' : 'text-amber-300'}`}>{networkQuality}</span>
+              </div>
             </div>
 
             {/* Join Button */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Download, Share2, Brain, TrendingUp, AlertTriangle,
@@ -12,6 +12,7 @@ import api from '../services/api';
 export default function InterviewAnalysis() {
   const { interviewId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [interview, setInterview] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -105,6 +106,7 @@ export default function InterviewAnalysis() {
 
   const riskBadge = getRiskBadge(analysis.fraud_risk_level);
   const RiskIcon = riskBadge.icon;
+  const reportTranscript = location.state?.transcript || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
@@ -302,6 +304,34 @@ export default function InterviewAnalysis() {
                     </div>
                   ))}
                 </div>
+              )}
+            </motion.div>
+
+            {/* Transcript */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="bg-black/40 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6"
+            >
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                <MessageCircle className="w-6 h-6 text-purple-400" />
+                Interview Transcript
+              </h2>
+              {reportTranscript.length ? (
+                <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                  {reportTranscript.map((line, index) => (
+                    <div key={`${line.timestamp}-${index}`} className="rounded-xl bg-purple-500/10 border border-purple-500/10 p-3">
+                      <div className="flex items-center gap-2 mb-1 text-xs">
+                        <span className="font-semibold text-purple-300 capitalize">{line.speaker}</span>
+                        <span className="text-purple-300/50">{new Date(line.timestamp).toLocaleTimeString()}</span>
+                      </div>
+                      <p className="text-sm text-purple-100">{line.text}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-purple-300/70">Transcript was not carried in this browser session. Stored analysis remains available above.</p>
               )}
             </motion.div>
 
