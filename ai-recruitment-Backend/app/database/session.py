@@ -84,6 +84,11 @@ async def init_db():
             "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS domain VARCHAR(100)",
             "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS domain VARCHAR(100)",
             "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS projects JSON",
+            "ALTER TABLE email_activity_logs ADD COLUMN IF NOT EXISTS template_name VARCHAR(100)",
+            "ALTER TABLE email_activity_logs ADD COLUMN IF NOT EXISTS error_message TEXT",
+            "ALTER TABLE email_activity_logs ADD COLUMN IF NOT EXISTS provider_response JSON",
+            "CREATE TABLE IF NOT EXISTS calendar_events (id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) REFERENCES users(id), title VARCHAR(255) NOT NULL, description TEXT, event_type VARCHAR(50), start_time TIMESTAMP NOT NULL, end_time TIMESTAMP NOT NULL, priority VARCHAR(20), participants JSON, reminder_time INTEGER, metadata JSON, created_at TIMESTAMP, updated_at TIMESTAMP)",
+            "CREATE TABLE IF NOT EXISTS notifications (id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) REFERENCES users(id), title VARCHAR(255) NOT NULL, message TEXT NOT NULL, type VARCHAR(50) NOT NULL, is_read BOOLEAN DEFAULT FALSE, link VARCHAR(500), metadata JSON, created_at TIMESTAMP)",
         ]
         for sql in migrations:
             try:

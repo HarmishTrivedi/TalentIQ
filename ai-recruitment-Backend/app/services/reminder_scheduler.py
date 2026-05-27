@@ -7,81 +7,94 @@ from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
 from app.models.models import Candidate, Interview, InterviewStatus, User
-from app.services.email_service import get_email_service
+from app.services.new_email_service import get_new_email_service
 
 
-REMINDER_STATE_KEY = "email_notifications"
+REMINDER_STATE_KEY = "email_notifications_v2"
 
 
 async def check_and_send_reminders():
-    """Send candidate and recruiter reminders during the 30-minute window once."""
+    """Process multiple reminder tiers: 24h, 1h, 30m, 15m."""
     async with AsyncSessionLocal() as db:
         now = datetime.utcnow()
-        start_window = now + timedelta(minutes=25)
-        end_window = now + timedelta(minutes=35)
+        
+        # Define reminder tiers (minutes before, display name, unique key)
+        tiers = [
+            (1440, "24 hours", "24h"),
+            (60, "1 hour", "1h"),
+            (30, "30 minutes", "30m"),
+            (15, "15 minutes", "15m"),
+        ]
 
-        result = await db.execute(
-            select(Interview)
-            .where(Interview.scheduled_at >= start_window)
-            .where(Interview.scheduled_at <= end_window)
-            .where(Interview.status == InterviewStatus.scheduled)
-            .with_for_update(skip_locked=True)
-        )
-        interviews = result.scalars().all()
-        email_service = get_email_service()
+        email_service = get_new_email_service()
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
-        for interview in interviews:
-            candidate = await db.get(Candidate, interview.candidate_id)
-            recruiter = await db.get(User, interview.recruiter_id)
-            if not candidate:
-                continue
+        for minutes_before, display_name, key in tiers:
+            # Create a window for this tier (e.g. if we check every 5m, use +/- 3m)
+            start_window = now + timedelta(minutes=minutes_before - 5)
+            end_window = now + timedelta(minutes=minutes_before + 5)
 
-            metadata = dict(interview.metadata_ or {})
-            notifications = dict(metadata.get(REMINDER_STATE_KEY) or {})
-            changed = False
-            candidate_link = interview.meeting_url or (
-                f"{frontend_url}/join/{interview.id}?token={interview.candidate_access_token}"
+            result = await db.execute(
+                select(Interview)
+                .where(Interview.scheduled_at >= start_window)
+                .where(Interview.scheduled_at <= end_window)
+                .where(Interview.status == InterviewStatus.scheduled)
             )
-            recruiter_link = f"{frontend_url}/interview-prejoin/{interview.id}"
+            interviews = result.scalars().all()
 
-            if candidate.email and not notifications.get("candidate_reminder_sent_at"):
-                success = await asyncio.to_thread(
-                    email_service.send_interview_reminder,
-                    candidate_email=candidate.email,
-                    candidate_name=candidate.name,
-                    interview_title=interview.title,
-                    scheduled_at=interview.scheduled_at,
-                    meeting_link=candidate_link,
-                    recruiter_name=recruiter.full_name if recruiter else "TalentIQ Team",
-                    related_entity_id=interview.id,
+            for interview in interviews:
+                metadata = dict(interview.metadata_ or {})
+                notifications = dict(metadata.get(REMINDER_STATE_KEY) or {})
+                
+                # Check if this specific reminder has already been sent
+                if notifications.get(f"sent_{key}"):
+                    continue
+                
+                candidate = await db.get(Candidate, interview.candidate_id)
+                recruiter = await db.get(User, interview.recruiter_id)
+                if not candidate:
+                    continue
+
+                candidate_link = interview.meeting_url or (
+                    f"{frontend_url}/join/{interview.id}?token={interview.candidate_access_token}"
                 )
-                if success:
-                    notifications["candidate_reminder_sent_at"] = datetime.utcnow().isoformat()
-                    changed = True
+                recruiter_link = f"{frontend_url}/interview-prejoin/{interview.id}"
 
-            if recruiter and recruiter.email and not notifications.get("recruiter_reminder_sent_at"):
-                success = await asyncio.to_thread(
-                    email_service.send_recruiter_interview_reminder,
-                    recruiter_email=recruiter.email,
-                    recruiter_name=recruiter.full_name,
-                    candidate_name=candidate.name,
-                    interview_title=interview.title,
-                    scheduled_at=interview.scheduled_at,
-                    meeting_link=recruiter_link,
-                    candidate_email=candidate.email or "",
-                    related_entity_id=interview.id,
-                )
-                if success:
-                    notifications["recruiter_reminder_sent_at"] = datetime.utcnow().isoformat()
-                    changed = True
+                # Send to Candidate
+                if candidate.email:
+                    try:
+                        await email_service.send_interview_reminder(
+                            to_email=candidate.email,
+                            name=candidate.name,
+                            role_title=interview.title,
+                            time_remaining_str=display_name,
+                            link=candidate_link,
+                            is_candidate=True,
+                            related_id=interview.id
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Failed to send {key} candidate reminder: {e}")
 
-            if changed:
+                # Send to Recruiter
+                if recruiter and recruiter.email:
+                    try:
+                        await email_service.send_interview_reminder(
+                            to_email=recruiter.email,
+                            name=recruiter.full_name,
+                            role_title=interview.title,
+                            time_remaining_str=display_name,
+                            link=recruiter_link,
+                            is_candidate=False,
+                            related_id=interview.id
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Failed to send {key} recruiter reminder: {e}")
+
+                # Mark as sent
+                notifications[f"sent_{key}"] = now.isoformat()
                 metadata[REMINDER_STATE_KEY] = notifications
                 interview.metadata_ = metadata
-
-        await db.commit()
-
+                await db.commit()
 
 async def reminder_scheduler():
     """Check upcoming interviews every five minutes."""

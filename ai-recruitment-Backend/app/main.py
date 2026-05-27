@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routes import auth, candidates, jobs, matching, chat, dashboard, admin, oauth, interviews
+from app.routes import auth, candidates, jobs, matching, chat, dashboard, admin, oauth, interviews, calendar, notifications
 
 # Configure structured logging
 structlog.configure(
@@ -199,6 +199,8 @@ app.include_router(chat.router, prefix=API_V1)
 app.include_router(dashboard.router, prefix=API_V1)
 app.include_router(admin.router, prefix=API_V1)
 app.include_router(interviews.router, prefix=API_V1)
+app.include_router(calendar.router, prefix=API_V1)
+app.include_router(notifications.router, prefix=API_V1)
 
 
 # ─── Health Check ─────────────────────────────────────────────────────────────

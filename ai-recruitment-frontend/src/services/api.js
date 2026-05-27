@@ -137,4 +137,19 @@ export const dashboardApi = {
   getStats: () => api.get('/dashboard/stats'),
 }
 
+export const calendarApi = {
+  list: (params) => api.get('/calendar', { params }),
+  create: (data) => api.post('/calendar', data),
+  delete: (id) => api.delete(`/calendar/${id}`),
+  aiGenerate: (text) => api.post('/calendar/ai-generate', { text }),
+}
+
+export const notificationsApi = {
+  list: (params) => api.get('/notifications', { params }),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
+  markAsRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.patch('/notifications/read-all'),
+  clear: () => api.delete('/notifications/clear'),
+}
+
 export default api

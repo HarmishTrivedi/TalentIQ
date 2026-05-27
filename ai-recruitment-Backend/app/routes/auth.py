@@ -17,7 +17,7 @@ from app.utils.auth import (
     decode_token, get_current_user,
 )
 from app.config import settings
-from app.services.email_service import get_email_service
+from app.services.new_email_service import get_new_email_service
 
 
 class ProfileUpdate(BaseModel):
@@ -82,7 +82,15 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
     
-    # NO EMAIL SENDING HERE - Will be sent by background worker
+    # Send Welcome Email (First time only)
+    try:
+        email_service = get_new_email_service()
+        await email_service.send_welcome_email(user.email, user.full_name, related_id=user.id)
+        user.welcome_email_sent = True
+        await db.commit()
+    except Exception as e:
+        print(f"⚠️ Failed to send welcome email during registration: {e}")
+    
     print(f"✅ New user registered: {email}")
     
     return user
@@ -136,6 +144,16 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
 
     from datetime import datetime, timezone
     user.last_login = datetime.now(timezone.utc)
+    
+    # Check if welcome email needs to be sent (e.g. if it failed during registration)
+    if not user.welcome_email_sent:
+        try:
+            email_service = get_new_email_service()
+            await email_service.send_welcome_email(user.email, user.full_name, related_id=user.id)
+            user.welcome_email_sent = True
+        except Exception as e:
+            print(f"⚠️ Failed to send welcome email during login: {e}")
+
     await db.commit()
 
     access_token = create_access_token({"sub": user.id})
@@ -242,18 +260,21 @@ async def upload_avatar(
 
 @router.post("/send-welcome-email")
 async def send_welcome_email_manually(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Manually send welcome email to current user (for testing/resend)"""
     try:
-        email_service = get_email_service()
-        success = email_service.send_welcome_email(
-            recruiter_email=current_user.email,
-            recruiter_name=current_user.full_name,
-            company_name=current_user.company_name
+        email_service = get_new_email_service()
+        result = await email_service.send_welcome_email(
+            user_email=current_user.email,
+            user_name=current_user.full_name,
+            related_id=current_user.id
         )
         
-        if success:
+        if result.get("status") == "sent":
+            current_user.welcome_email_sent = True
+            await db.commit()
             return {
                 "message": "Welcome email sent successfully",
                 "email": current_user.email,
@@ -263,7 +284,8 @@ async def send_welcome_email_manually(
             return {
                 "message": "Failed to send welcome email",
                 "email": current_user.email,
-                "success": False
+                "success": False,
+                "error": result.get("error_message")
             }
     except Exception as e:
         import traceback

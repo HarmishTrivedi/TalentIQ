@@ -12,14 +12,16 @@ import { useAuthStore } from '../../store'
 import { useThemeStore } from '../../store/themeStore'
 import { cn, getInitials } from '../../utils/helpers'
 import { BASE_URL } from '../../services/api'
+import NotificationCenter from './NotificationCenter'
 
 const navItems = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',     description: 'Overview & Analytics' },
+  { to: '/calendar',   icon: Calendar,        label: 'Smart Calendar', description: 'Schedule & Tasks' },
   { to: '/upload',     icon: Upload,          label: 'Upload Resume', description: 'Bulk CV Upload' },
   { to: '/candidates', icon: Users,           label: 'Talent Pool',   description: 'All Candidates' },
   { to: '/jobs',       icon: Briefcase,       label: 'Job Positions', description: 'Manage Openings' },
   { to: '/matching',   icon: Target,          label: 'AI Matching',   description: 'Smart Candidate Match' },
-  { to: '/interview-schedule', icon: Calendar, label: 'Interview Schedule', description: 'Manage Interviews' },
+  { to: '/interview-schedule', icon: Calendar, label: 'Interview List', description: 'Manage Interviews' },
   { to: '/ai-interviews', icon: Brain,        label: 'AI Interviews', description: 'Live Interview Intelligence' },
   { to: '/questions/generate', icon: Wand2,   label: 'Question Gen',  description: 'AI Question Generator' },
   { to: '/chat',       icon: MessageSquare,   label: 'AI Assistant',  description: 'Chat with TalentIQ AI' },
@@ -244,7 +246,7 @@ export default function Sidebar() {
       )}
 
       {/* Logo */}
-      <div className="px-6 py-5 border-b flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
+      <div className="px-6 py-5 border-b flex-shrink-0 flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
         <Link to="/dashboard" className="flex items-center gap-3 group">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-all">
             <Sparkles className="w-5 h-5 text-white" />
@@ -258,6 +260,7 @@ export default function Sidebar() {
             </div>
           </div>
         </Link>
+        <NotificationCenter />
       </div>
 
       {/* Navigation — scrollable middle */}

@@ -30,13 +30,55 @@ class EmailActivityLog(Base):
     email_type: Mapped[str] = mapped_column(String(100), nullable=False)
     subject: Mapped[str] = mapped_column(String(500), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False)  # sent, failed, pending
-    failure_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    template_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    provider_response: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     related_entity_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     def __repr__(self):
         return f"<EmailActivityLog {self.email_type} to {self.recipient_email}: {self.status}>"
+
+
+# ─── Calendar & Notifications ───────────────────────────────────────────────
+
+class CalendarEvent(Base):
+    __tablename__ = "calendar_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    event_type: Mapped[str] = mapped_column(String(50), default="meeting")  # interview, meeting, task, reminder, etc.
+    
+    start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    
+    priority: Mapped[str] = mapped_column(String(20), default="medium")  # low, medium, high
+    participants: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # List of emails or names
+    reminder_time: Mapped[int] = mapped_column(Integer, default=30)  # minutes before
+    
+    metadata_: Mapped[Optional[dict]] = mapped_column("metadata", JSON, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)  # interview_scheduled, candidate_joined, etc.
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    link: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    metadata_: Mapped[Optional[dict]] = mapped_column("metadata", JSON, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
 # ─── Enums ───────────────────────────────────────────────────────────────────

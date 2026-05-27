@@ -13,6 +13,8 @@ from app.database import get_db
 from app.models.models import User
 from app.utils.auth import create_access_token, create_refresh_token
 from app.config import settings
+from app.services.new_email_service import get_new_email_service
+
 
 router = APIRouter(prefix="/auth/oauth", tags=["OAuth"])
 
@@ -83,8 +85,26 @@ async def google_callback(code: str = None, error: str = None, db: AsyncSession 
             await db.commit()
             await db.refresh(user)
             
-            # NO EMAIL SENDING HERE - Will be sent by background worker
+            # Send Welcome Email (First time only)
+            try:
+                email_service = get_new_email_service()
+                await email_service.send_welcome_email(user.email, user.full_name, related_id=user.id)
+                user.welcome_email_sent = True
+                await db.commit()
+            except Exception as e:
+                print(f"⚠️ Failed to send welcome email during OAuth registration: {e}")
+                
             print(f"✅ New Google user created: {email}")
+        
+        # Check if welcome email needs to be sent (if it failed during initial creation)
+        if not user.welcome_email_sent:
+            try:
+                email_service = get_new_email_service()
+                await email_service.send_welcome_email(user.email, user.full_name, related_id=user.id)
+                user.welcome_email_sent = True
+                await db.commit()
+            except Exception as e:
+                print(f"⚠️ Failed to send welcome email during OAuth login: {e}")
 
         # Generate tokens and redirect immediately
         access_token = create_access_token({"sub": user.id})

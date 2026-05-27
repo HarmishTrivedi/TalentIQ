@@ -25,7 +25,7 @@ from app.models.schemas import (
 )
 from app.utils.auth import get_current_user
 from app.services.interview_ai_service import get_interview_ai_service
-from app.services.email_service import get_email_service
+from app.services.new_email_service import get_new_email_service
 from app.services.reminder_scheduler import check_and_send_reminders
 
 router = APIRouter(prefix="/interviews", tags=["Interviews"])
@@ -141,68 +141,50 @@ async def create_interview(
         }
         
         # Send emails in background thread (non-blocking)
-        def send_emails_background():
+        async def send_emails_background():
             try:
                 print(f"📧 [BACKGROUND] Starting email sending for interview {interview.id}")
-                email_service = get_email_service()
-                print(f"📧 Candidate meeting link: {candidate_meeting_link}")
-                print(f"📧 Recruiter meeting link: {recruiter_meeting_link}")
+                email_service = get_new_email_service()
                 
                 # Send candidate email
                 if candidate.email:
                     print(f"📧 Sending invitation to candidate: {candidate.email}")
                     try:
-                        success = email_service.send_interview_invitation(
+                        await email_service.send_interview_invitation_candidate(
                             candidate_email=candidate.email,
                             candidate_name=candidate.name,
-                            interview_title=interview.title,
+                            role_title=interview.title,
                             scheduled_at=interview.scheduled_at,
                             duration=interview.duration_minutes or 60,
-                            meeting_link=candidate_meeting_link,
+                            magic_link=candidate_meeting_link,
                             recruiter_name=current_user.full_name,
-                            description=job.description[:200] if job else "",
-                            related_entity_id=interview.id
+                            related_id=interview.id
                         )
-                        if success:
-                            print(f"✅ Candidate invitation sent to {candidate.email}")
-                        else:
-                            print(f"❌ Failed to send candidate invitation to {candidate.email}")
+                        print(f"✅ Candidate invitation sent to {candidate.email}")
                     except Exception as e:
                         print(f"❌ Exception sending candidate invitation: {e}")
-                        import traceback
-                        traceback.print_exc()
-                else:
-                    print(f"⚠️ No email address for candidate {candidate.name}")
                 
                 # Send recruiter email
                 if current_user.email:
                     print(f"📧 Sending confirmation to recruiter: {current_user.email}")
                     try:
-                        success = email_service.send_recruiter_confirmation(
+                        await email_service.send_interview_invitation_recruiter(
                             recruiter_email=current_user.email,
                             recruiter_name=current_user.full_name,
                             candidate_name=candidate.name,
-                            interview_title=interview.title,
+                            role_title=interview.title,
                             scheduled_at=interview.scheduled_at,
-                            meeting_link=recruiter_meeting_link,
-                            related_entity_id=interview.id
+                            duration=interview.duration_minutes or 60,
+                            dashboard_link=recruiter_meeting_link,
+                            related_id=interview.id
                         )
-                        if success:
-                            print(f"✅ Recruiter confirmation sent to {current_user.email}")
-                        else:
-                            print(f"❌ Failed to send recruiter confirmation to {current_user.email}")
+                        print(f"✅ Recruiter confirmation sent to {current_user.email}")
                     except Exception as e:
                         print(f"❌ Exception sending recruiter confirmation: {e}")
-                        import traceback
-                        traceback.print_exc()
-                else:
-                    print(f"⚠️ No email address for recruiter {current_user.full_name}")
                     
                 print(f"📧 [BACKGROUND] Email sending completed for interview {interview.id}")
             except Exception as e:
                 print(f"⚠️ Email service error (non-critical): {e}")
-                import traceback
-                traceback.print_exc()
         
         background_tasks.add_task(send_emails_background)
         
@@ -837,23 +819,21 @@ async def send_interview_invitation(
     db: AsyncSession = Depends(get_db)
 ):
     """Send interview invitation email"""
-    email_service = get_email_service()
+    email_service = get_new_email_service()
     
-    success = email_service.send_interview_invitation(
-        candidate_email=data["candidate_email"],
-        candidate_name=data["candidate_name"],
-        interview_title=data.get("interview_title", "Interview"),
-        scheduled_at=datetime.fromisoformat(data["scheduled_at"].replace('Z', '+00:00')),
-        duration=data.get("duration", 60),
-        meeting_link=data["meeting_link"],
-        recruiter_name=data.get("recruiter_name", "TalentIQ Team"),
-        description=data.get("description", "")
-    )
-    
-    if success:
+    try:
+        await email_service.send_interview_invitation_candidate(
+            candidate_email=data["candidate_email"],
+            candidate_name=data["candidate_name"],
+            role_title=data.get("interview_title", "Interview"),
+            scheduled_at=datetime.fromisoformat(data["scheduled_at"].replace('Z', '+00:00')),
+            duration=data.get("duration", 60),
+            magic_link=data["meeting_link"],
+            recruiter_name=data.get("recruiter_name", "TalentIQ Team")
+        )
         return {"message": "Invitation sent successfully"}
-    else:
-        raise HTTPException(status_code=500, detail="Failed to send invitation")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send invitation: {str(e)}")
 
 
 @router.post("/send-reminder/{interview_id}")
@@ -861,7 +841,7 @@ async def send_interview_reminder(
     interview_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Send interview reminder to both candidate and recruiter (30 min before)"""
+    """Send interview reminder manually (30 min before as default)"""
     interview = await db.get(Interview, interview_id)
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
@@ -872,49 +852,33 @@ async def send_interview_reminder(
     if not candidate:
         raise HTTPException(status_code=400, detail="Candidate not found")
     
-    email_service = get_email_service()
+    email_service = get_new_email_service()
     frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-    meeting_link = interview.meeting_url or f"{frontend_url}/join/{interview_id}?token={interview.candidate_access_token}"
-    recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview_id}"
-    
-    results = {"candidate": False, "recruiter": False}
+    candidate_link = interview.meeting_url or f"{frontend_url}/join/{interview_id}?token={interview.candidate_access_token}"
+    recruiter_link = f"{frontend_url}/interview-prejoin/{interview_id}"
     
     # Send reminder to candidate
     if candidate.email:
-        try:
-            results["candidate"] = email_service.send_interview_reminder(
-                candidate_email=candidate.email,
-                candidate_name=candidate.name,
-                interview_title=interview.title,
-                scheduled_at=interview.scheduled_at,
-                meeting_link=meeting_link,
-                recruiter_name=recruiter.full_name if recruiter else "TalentIQ Team",
-                related_entity_id=interview.id
-            )
-        except Exception as e:
-            print(f"Failed to send candidate reminder: {e}")
+        await email_service.send_interview_reminder(
+            to_email=candidate.email,
+            name=candidate.name,
+            role_title=interview.title,
+            time_remaining_str="30 minutes",
+            link=candidate_link,
+            is_candidate=True,
+            related_id=interview.id
+        )
     
     # Send reminder to recruiter
     if recruiter and recruiter.email:
-        try:
-            results["recruiter"] = email_service.send_recruiter_interview_reminder(
-                recruiter_email=recruiter.email,
-                recruiter_name=recruiter.full_name,
-                candidate_name=candidate.name,
-                interview_title=interview.title,
-                scheduled_at=interview.scheduled_at,
-                meeting_link=recruiter_meeting_link,
-                candidate_email=candidate.email,
-                related_entity_id=interview.id
-            )
-        except Exception as e:
-            print(f"Failed to send recruiter reminder: {e}")
+        await email_service.send_interview_reminder(
+            to_email=recruiter.email,
+            name=recruiter.full_name,
+            role_title=interview.title,
+            time_remaining_str="30 minutes",
+            link=recruiter_link,
+            is_candidate=False,
+            related_id=interview.id
+        )
     
-    if results["candidate"] or results["recruiter"]:
-        return {
-            "message": "Reminders sent",
-            "candidate_sent": results["candidate"],
-            "recruiter_sent": results["recruiter"]
-        }
-    else:
-        raise HTTPException(status_code=500, detail="Failed to send reminders")
+    return {"message": "Reminders sent"}
