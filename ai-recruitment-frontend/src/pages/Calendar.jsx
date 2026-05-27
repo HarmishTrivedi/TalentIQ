@@ -47,7 +47,8 @@ export default function Calendar() {
       });
       setEvents(res.data);
     } catch (err) {
-      toast.error('Failed to load events');
+      // toast.error('Failed to load events'); // Silencing for cleaner debugging in UI
+      console.error('Calendar Fetch Error:', err);
     } finally {
       setLoading(false);
     }

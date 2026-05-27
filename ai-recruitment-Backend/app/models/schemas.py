@@ -401,3 +401,27 @@ class InterviewEventCreate(BaseModel):
     event_type: str
     event_data: Optional[Dict[str, Any]] = None
     severity: Optional[str] = None
+
+
+# ─── Calendar & Notification Schemas ──────────────────────────────────────────
+
+class CalendarEventResponse(BaseResponse):
+    id: str
+    title: str
+    description: Optional[str] = None
+    event_type: str
+    start_time: datetime
+    end_time: datetime
+    priority: str
+    participants: Optional[List[str]] = None
+    reminder_time: int
+
+
+class NotificationResponse(BaseResponse):
+    id: str
+    title: str
+    message: str
+    type: str
+    is_read: bool
+    link: Optional[str] = None
+    created_at: datetime

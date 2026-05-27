@@ -10,11 +10,12 @@ from datetime import datetime
 
 from app.database import get_db
 from app.models.models import Notification, User
+from app.models.schemas import NotificationResponse
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
-@router.get("", response_model=List[dict])
+@router.get("", response_model=List[NotificationResponse])
 async def list_notifications(
     skip: int = 0,
     limit: int = 50,
@@ -25,18 +26,7 @@ async def list_notifications(
     query = select(Notification).where(Notification.user_id == current_user.id)
     result = await db.execute(query.order_by(Notification.created_at.desc()).offset(skip).limit(limit))
     notifications = result.scalars().all()
-    
-    return [
-        {
-            "id": n.id,
-            "title": n.title,
-            "message": n.message,
-            "type": n.type,
-            "is_read": n.is_read,
-            "link": n.link,
-            "created_at": n.created_at
-        } for n in notifications
-    ]
+    return notifications
 
 @router.get("/unread-count")
 async def get_unread_count(
