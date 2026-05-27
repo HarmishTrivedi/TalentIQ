@@ -48,27 +48,30 @@ class EmailService:
 
     async def send_welcome_email(self, user_email: str, user_name: str, related_id: str = None):
         """Send professional welcome email to new recruiter."""
-        subject = "🎉 Welcome to TalentIQ - Your AI-Powered Recruitment Journey Begins!"
+        subject = f"Welcome to TalentIQ, {user_name}!"
         
-        # We reuse the rich HTML from the previous implementation
+        # Pass variables to EmailJS
+        params = {
+            "user_name": user_name,
+            "dashboard_url": f"{self.frontend_url}/dashboard"
+        }
+        
+        # We still send html_content as fallback/main content
         html_content = f"""
         <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
             <h2 style="color: #6366f1;">Welcome to TalentIQ, {user_name}!</h2>
             <p>We're thrilled to have you on board. TalentIQ helps you find the best talent faster using AI.</p>
-            <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">What you can do now:</h3>
-                <ul>
-                    <li>Create professional Job Descriptions with AI</li>
-                    <li>Upload and analyze candidate resumes</li>
-                    <li>Schedule AI-powered interviews</li>
-                    <li>View match scores and insights</li>
-                </ul>
-            </div>
             <a href="{self.frontend_url}/dashboard" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Go to Dashboard</a>
         </div>
         """
         
-        result = await self.provider.send_email(user_email, subject, html_content)
+        result = await self.provider.send_email(
+            user_email, 
+            subject, 
+            html_content, 
+            template_params=params,
+            template_id=os.getenv("EMAILJS_WELCOME_TEMPLATE_ID")
+        )
         await self._log_to_db(user_email, "WELCOME_EMAIL", subject, result, related_id)
         return result
 
@@ -87,7 +90,19 @@ class EmailService:
         subject = f"Interview Invitation: {role_title} at TalentIQ"
         
         date_str = scheduled_at.strftime("%A, %B %d, %Y")
-        time_str = scheduled_at.strftime("%I:%M %p UTC")
+        time_str = scheduled_at.strftime("%I:%M %p")
+
+        # Pass variables for EmailJS template
+        params = {
+            "candidate_name": candidate_name,
+            "role_title": role_title,
+            "date_str": date_str,
+            "time_str": time_str,
+            "duration": str(duration),
+            "recruiter_name": recruiter_name,
+            "magic_link": magic_link,
+            "to_email": candidate_email # Added for footer tracking in template
+        }
 
         # Generate ICS
         ics_b64 = generate_interview_ics(
@@ -106,29 +121,16 @@ class EmailService:
             "type": "text/calendar"
         }]
 
-        html_content = f"""
-        <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
-            <h2 style="color: #6366f1;">Interview Invitation</h2>
-            <p>Hi {candidate_name},</p>
-            <p>You have been invited to an AI-powered interview for the <strong>{role_title}</strong> position.</p>
-            
-            <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p><strong>📅 Date:</strong> {date_str}</p>
-                <p><strong>🕒 Time:</strong> {time_str}</p>
-                <p><strong>⏱️ Duration:</strong> {duration} minutes</p>
-                <p><strong>👤 Recruiter:</strong> {recruiter_name}</p>
-            </div>
-
-            <p>You can join the interview lobby directly using the link below. No registration required.</p>
-            <a href="{magic_link}" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Join Interview Lobby</a>
-            
-            <p style="font-size: 12px; color: #666; margin-top: 20px;">We have attached a calendar invitation to this email for your convenience.</p>
-        </div>
-        """
+        # Legacy fallback
+        html_content = f"<h1>Interview Invitation</h1><p>Hi {candidate_name}, you have an interview for {role_title} on {date_str} at {time_str}.</p><a href='{magic_link}'>Join Interview</a>"
 
         result = await self.provider.send_email(
-            candidate_email, subject, html_content, 
-            attachments=attachments
+            candidate_email, 
+            subject, 
+            html_content, 
+            template_params=params,
+            attachments=attachments,
+            template_id=os.getenv("EMAILJS_CANDIDATE_INVITATION_TEMPLATE_ID")
         )
         await self._log_to_db(candidate_email, "INTERVIEW_INVITATION", subject, result, related_id)
         return result

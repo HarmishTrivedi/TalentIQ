@@ -15,10 +15,13 @@ class EmailJSProvider(EmailProvider):
 
     def __init__(self):
         self.service_id = os.getenv("EMAILJS_SERVICE_ID")
-        self.template_id = os.getenv("EMAILJS_TEMPLATE_ID")
         self.user_id = os.getenv("EMAILJS_USER_ID")
         self.access_token = os.getenv("EMAILJS_ACCESS_TOKEN")
         self.api_url = "https://api.emailjs.com/api/v1.0/email/send"
+        
+        # Template IDs
+        self.welcome_template = os.getenv("EMAILJS_WELCOME_TEMPLATE_ID")
+        self.invitation_template = os.getenv("EMAILJS_CANDIDATE_INVITATION_TEMPLATE_ID")
 
     async def send_email(
         self,
@@ -27,19 +30,24 @@ class EmailJSProvider(EmailProvider):
         html_content: str,
         text_content: Optional[str] = None,
         template_params: Optional[Dict[str, Any]] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None
+        attachments: Optional[List[Dict[str, Any]]] = None,
+        template_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Send email via EmailJS API."""
         
-        if not all([self.service_id, self.template_id, self.user_id, self.access_token]):
+        # Use provided template_id or fallback to default
+        final_template_id = template_id or self.welcome_template
+        
+        if not all([self.service_id, final_template_id, self.user_id, self.access_token]):
             return {
                 "status": "failed",
-                "error_message": "EmailJS credentials not configured in environment.",
+                "error_message": f"EmailJS credentials or template ({final_template_id}) not configured.",
                 "raw_response": {}
             }
+        
         payload = {
             "service_id": self.service_id,
-            "template_id": self.template_id,
+            "template_id": final_template_id,
             "user_id": self.user_id,
             "accessToken": self.access_token,
             "template_params": {
