@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { jobsApi } from '../services/api'
 import { Spinner, EmptyState, SkeletonCard, Badge, TagList } from '../components/ui'
-import { formatRelativeTime, truncate } from '../utils/helpers'
+import { formatRelativeTime, truncate, formatDate } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
 // ── Create Job Modal ──────────────────────────────────────────────────────────
@@ -357,7 +357,18 @@ function AIJDMaker({ onUseJD }) {
                       <RotateCcw size={14} /> Generate New
                     </button>
                     <button
-                      onClick={() => onUseJD(generatedJD)}
+                      onClick={() => {
+                        onUseJD({
+                          description: generatedJD,
+                          title: form.role_title,
+                          company: form.company,
+                          location: form.location,
+                          job_type: form.job_type || 'full-time',
+                          required_experience_years: parseFloat(form.experience_years) || null
+                        });
+                        setOpen(false);
+                        reset();
+                      }}
                       className="h-10 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
                       style={{ background: 'linear-gradient(135deg, #6366f1, #06b6d4)', color: '#fff', boxShadow: '0 0 20px rgba(99,102,241,0.3)' }}
                     >
@@ -410,21 +421,17 @@ export default function Jobs() {
     } catch {}
   }
 
-  const handleUseJD = async (jd) => {
-    // Auto-create job with generated JD
-    const title = jd.split('\n')[0].replace(/^(Role Title:|Job Title:)/i, '').trim() || 'New Job Position'
+  const handleUseJD = async (jobData) => {
+    // Auto-create job with generated data from AI
     try {
-      const res = await jobsApi.create({
-        title,
-        company: '',
-        location: '',
-        job_type: 'full-time',
-        description: jd,
-      })
+      const res = await jobsApi.create(jobData)
       setJobs(p => [res.data, ...p])
-      toast.success(`Job "${res.data.title}" created successfully!`)
-    } catch {
-      toast.error('Failed to create job')
+      setTotal(prev => prev + 1)
+      toast.success('Job Created Successfully')
+    } catch (err) {
+      const msg = err.response?.data?.error || err.response?.data?.detail || 'Network Error: Failed to create job'
+      toast.error(msg)
+      console.error('JD Creation Error:', err)
     }
   }
 
@@ -525,7 +532,7 @@ export default function Jobs() {
                 {skills.length > 0 && <TagList tags={skills} max={4} />}
 
                 <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(job.created_at)}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(job.created_at)}</span>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => handleDelete(job.id, job.title)}
