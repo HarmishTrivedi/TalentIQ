@@ -46,7 +46,19 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (error) => {
+  async (error) => {
+    const { config } = error
+    
+    // If it's a network error and we haven't retried yet, try one more time
+    // This helps with Render cold starts where the first request might fail while spinning up
+    if (error.message === 'Network Error' && !config._retry) {
+      config._retry = true
+      console.log('TalentIQ: Network Error detected, retrying request...')
+      // Wait 2 seconds before retrying
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      return api(config)
+    }
+
     let msg = error.response?.data?.detail || error.response?.data?.error || error.message
     
     if (error.message === 'Network Error') {
