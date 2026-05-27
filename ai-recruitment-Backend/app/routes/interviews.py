@@ -346,7 +346,18 @@ async def get_interview_by_token(
     db: AsyncSession = Depends(get_db)
 ):
     """Get interview details using candidate access token (no auth required)"""
-    interview = await db.get(Interview, interview_id)
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(Interview)
+        .options(
+            selectinload(Interview.candidate),
+            selectinload(Interview.questions)
+        )
+        .where(Interview.id == interview_id)
+    )
+    interview = result.scalar_one_or_none()
+    
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
     
