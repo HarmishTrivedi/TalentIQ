@@ -295,6 +295,7 @@ class InterviewResponse(BaseResponse):
     interview_types: Optional[List[str]] = []
     candidate_access_token: Optional[str] = None
     meeting_url: Optional[str] = None
+    recruiter_meeting_url: Optional[str] = None
     overall_score: Optional[float] = None
     technical_score: Optional[float] = None
     communication_score: Optional[float] = None

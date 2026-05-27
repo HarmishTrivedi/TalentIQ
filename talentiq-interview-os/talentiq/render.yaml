@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: talentiq-interview-os
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: BASE_URL
+        sync: false   # Set this in Render dashboard to your service URL
+      - key: ALLOWED_ORIGINS
+        sync: false   # Set to your recruitment portal domain
+      - key: TALENTIQ_API_KEY
+        sync: false   # Optional security key
+    healthCheckPath: /api/health
+    autoDeploy: true

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interview Report — TalentIQ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles/main.css" />
+  <style>
+    body { overflow: auto; background: var(--bg-void); }
+
+    .report-page {
+      min-height: 100vh;
+      padding: 40px 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .report-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .report-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .report-brand-mark {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--brand), var(--accent-purple));
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 800;
+      color: white;
+    }
+
+    .report-brand-text {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .report-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-secondary {
+      padding: 9px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--t-base);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    .btn-primary {
+      padding: 9px 18px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+      border-radius: var(--r-md);
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--t-base);
+      border: none;
+    }
+
+    .btn-primary:hover { transform: translateY(-1px); }
+
+    .report-hero {
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-2xl);
+      padding: 32px;
+      margin-bottom: 24px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .report-candidate-name {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.7px;
+      margin-bottom: 6px;
+    }
+
+    .report-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .report-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .report-summary {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      max-width: 560px;
+    }
+
+    .verdict-badge {
+      padding: 10px 20px;
+      border-radius: var(--r-lg);
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .verdict-badge.strong_yes { background: rgba(34,197,94,0.15); color: var(--accent-green); border: 1px solid rgba(34,197,94,0.25); }
+    .verdict-badge.yes { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
+    .verdict-badge.maybe { background: rgba(245,158,11,0.1); color: var(--accent-amber); border: 1px solid rgba(245,158,11,0.2); }
+    .verdict-badge.no { background: rgba(239,68,68,0.1); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.2); }
+    .verdict-badge.strong_no { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+
+    .verdict-label {
+      font-size: 10px;
+      color: var(--text-hint);
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 700px) {
+      .report-grid { grid-template-columns: 1fr; }
+      .report-hero { grid-template-columns: 1fr; }
+    }
+
+    .report-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-xl);
+      padding: 24px;
+    }
+
+    .report-card-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-hint);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .report-card-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .skill-matrix-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .skill-matrix-row:last-child { border-bottom: none; }
+
+    .skill-matrix-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      min-width: 120px;
+    }
+
+    .skill-matrix-level {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      min-width: 80px;
+    }
+
+    .skill-matrix-bar {
+      flex: 1;
+      height: 4px;
+      background: var(--bg-overlay);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .skill-matrix-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--brand), var(--brand-light));
+    }
+
+    .list-item-positive {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .list-item-positive::before {
+      content: '✓';
+      color: var(--accent-green);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .list-item-negative::before {
+      content: '!';
+      color: var(--accent-amber);
+    }
+
+    .list-item-risk::before {
+      content: '⚠';
+      color: var(--accent-red);
+      font-size: 11px;
+    }
+
+    .report-full-width {
+      grid-column: 1 / -1;
+    }
+
+    .loading-report {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 20px;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="report-page" id="report-page">
+    <div class="loading-report">
+      <div class="spinner"></div>
+      <div style="font-size:14px;color:var(--text-muted);">Loading report...</div>
+    </div>
+  </div>
+
+  <script>
+    // Report page — loaded from URL params or sessionStorage
+    // Usage: /report?roomId=xxx&candidateName=Alex&jobTitle=Engineer
+
+    const params = new URLSearchParams(window.location.search);
+    const reportData = sessionStorage.getItem('talentiq_report_' + params.get('roomId'));
+
+    function verdictLabel(rec) {
+      const map = { strong_yes: '🟢 Strong Hire', yes: '✅ Hire', maybe: '🟡 Maybe', no: '❌ No Hire', strong_no: '🔴 Strong No' };
+      return map[rec] || rec;
+    }
+
+    function renderReport(data) {
+      const page = document.getElementById('report-page');
+      const candidateName = data.candidateName || params.get('candidateName') || 'Candidate';
+      const jobTitle = data.jobTitle || params.get('jobTitle') || 'Role';
+      const roomId = params.get('roomId') || 'N/A';
+      const duration = params.get('duration') || 'N/A';
+      const report = data.report || {};
+
+      page.innerHTML = `
+        <div class="report-header">
+          <div class="report-brand">
+            <div class="report-brand-mark">T</div>
+            <span class="report-brand-text">TalentIQ — Interview Report</span>
+          </div>
+          <div class="report-actions">
+            <button class="btn-secondary" onclick="window.print()">Print / PDF</button>
+            <button class="btn-primary" onclick="history.back()">← Back</button>
+          </div>
+        </div>
+
+        <div class="report-hero">
+          <div>
+            <div class="report-candidate-name">${candidateName}</div>
+            <div class="report-meta">
+              <span class="report-meta-item">💼 ${jobTitle}</span>
+              <span class="report-meta-item">🔑 Room: ${roomId}</span>
+              <span class="report-meta-item">⏱ ${duration}</span>
+              <span class="report-meta-item">📅 ${new Date().toLocaleDateString()}</span>
+            </div>
+            <div class="report-summary">${report.executiveSummary || 'Interview completed.'}</div>
+          </div>
+          <div style="text-align:center;">
+            <div class="verdict-badge ${report.hiringRecommendation || 'maybe'}">
+              ${verdictLabel(report.hiringRecommendation || 'maybe')}
+            </div>
+            <div class="verdict-label">Confidence: ${report.hiringConfidence || 50}%</div>
+            <div style="margin-top:16px;font-size:28px;font-weight:800;color:var(--text-primary);letter-spacing:-0.5px;">${data.overallScore || 0}<span style="font-size:14px;color:var(--text-muted);font-weight:400;">/100</span></div>
+            <div style="font-size:10px;color:var(--text-hint);">Overall Score</div>
+          </div>
+        </div>
+
+        <div class="report-grid">
+
+          <!-- Skill Matrix -->
+          <div class="report-card report-full-width">
+            <div class="report-card-title">Skill Matrix</div>
+            ${(report.skillMatrix || data.skills || []).length ? (report.skillMatrix || data.skills).map(s => `
+              <div class="skill-matrix-row">
+                <span class="skill-matrix-name">${s.skill || s.name}</span>
+                <span class="skill-matrix-level">${s.level || ''}</span>
+                <div class="skill-matrix-bar">
+                  <div class="skill-matrix-fill" style="width:${s.score || 60}%"></div>
+                </div>
+                <span style="font-size:11px;color:var(--text-muted);min-width:28px;text-align:right;">${s.score || 60}%</span>
+              </div>
+            `).join('') : '<div style="font-size:12px;color:var(--text-hint);">No skills detected.</div>'}
+          </div>
+
+          <!-- Strengths -->
+          <div class="report-card">
+            <div class="report-card-title">Strengths</div>
+            ${(report.strengths || data.strengths || []).map(s => `
+              <div class="list-item-positive">${s}</div>
+            `).join('') || '<div style="font-size:12px;color:var(--text-hint);">—</div>'}
+          </div>
+
+          <!-- Weaknesses -->
+          <div class="report-card">
+            <div class="report-card-title">Areas to Improve</div>
+            ${(report.weaknesses || data.concerns || []).map(s => `
+              <div class="list-item-positive list-item-negative">${s}</div>
+            `).join('') || '<div style="font-size:12px;color:var(--text-hint);">—</div>'}
+          </div>
+
+          <!-- Communication -->
+          <div class="report-card">
+            <div class="report-card-title">Communication</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;">
+              ${report.communicationAssessment?.summary || 'Based on response quality and clarity.'}
+            </div>
+            ${Object.entries(report.communicationAssessment?.scores || data.commScores || {}).slice(0,4).map(([k,v]) => `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:11px;color:var(--text-muted);min-width:80px;text-transform:capitalize;">${k}</span>
+                <div style="flex:1;height:4px;background:var(--bg-overlay);border-radius:2px;overflow:hidden;">
+                  <div style="height:100%;width:${v}%;background:linear-gradient(90deg,var(--brand),var(--brand-light));border-radius:2px;"></div>
+                </div>
+                <span style="font-size:11px;color:var(--text-muted);min-width:28px;text-align:right;">${v}</span>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Risk Factors -->
+          <div class="report-card">
+            <div class="report-card-title">Risk Factors</div>
+            ${(report.riskFactors || report.areasOfConcern || []).map(s => `
+              <div class="list-item-positive list-item-risk">${s}</div>
+            `).join('') || '<div style="font-size:12px;color:var(--text-hint);">No significant risks identified.</div>'}
+          </div>
+
+          <!-- Next Steps -->
+          <div class="report-card report-full-width">
+            <div class="report-card-title">Recommended Next Steps</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              ${(report.nextSteps || ['Review transcript', 'Team debrief']).map(s => `
+                <span style="padding:6px 14px;background:rgba(79,110,247,0.1);border:1px solid rgba(79,110,247,0.2);border-radius:999px;font-size:12px;font-weight:600;color:var(--brand-light);">${s}</span>
+              `).join('')}
+            </div>
+          </div>
+
+        </div>
+
+        <div style="text-align:center;padding:20px;font-size:11px;color:var(--text-hint);">
+          Generated by TalentIQ Interview OS · ${new Date().toLocaleString()}
+        </div>
+      `;
+    }
+
+    // Try loading from sessionStorage
+    if (reportData) {
+      try {
+        renderReport(JSON.parse(reportData));
+      } catch (e) {
+        document.getElementById('report-page').innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">Could not load report data.</div>`;
+      }
+    } else {
+      // Demo report
+      renderReport({
+        candidateName: params.get('candidateName') || 'Alex Kumar',
+        jobTitle: params.get('jobTitle') || 'Senior Backend Engineer',
+        overallScore: 74,
+        skills: [
+          { name: 'Python', level: 'Expert', score: 90 },
+          { name: 'PostgreSQL', level: 'Advanced', score: 80 },
+          { name: 'Docker', level: 'Intermediate', score: 65 },
+          { name: 'AWS', level: 'Beginner', score: 40 },
+        ],
+        strengths: ['Strong Python fundamentals with 5+ years experience', 'Clear communication and structured responses', 'Good understanding of database optimization'],
+        concerns: ['Limited cloud infrastructure experience', 'No prior Kubernetes exposure'],
+        commScores: { clarity: 82, structure: 75, technical: 78, completeness: 70 },
+        report: {
+          executiveSummary: 'Strong backend candidate with excellent Python and database skills. Limited cloud experience may require onboarding support but core engineering skills are solid.',
+          hiringRecommendation: 'yes',
+          hiringConfidence: 74,
+          skillMatrix: [
+            { skill: 'Python', level: 'Expert', score: 90, evidence: 'Demonstrated FastAPI and ORM patterns' },
+            { skill: 'PostgreSQL', level: 'Advanced', score: 80, evidence: 'Discussed indexing and query optimization' },
+            { skill: 'System Design', level: 'Intermediate', score: 68, evidence: 'Covered microservices pattern at high level' },
+            { skill: 'Docker', level: 'Intermediate', score: 65, evidence: 'Mentioned containerization experience' },
+            { skill: 'AWS', level: 'Beginner', score: 40, evidence: 'Limited to S3 usage only' },
+          ],
+          strengths: ['Excellent Python depth with production FastAPI experience', 'Proactive about performance — mentioned indexing strategies unprompted', 'Communicates technical concepts clearly'],
+          weaknesses: ['Cloud-native experience is shallow', 'No mention of CI/CD pipelines'],
+          areasOfConcern: ['Claims 5 years experience but describes junior-level architecture choices'],
+          riskFactors: ['Possible overstatement of seniority level'],
+          nextSteps: ['Technical coding assessment', 'Cloud infrastructure deep-dive', 'Reference check', 'Team culture fit interview']
+        }
+      });
+    }
+  </script>
+</body>
+</html>

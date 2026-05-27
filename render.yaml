@@ -57,6 +57,30 @@ services:
         value: TalentIQ
       - key: REMINDER_CRON_SECRET
         generateValue: true
+      - key: INTERVIEW_OS_URL
+        value: https://talentiq-interview.onrender.com
+      - key: TALENTIQ_API_KEY
+        generateValue: true
+
+  # ── Interview OS (Node.js) ────────────────────────────────────────────────
+  - type: web
+    name: talentiq-interview
+    runtime: node
+    rootDir: ai-recruitment-Interview
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: TALENTIQ_API_KEY
+        fromService:
+          name: talentiq-backend
+          type: env
+          property: TALENTIQ_API_KEY
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://talentiq-frontend.onrender.com,https://talentiq-backend.onrender.com
+      - key: BASE_URL
+        value: https://talentiq-interview.onrender.com
 
   # ── Frontend (React → Static Site) ────────────────────────────────────────
   - type: web

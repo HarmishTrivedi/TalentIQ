@@ -88,9 +88,44 @@ async def create_interview(
         scheduled_at_naive = data.scheduled_at
         if scheduled_at_naive and hasattr(scheduled_at_naive, 'tzinfo') and scheduled_at_naive.tzinfo:
             scheduled_at_naive = scheduled_at_naive.replace(tzinfo=None)
+            
+        # ─── CALL NEW INTERVIEW SERVICE ───
+        interview_id = str(secrets.token_hex(8)) # Generate a clean ID for the room
         
+        try:
+            async with httpx.AsyncClient() as client:
+                room_res = await client.post(
+                    f"{settings.interview_os_url}/api/rooms/create",
+                    json={
+                        "interviewId": interview_id,
+                        "recruiterId": current_user.id,
+                        "candidateId": candidate.id,
+                        "candidateName": candidate.name,
+                        "recruiterName": current_user.full_name,
+                        "jobTitle": job.title if job else data.title,
+                        "jobId": job.id if job else None,
+                        "scheduledAt": scheduled_at_naive.isoformat() if scheduled_at_naive else None,
+                        "apiKey": settings.talentiq_api_key
+                    },
+                    timeout=10.0
+                )
+                room_data = room_res.json()
+                
+                if not room_data.get("success"):
+                    print(f"⚠️ Interview OS failed to create room: {room_data}")
+                    candidate_meeting_link = f"{settings.frontend_url}/join/{interview_id}?token={candidate_token}"
+                    recruiter_meeting_link = f"{settings.frontend_url}/interview-prejoin/{interview_id}"
+                else:
+                    candidate_meeting_link = room_data["candidateUrl"]
+                    recruiter_meeting_link = room_data["recruiterUrl"]
+        except Exception as os_err:
+            print(f"❌ Could not connect to Interview OS: {os_err}")
+            candidate_meeting_link = f"{settings.frontend_url}/join/{interview_id}?token={candidate_token}"
+            recruiter_meeting_link = f"{settings.frontend_url}/interview-prejoin/{interview_id}"
+
         # Create interview
         interview = Interview(
+            id=interview_id,
             candidate_id=data.candidate_id,
             job_id=data.job_id,
             recruiter_id=current_user.id,
@@ -100,21 +135,15 @@ async def create_interview(
             status=InterviewStatus.scheduled,
             candidate_access_token=candidate_token,
             interview_types=data.interview_types or [],
-            metadata_={"meeting_link": data.meeting_link if hasattr(data, 'meeting_link') else None}
+            meeting_url=candidate_meeting_link,
+            recruiter_meeting_url=recruiter_meeting_link
         )
         
         db.add(interview)
-        await db.flush()
-
-        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-        candidate_meeting_link = f"{frontend_url}/join/{interview.id}?token={candidate_token}"
-        recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview.id}"
-        interview.meeting_url = candidate_meeting_link
-
         await db.commit()
         await db.refresh(interview)
         
-        # Prepare response data (without relationships to avoid lazy loading)
+        # Prepare response data
         response_data = {
             "id": interview.id,
             "candidate_id": interview.candidate_id,
@@ -123,32 +152,19 @@ async def create_interview(
             "title": interview.title,
             "status": interview.status,
             "scheduled_at": interview.scheduled_at,
-            "started_at": interview.started_at,
-            "ended_at": interview.ended_at,
             "duration_minutes": interview.duration_minutes,
-            "interview_types": interview.interview_types,
-            "candidate_access_token": interview.candidate_access_token,
             "meeting_url": interview.meeting_url,
-            "overall_score": interview.overall_score,
-            "technical_score": interview.technical_score,
-            "communication_score": interview.communication_score,
-            "confidence_score": interview.confidence_score,
-            "fraud_risk_level": interview.fraud_risk_level,
-            "ai_assistance_probability": interview.ai_assistance_probability,
+            "recruiter_meeting_url": interview.recruiter_meeting_url,
             "created_at": interview.created_at,
-            "candidate": None,
-            "questions": []
         }
         
         # Send emails in background thread (non-blocking)
         async def send_emails_background():
             try:
-                print(f"📧 [BACKGROUND] Starting email sending for interview {interview.id}")
                 email_service = get_new_email_service()
                 
                 # Send candidate email
                 if candidate.email:
-                    print(f"📧 Sending invitation to candidate: {candidate.email}")
                     try:
                         await email_service.send_interview_invitation_candidate(
                             candidate_email=candidate.email,
@@ -160,13 +176,11 @@ async def create_interview(
                             recruiter_name=current_user.full_name,
                             related_id=interview.id
                         )
-                        print(f"✅ Candidate invitation sent to {candidate.email}")
                     except Exception as e:
                         print(f"❌ Exception sending candidate invitation: {e}")
                 
                 # Send recruiter email
                 if current_user.email:
-                    print(f"📧 Sending confirmation to recruiter: {current_user.email}")
                     try:
                         await email_service.send_interview_invitation_recruiter(
                             recruiter_email=current_user.email,
@@ -178,19 +192,13 @@ async def create_interview(
                             dashboard_link=recruiter_meeting_link,
                             related_id=interview.id
                         )
-                        print(f"✅ Recruiter confirmation sent to {current_user.email}")
                     except Exception as e:
                         print(f"❌ Exception sending recruiter confirmation: {e}")
                     
-                print(f"📧 [BACKGROUND] Email sending completed for interview {interview.id}")
             except Exception as e:
                 print(f"⚠️ Email service error (non-critical): {e}")
         
         background_tasks.add_task(send_emails_background)
-        
-        print(f"✅ Interview created successfully: {interview.id}")
-        print(f"📧 Emails being sent in background...")
-        
         return response_data
         
     except HTTPException:
@@ -245,6 +253,8 @@ async def list_interviews(
             "ended_at": interview.ended_at,
             "duration_minutes": interview.duration_minutes,
             "interview_types": interview.interview_types,
+            "meeting_url": interview.meeting_url,
+            "recruiter_meeting_url": interview.recruiter_meeting_url,
             "overall_score": interview.overall_score,
             "technical_score": interview.technical_score,
             "communication_score": interview.communication_score,
@@ -305,6 +315,8 @@ async def get_interview(
         "duration_minutes": interview.duration_minutes,
         "interview_types": interview.interview_types,
         "candidate_access_token": interview.candidate_access_token,
+        "meeting_url": interview.meeting_url,
+        "recruiter_meeting_url": interview.recruiter_meeting_url,
         "created_at": interview.created_at,
         "candidate": {
             "id": interview.candidate.id,

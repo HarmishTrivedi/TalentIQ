@@ -80,6 +80,7 @@ async def init_db():
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_interviews_candidate_access_token ON interviews(candidate_access_token)",
             "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS interview_types JSON",
             "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS meeting_url VARCHAR(500)",
+            "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS recruiter_meeting_url VARCHAR(500)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_email_sent BOOLEAN DEFAULT FALSE",
             "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS domain VARCHAR(100)",
             "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS domain VARCHAR(100)",

@@ -129,7 +129,12 @@ export default function InterviewSchedule() {
   };
 
   const handleStartInterview = (interviewId) => {
-    navigate(`/interview-prejoin/${interviewId}`);
+    const interview = interviews.find(i => i.id === interviewId);
+    if (interview?.recruiter_meeting_url) {
+      window.open(interview.recruiter_meeting_url, '_blank');
+    } else {
+      navigate(`/interview-prejoin/${interviewId}`);
+    }
   };
 
   const handleViewDetails = (interviewId, status) => {

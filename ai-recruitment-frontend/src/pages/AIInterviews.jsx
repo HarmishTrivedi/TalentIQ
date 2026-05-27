@@ -228,7 +228,13 @@ export default function AIInterviews() {
                 <div className="pt-4 border-t border-slate-700/30">
                   {interview.status === 'in_progress' && (
                     <button
-                      onClick={() => navigate(`/interview-room/${interview.id}`)}
+                      onClick={() => {
+                        if (interview.recruiter_meeting_url) {
+                          window.open(interview.recruiter_meeting_url, '_blank');
+                        } else {
+                          navigate(`/interview-room/${interview.id}`);
+                        }
+                      }}
                       className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center justify-center gap-2"
                     >
                       <Play className="w-5 h-5" />
@@ -238,7 +244,18 @@ export default function AIInterviews() {
 
                   {interview.status === 'completed' && (
                     <button
-                      onClick={() => navigate(`/interviews/${interview.id}/analysis`)}
+                      onClick={() => {
+                        // For the new Interview OS, the report is often available at /report or via the same room link
+                        if (interview.recruiter_meeting_url) {
+                           // The new platform usually has a report page, we try to guess it or just open the link
+                           const reportUrl = interview.recruiter_meeting_url.includes('?') 
+                             ? interview.recruiter_meeting_url.replace('/interview/', '/report/')
+                             : `${interview.recruiter_meeting_url}/report`;
+                           window.open(reportUrl, '_blank');
+                        } else {
+                           navigate(`/interviews/${interview.id}/analysis`);
+                        }
+                      }}
                       className="w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
                     >
                       <Eye className="w-5 h-5" />

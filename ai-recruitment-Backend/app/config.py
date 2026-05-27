@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     microsoft_client_secret: str = ""
     backend_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:5173"
+    interview_os_url: str = "http://localhost:3000"
+    talentiq_api_key: str = ""
 
     # File Upload
     upload_dir: str = "./uploads"

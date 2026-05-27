@@ -342,6 +342,7 @@ class Interview(Base):
     # Candidate Access
     candidate_access_token: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True, index=True)
     meeting_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # Permanent meeting URL for candidate
+    recruiter_meeting_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True) # New platform URL for recruiter
     interview_types: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # ["Technical", "HR", "Coding"]
     
     # Scheduling
