@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, X, CheckCircle2, AlertCircle, Clock, Calendar, Brain, MessageSquare, Trash2 } from 'lucide-react';
-import { notificationsApi } from '../services/api';
-import { formatRelativeTime } from '../utils/helpers';
+import { notificationsApi } from '../../services/api';
+import { formatRelativeTime } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 
 export default function NotificationCenter() {
