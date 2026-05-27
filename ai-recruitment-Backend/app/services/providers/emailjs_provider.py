@@ -51,7 +51,10 @@ class EmailJSProvider(EmailProvider):
             "user_id": self.user_id,
             "accessToken": self.access_token,
             "template_params": {
-                "to_email": to_email,
+                "to_email": to_email,    # Primary
+                "email": to_email,       # Alias 1
+                "recipient": to_email,   # Alias 2
+                "to_name": template_params.get("user_name") or template_params.get("candidate_name") or "User",
                 "subject": subject,
                 "html_content": html_content,
                 "text_content": text_content or "",
