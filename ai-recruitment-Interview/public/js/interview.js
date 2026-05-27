@@ -351,7 +351,7 @@ export class InterviewRoom {
         <div class="avatar-ring">${getInitials(name)}</div>
         <span class="avatar-name">${escapeHtml(name)}</span>
       </div>
-      <video id="video-${socketId}" autoplay ${isSelf ? 'muted' : ''} playsinline></video>
+      <video id="video-${socketId}" autoplay playsinline ${isSelf ? 'muted' : ''} style="width:100%; height:100%; object-fit:cover; background:#000;"></video>
       <div class="tile-overlay"></div>
       <div class="tile-info">
         <div class="tile-name">
@@ -366,7 +366,14 @@ export class InterviewRoom {
       const videoEl = document.getElementById(`video-${socketId}`);
       if (videoEl) {
         videoEl.srcObject = stream;
+        
+        // Force play and ensure volume is up for remote users
         videoEl.onloadedmetadata = () => {
+          videoEl.play().catch(e => console.error("Auto-play failed:", e));
+          if (!isSelf) {
+            videoEl.muted = false;
+            videoEl.volume = 1.0;
+          }
           document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
         };
       }

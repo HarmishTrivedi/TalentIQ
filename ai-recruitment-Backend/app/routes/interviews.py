@@ -99,11 +99,16 @@ async def create_interview(
         candidate_meeting_link = f"{frontend_url}/join/{interview_id}?token={candidate_token}"
         recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview_id}"
         
+        # Ensure OS URL is clean and uses https if in production
+        os_base_url = settings.interview_os_url.rstrip('/')
+        if 'localhost' not in os_base_url and not os_base_url.startswith('https://'):
+            os_base_url = os_base_url.replace('http://', 'https://')
+        
         try:
-            print(f"🔗 Attempting to create room in Interview OS: {settings.interview_os_url}")
+            print(f"🔗 Attempting to create room in Interview OS: {os_base_url}")
             async with httpx.AsyncClient() as client:
                 room_res = await client.post(
-                    f"{settings.interview_os_url.rstrip('/')}/api/rooms/create",
+                    f"{os_base_url}/api/rooms/create",
                     json={
                         "interviewId": interview_id,
                         "recruiterId": current_user.id,

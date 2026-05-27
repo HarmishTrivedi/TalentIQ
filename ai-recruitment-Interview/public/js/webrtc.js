@@ -6,6 +6,13 @@ const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  // Adding global public STUN servers for fallback
+  { urls: 'stun:stun.ekiga.net' },
+  { urls: 'stun:stun.ideasip.com' },
+  { urls: 'stun:stun.schlund.de' },
+  { urls: 'stun:stun.voxgratia.org' }
 ];
 
 export class WebRTCManager {
@@ -45,7 +52,10 @@ export class WebRTCManager {
   }
 
   createPeerConnection(socketId, userName, role) {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({ 
+      iceServers: ICE_SERVERS,
+      iceCandidatePoolSize: 10
+    });
     this.peers.set(socketId, pc);
 
     // Add local tracks
@@ -53,6 +63,12 @@ export class WebRTCManager {
       this.localStream.getTracks().forEach(track => {
         pc.addTrack(track, this.localStream);
       });
+    }
+
+    // Explicitly add transceivers to ensure media flow
+    if (pc.addTransceiver) {
+      pc.addTransceiver('video', { direction: 'sendrecv' });
+      pc.addTransceiver('audio', { direction: 'sendrecv' });
     }
 
     // ICE candidates
