@@ -92,10 +92,16 @@ async def create_interview(
         # ─── CALL NEW INTERVIEW SERVICE ───
         interview_id = str(secrets.token_hex(8)) # Generate a clean ID for the room
         
+        # Default fallbacks
+        frontend_url = settings.frontend_url.rstrip('/')
+        candidate_meeting_link = f"{frontend_url}/join/{interview_id}?token={candidate_token}"
+        recruiter_meeting_link = f"{frontend_url}/interview-prejoin/{interview_id}"
+        
         try:
+            print(f"🔗 Attempting to create room in Interview OS: {settings.interview_os_url}")
             async with httpx.AsyncClient() as client:
                 room_res = await client.post(
-                    f"{settings.interview_os_url}/api/rooms/create",
+                    f"{settings.interview_os_url.rstrip('/')}/api/rooms/create",
                     json={
                         "interviewId": interview_id,
                         "recruiterId": current_user.id,
@@ -107,23 +113,23 @@ async def create_interview(
                         "scheduledAt": scheduled_at_naive.isoformat() if scheduled_at_naive else None,
                         "apiKey": settings.talentiq_api_key
                     },
-                    timeout=10.0
+                    timeout=5.0 # Shorter timeout for faster fallback
                 )
-                room_data = room_res.json()
                 
-                if not room_data.get("success"):
-                    print(f"⚠️ Interview OS failed to create room: {room_data}")
-                    candidate_meeting_link = f"{settings.frontend_url}/join/{interview_id}?token={candidate_token}"
-                    recruiter_meeting_link = f"{settings.frontend_url}/interview-prejoin/{interview_id}"
+                if room_res.status_code == 200:
+                    room_data = room_res.json()
+                    if room_data.get("success"):
+                        candidate_meeting_link = room_data.get("candidateUrl", candidate_meeting_link)
+                        recruiter_meeting_link = room_data.get("recruiterUrl", recruiter_meeting_link)
+                        print(f"✅ Interview OS room created: {interview_id}")
+                    else:
+                        print(f"⚠️ Interview OS returned success:false: {room_data}")
                 else:
-                    candidate_meeting_link = room_data["candidateUrl"]
-                    recruiter_meeting_link = room_data["recruiterUrl"]
+                    print(f"⚠️ Interview OS returned status {room_res.status_code}")
         except Exception as os_err:
-            print(f"❌ Could not connect to Interview OS: {os_err}")
-            candidate_meeting_link = f"{settings.frontend_url}/join/{interview_id}?token={candidate_token}"
-            recruiter_meeting_link = f"{settings.frontend_url}/interview-prejoin/{interview_id}"
+            print(f"❌ Interview OS Connection Error (Using Fallback): {str(os_err)}")
 
-        # Create interview
+        # Create interview record
         interview = Interview(
             id=interview_id,
             candidate_id=data.candidate_id,
