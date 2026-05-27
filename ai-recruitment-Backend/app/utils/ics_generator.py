@@ -25,6 +25,8 @@ def generate_interview_ics(
     dt_start = start_time.strftime("%Y%m%dT%H%M%SZ")
     dt_end = end_time.strftime("%Y%m%dT%H%M%SZ")
     
+    # Escape description for ICS
+    escaped_description = description.replace("\n", "\\n")
     uid = str(uuid.uuid4())
     
     ics_lines = [
@@ -38,7 +40,7 @@ def generate_interview_ics(
         f"DTSTART:{dt_start}",
         f"DTEND:{dt_end}",
         f"SUMMARY:{title}",
-        f"DESCRIPTION:{description.replace('\\n', '\\\\n')}",
+        f"DESCRIPTION:{escaped_description}",
         f"LOCATION:{location}",
         f"ORGANIZER;CN={organizer_name}:MAILTO:{organizer_email}",
         f"UID:{uid}",
