@@ -1,8 +1,11 @@
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
-const BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
-const API_BASE = `${BASE_URL}/api/v1`
+const VITE_API_URL = import.meta.env.VITE_API_URL
+const BASE_URL = VITE_API_URL && VITE_API_URL !== 'undefined' 
+  ? VITE_API_URL 
+  : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+const API_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL : `${BASE_URL}/api/v1`
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -18,7 +21,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    const msg = error.response?.data?.detail || error.response?.data?.error || error.message
+    let msg = error.response?.data?.detail || error.response?.data?.error || error.message
+    
+    if (error.message === 'Network Error') {
+      msg = 'API Server Unreachable. Please ensure the backend is running at ' + BASE_URL
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem('access_token')
       localStorage.removeItem('user')
@@ -26,7 +34,6 @@ api.interceptors.response.use(
         window.location.href = '/login'
       }
     } else if (error.response?.status !== 404 && error.config?.method !== 'delete') {
-      // Don't show automatic toast for delete operations - let components handle it
       toast.error(msg || 'Something went wrong')
     }
     return Promise.reject(error)
