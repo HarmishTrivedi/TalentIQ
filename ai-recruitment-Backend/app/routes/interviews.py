@@ -10,6 +10,8 @@ from datetime import datetime
 import json
 import os
 import secrets
+import httpx
+from app.config import settings
 
 from app.database import get_db
 from app.models.models import (
