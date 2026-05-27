@@ -1,9 +1,8 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store'
+import { BASE_URL, API_BASE } from '../services/api'
 import toast from 'react-hot-toast'
-
-const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
 
 export default function AuthCallback() {
   const navigate = useNavigate()
@@ -23,7 +22,7 @@ export default function AuthCallback() {
     localStorage.setItem('access_token', accessToken)
     localStorage.setItem('refresh_token', refreshToken)
 
-    fetch(`${API_URL}/api/v1/auth/me`, {
+    fetch(`${API_BASE}/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then((r) => r.json())

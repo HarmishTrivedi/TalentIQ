@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff, Lock, Mail, Sparkles, AlertCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../store'
+import { BASE_URL, API_BASE } from '../services/api'
 import toast from 'react-hot-toast'
 
 const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
@@ -97,8 +98,7 @@ export default function Login() {
     if (accessToken && refreshToken) {
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
-      const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
-      fetch(`${apiBase}/api/v1/auth/me`, {
+      fetch(`${API_BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
         .then(r => r.json())
@@ -117,8 +117,7 @@ export default function Login() {
     setIsOAuthFlow(true)
     setTouched({})
     setErrors({})
-    const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
-    window.location.href = `${apiBase}/api/v1/auth/oauth/google/login`
+    window.location.href = `${API_BASE}/auth/oauth/google/login`
   }
 
   // ── Validation ──────────────────────────────────────────────────────────────

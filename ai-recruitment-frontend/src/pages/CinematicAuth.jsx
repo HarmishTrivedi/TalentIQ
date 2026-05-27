@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Sparkles, Mail, Lock, User, Building2, Users as UsersIcon, Briefcase, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useAuthStore } from '../store'
+import { BASE_URL, API_BASE } from '../services/api'
 import toast from 'react-hot-toast'
 
 // Animated particles background
@@ -92,8 +93,7 @@ export default function CinematicAuth() {
       localStorage.setItem('refresh_token', refreshToken)
       
       // Fetch user data and store in auth store
-      const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
-      fetch(`${backendUrl}/api/v1/auth/me`, {
+      fetch(`${API_BASE}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
@@ -115,9 +115,8 @@ export default function CinematicAuth() {
   }, [searchParams, navigate])
 
   const handleOAuthLogin = (provider) => {
-    const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
     // Direct redirect to OAuth endpoint
-    window.location.href = `${backendUrl}/api/v1/auth/oauth/${provider}/login`
+    window.location.href = `${API_BASE}/auth/oauth/${provider}/login`
   }
 
   const handleSubmit = async (e) => {

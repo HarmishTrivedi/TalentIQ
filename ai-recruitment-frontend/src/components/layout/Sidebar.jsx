@@ -11,8 +11,7 @@ import {
 import { useAuthStore } from '../../store'
 import { useThemeStore } from '../../store/themeStore'
 import { cn, getInitials } from '../../utils/helpers'
-
-const BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+import { BASE_URL } from '../../services/api'
 
 const navItems = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',     description: 'Overview & Analytics' },

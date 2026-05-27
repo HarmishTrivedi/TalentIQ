@@ -8,6 +8,7 @@ import { gsap } from 'gsap'
 import { useAuthStore } from '../store'
 import { Spinner } from '../components/ui'
 import { BrandMark, GlassPanel, PremiumButton } from '../components/premium/PremiumUI'
+import { BASE_URL, API_BASE } from '../services/api'
 import toast from 'react-hot-toast'
 
 const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
@@ -203,8 +204,7 @@ export default function Register() {
     if (accessToken && refreshToken) {
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
-      const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
-      fetch(`${backendUrl}/api/v1/auth/me`, {
+      fetch(`${API_BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
         .then(r => r.json())
@@ -222,8 +222,7 @@ export default function Register() {
     setIsOAuthFlow(true)
     setTouched({})
     setErrors({})
-    const backendUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
-    window.location.href = `${backendUrl}/api/v1/auth/oauth/google/login`
+    window.location.href = `${API_BASE}/auth/oauth/google/login`
   }
 
   const handleChange = useCallback((e) => {

@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Check, Zap, Infinity, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-
-const BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+import { BASE_URL, API_BASE } from '../../services/api'
 
 const GRADIENTS = [
   'from-slate-500 to-slate-600',

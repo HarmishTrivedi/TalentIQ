@@ -10,10 +10,8 @@ import {
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../store'
 import { useThemeStore } from '../store/themeStore'
-import { authApi } from '../services/api'
+import { authApi, BASE_URL } from '../services/api'
 import { getInitials, formatDate, formatRelativeTime } from '../utils/helpers'
-
-const BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
 
 const SETTINGS_MENU = [
   { id: 'profile', label: 'Profile Information', icon: User, desc: 'Update your personal details' },
