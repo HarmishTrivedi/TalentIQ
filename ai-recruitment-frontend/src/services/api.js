@@ -6,15 +6,27 @@ let BASE_URL = VITE_API_URL
 
 if (typeof window !== 'undefined') {
   const host = window.location.hostname
-  const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.endsWith('.local')
-  
-  if (isLocal && (!BASE_URL || BASE_URL.includes('onrender.com'))) {
-    BASE_URL = 'http://localhost:8000'
+  const isLocal = host === 'localhost' || 
+                  host === '127.0.0.1' || 
+                  host.startsWith('192.168.') || 
+                  host.startsWith('10.') || 
+                  host.startsWith('172.') ||
+                  host.endsWith('.local') ||
+                  host === '0.0.0.0' ||
+                  !host.includes('.')
+
+  // If we are actually on Render, always use the configured VITE_API_URL
+  const isOnRender = host.includes('onrender.com')
+
+  if (isLocal && !isOnRender) {
+    // Local dev: Use localhost if VITE_API_URL is missing or looks like a production URL
+    if (!BASE_URL || BASE_URL.includes('onrender.com') || BASE_URL === 'undefined') {
+      BASE_URL = 'http://localhost:8000'
+    }
   } else if (!BASE_URL || BASE_URL === 'undefined') {
+    // Production/Other: Fallback to current origin if no API URL provided
     BASE_URL = window.location.origin
   }
-} else if (!BASE_URL || BASE_URL === 'undefined') {
-  BASE_URL = 'http://localhost:8000'
 }
 
 const API_BASE = BASE_URL.endsWith('/api/v1') ? BASE_URL : `${BASE_URL}/api/v1`
@@ -38,11 +50,11 @@ api.interceptors.response.use(
     let msg = error.response?.data?.detail || error.response?.data?.error || error.message
     
     if (error.message === 'Network Error') {
-      msg = `Backend Unreachable at ${BASE_URL}. Ensure your server is running.`
-      console.error('Network Error Details:', {
-        attemptedUrl: API_BASE,
-        windowOrigin: window.location.origin,
-        viteEnvUrl: import.meta.env.VITE_API_URL
+      msg = `API Connection Error. Please verify the backend is live at ${BASE_URL}`
+      console.error('TalentIQ Connection Status:', {
+        backend: BASE_URL,
+        location: window.location.href,
+        timestamp: new Date().toISOString()
       })
     }
 
