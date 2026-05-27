@@ -16,12 +16,9 @@ class EmailJSProvider(EmailProvider):
     def __init__(self):
         self.service_id = os.getenv("EMAILJS_SERVICE_ID")
         self.template_id = os.getenv("EMAILJS_TEMPLATE_ID")
-        self.user_id = os.getenv("EMAILJS_USER_ID")  # Public Key
-        self.access_token = os.getenv("EMAILJS_ACCESS_TOKEN")  # Private Key
+        self.user_id = os.getenv("EMAILJS_USER_ID")
+        self.access_token = os.getenv("EMAILJS_ACCESS_TOKEN")
         self.api_url = "https://api.emailjs.com/api/v1.0/email/send"
-
-        if not all([self.service_id, self.template_id, self.user_id, self.access_token]):
-            logger.warning("EmailJS credentials incomplete. Emails may fail.")
 
     async def send_email(
         self,
@@ -34,8 +31,12 @@ class EmailJSProvider(EmailProvider):
     ) -> Dict[str, Any]:
         """Send email via EmailJS API."""
         
-        # EmailJS expects variables in template_params. 
-        # We inject our standard rich HTML into a single variable.
+        if not all([self.service_id, self.template_id, self.user_id, self.access_token]):
+            return {
+                "status": "failed",
+                "error_message": "EmailJS credentials not configured in environment.",
+                "raw_response": {}
+            }
         payload = {
             "service_id": self.service_id,
             "template_id": self.template_id,

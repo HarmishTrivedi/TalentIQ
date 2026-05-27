@@ -6,44 +6,42 @@ import asyncio
 from sqlalchemy import select
 from app.database import AsyncSessionLocal
 from app.models.models import User
-from app.services.email_service import get_email_service
+from app.services.new_email_service import get_new_email_service
 
 
 async def send_pending_welcome_emails():
-    """Find users who need welcome emails and send them"""
+    """Find users who need welcome emails and send them using new EmailJS service"""
     try:
         async with AsyncSessionLocal() as db:
-            # Retry until delivery succeeds, including users created through OAuth.
+            # Only send to recruiters who haven't received it yet
             result = await db.execute(
                 select(User)
                 .where(User.welcome_email_sent == False)
                 .where(User.role == 'recruiter')
-                .limit(50)
+                .limit(20)
             )
             users = result.scalars().all()
             
             if not users:
                 return
             
-            email_service = get_email_service()
+            email_service = get_new_email_service()
             
             for user in users:
                 try:
-                    print(f"[EMAIL] Sending welcome email to: {user.email}")
-                    success = await asyncio.to_thread(
-                        email_service.send_welcome_email,
-                        recruiter_email=user.email,
-                        recruiter_name=user.full_name,
-                        company_name=user.company_name if hasattr(user, 'company_name') else None,
-                        related_entity_id=user.id
+                    print(f"[EMAIL] Sending welcome email to: {user.email} (EmailJS)")
+                    result = await email_service.send_welcome_email(
+                        user_email=user.email,
+                        user_name=user.full_name,
+                        related_id=user.id
                     )
                     
-                    if success:
+                    if result.get("status") == "sent":
                         user.welcome_email_sent = True
                         await db.commit()
                         print(f"[OK] Welcome email sent: {user.email}")
                     else:
-                        print(f"[ERROR] Welcome email failed: {user.email}")
+                        print(f"[ERROR] Welcome email failed: {user.email} - {result.get('error_message')}")
                         
                 except Exception as e:
                     print(f"[ERROR] Error sending welcome email to {user.email}: {str(e)}")
