@@ -87,11 +87,13 @@ class CandidateResponse(BaseResponse):
     email: Optional[str] = None
     phone: Optional[str] = None
     location: Optional[str] = None
+    domain: Optional[str] = None
     cv_filename: str
     skills: Optional[Dict[str, Any]] = None
     experience_years: Optional[float] = None
     experience_details: Optional[Dict[str, Any]] = None
     education: Optional[Dict[str, Any]] = None
+    projects: Optional[List[Dict[str, Any]]] = None
     certifications: Optional[List[str]] = None
     languages: Optional[List[str]] = None
     summary: Optional[str] = None
@@ -115,6 +117,7 @@ class JobCreate(BaseModel):
     job_type: Optional[str] = None
     description: str = Field(min_length=50)
     required_experience_years: Optional[float] = None
+    domain: Optional[str] = None
 
 
 class JobUpdate(BaseModel):
@@ -124,6 +127,7 @@ class JobUpdate(BaseModel):
     job_type: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
+    domain: Optional[str] = None
 
 
 class JobResponse(BaseResponse):
@@ -133,6 +137,7 @@ class JobResponse(BaseResponse):
     location: Optional[str] = None
     job_type: Optional[str] = None
     description: str
+    domain: Optional[str] = None
     required_skills: Optional[Dict[str, Any]] = None
     preferred_skills: Optional[Dict[str, Any]] = None
     required_experience_years: Optional[float] = None

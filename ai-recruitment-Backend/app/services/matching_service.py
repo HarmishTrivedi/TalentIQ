@@ -18,57 +18,42 @@ logger = structlog.get_logger()
 
 # Scoring weights
 WEIGHTS = {
-    "semantic_similarity": 0.25,
-    "skill_match": 0.35,
-    "experience_match": 0.20,
-    "llm_evaluation": 0.15,
+    "semantic_similarity": 0.15,
+    "skill_match": 0.45,
+    "experience_match": 0.15,
+    "domain_match": 0.15,
+    "llm_evaluation": 0.05,
     "education_match": 0.05,
 }
 
-LLM_EVALUATION_PROMPT = """You are a senior technical recruiter with 15+ years of experience. Evaluate this candidate for the job position with precision and consistency.
+LLM_EVALUATION_PROMPT = """You are a senior technical recruiter specializing in {domain}. 
+Evaluate this candidate for the job position with precision.
 
-JOB DESCRIPTION:
+JOB DESCRIPTION ({domain}):
 Title: {job_title}
-Company: {company}
-Requirements:
-{job_description}
+Requirements: {job_description}
 
 Required Skills: {required_skills}
-Required Experience: {required_experience} years
 
 CANDIDATE PROFILE:
 Name: {candidate_name}
-Experience: {candidate_experience} years
+Domain: {candidate_domain}
 Skills: {candidate_skills}
 Summary: {candidate_summary}
-Education: {candidate_education}
 
-SCORING RUBRIC (be strict and consistent):
-- 90-100: Perfect match. Exceeds all requirements. Rare.
-- 75-89: Strong match. Meets most requirements with minor gaps.
-- 60-74: Good match. Meets core requirements, some gaps.
-- 45-59: Partial match. Meets some requirements, notable gaps.
-- 30-44: Weak match. Significant skill or experience gaps.
-- 0-29: Poor match. Does not meet core requirements.
+STRICT RULE: If the candidate domain ({candidate_domain}) is fundamentally different from the job domain ({domain}), apply a significant penalty. 
+For example, a Software Engineer should NOT be recommended for a Sales role unless they have explicit sales experience.
 
 Evaluate and return a JSON object:
 {{
   "score": 72,
-  "strengths": ["Strong Python skills matching requirement", "4 years experience meets 3-year requirement", "Relevant ML project experience"],
-  "weaknesses": ["Missing AWS experience listed as required", "No team leadership experience mentioned"],
-  "explanation": "Candidate demonstrates solid Python and ML foundation directly matching core requirements. Experience level is appropriate. However, the missing AWS and DevOps skills are listed as required and represent a meaningful gap that would need addressing.",
+  "strengths": [],
+  "weaknesses": [],
+  "explanation": "Focus on domain alignment and core skill match.",
   "recommendation": "yes",
-  "matched_skills": ["Python", "Machine Learning", "FastAPI"],
-  "missing_skills": ["AWS", "Kubernetes", "Docker"]
-}}
-
-RECOMMENDATION THRESHOLDS:
-- "strong_yes": score >= 85
-- "yes": score 70-84
-- "maybe": score 50-69
-- "no": score < 50
-
-Be objective, evidence-based, and consistent. Score must be an integer 0-100."""
+  "matched_skills": [],
+  "missing_skills": []
+}}"""
 
 
 class MatchingEngine:
@@ -179,18 +164,22 @@ class MatchingEngine:
 
         # 3. Education match score
         edu_score = self._compute_education_match(candidate, job)
+        
+        # 4. Domain match score
+        domain_score = self._compute_domain_match(candidate, job)
 
-        # 4. Normalize semantic score (cosine similarity is -1 to 1, map to 0-100)
+        # 5. Normalize semantic score
         sem_score = max(0, min(100, (semantic_score + 1) * 50))
 
-        # 5. LLM evaluation (most expensive - run last)
+        # 6. LLM evaluation
         llm_result = await self._llm_evaluate(candidate, job)
 
-        # 6. Weighted hybrid score
+        # 7. Weighted hybrid score
         overall = (
             WEIGHTS["semantic_similarity"] * sem_score +
             WEIGHTS["skill_match"] * skill_score +
             WEIGHTS["experience_match"] * exp_score +
+            WEIGHTS["domain_match"] * domain_score +
             WEIGHTS["llm_evaluation"] * llm_result.get("score", 50) +
             WEIGHTS["education_match"] * edu_score
         )
@@ -200,6 +189,7 @@ class MatchingEngine:
             "overall_score": round(overall, 1),
             "skill_match_score": round(skill_score, 1),
             "experience_match_score": round(exp_score, 1),
+            "domain_match_score": round(domain_score, 1),
             "semantic_similarity_score": round(sem_score, 1),
             "llm_evaluation_score": round(llm_result.get("score", 50), 1),
             "education_match_score": round(edu_score, 1),
@@ -210,6 +200,25 @@ class MatchingEngine:
             "matched_skills": llm_result.get("matched_skills", []),
             "missing_skills": llm_result.get("missing_skills", []),
         }
+
+    def _compute_domain_match(self, candidate: Candidate, job: Job) -> float:
+        """Score based on domain alignment."""
+        if not candidate.domain or not job.domain:
+            return 50.0
+        
+        if candidate.domain == job.domain:
+            return 100.0
+        
+        # Cross-domain penalties
+        # Technical to Non-Technical or vice versa
+        tech_domains = ["Software Engineering", "Infrastructure", "Data & AI"]
+        biz_domains = ["Sales", "Marketing", "Product", "Human Resources"]
+        
+        if (candidate.domain in tech_domains and job.domain in biz_domains) or \
+           (candidate.domain in biz_domains and job.domain in tech_domains):
+            return 20.0
+            
+        return 40.0 # Same category (biz/tech) but different domain
 
     def _compute_skill_match(self, candidate: Candidate, job: Job) -> float:
         """Calculate skill overlap between candidate and job requirements with synonym matching."""
@@ -361,12 +370,12 @@ class MatchingEngine:
             ) or "Not specified"
 
             prompt = LLM_EVALUATION_PROMPT
+            prompt = prompt.replace("{domain}", str(job.domain or "General"))
             prompt = prompt.replace("{job_title}", str(job.title))
-            prompt = prompt.replace("{company}", str(job.company or "Not specified"))
             prompt = prompt.replace("{job_description}", str(job.description[:1500]))
             prompt = prompt.replace("{required_skills}", str(", ".join(req_skills_list[:15])))
-            prompt = prompt.replace("{required_experience}", str(job.required_experience_years or "Not specified"))
             prompt = prompt.replace("{candidate_name}", str(candidate.name))
+            prompt = prompt.replace("{candidate_domain}", str(candidate.domain or "General"))
             prompt = prompt.replace("{candidate_experience}", str(candidate.experience_years or "Unknown"))
             prompt = prompt.replace("{candidate_skills}", str(", ".join(all_skills[:20])))
             prompt = prompt.replace("{candidate_summary}", str(candidate.summary or "Not available"))
@@ -374,7 +383,7 @@ class MatchingEngine:
 
             result = await self.llm.generate_json(
                 prompt=prompt,
-                system_prompt="You are an expert technical recruiter. Provide precise, consistent, evidence-based evaluations. Never inflate scores.",
+                system_prompt=f"You are an expert recruiter specializing in {job.domain or 'General'}.",
             )
 
             # Enforce recommendation thresholds based on score

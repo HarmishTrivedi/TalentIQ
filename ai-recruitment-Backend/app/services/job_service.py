@@ -8,46 +8,48 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Job
 from app.services.llm_service import get_llm_service
+from app.services.intelligence_service import get_intelligence_service
 from app.vector_store.faiss_store import get_vector_store
 
 logger = structlog.get_logger()
 
 
-JOB_EXTRACTION_PROMPT = """You are an expert HR requirements analyst. Extract structured requirements from this job description.
+JOB_EXTRACTION_PROMPT = """You are an expert HR requirements analyst specializing in the {domain} domain. 
+Extract structured requirements from this job description.
 
 Job Description:
 {job_description}
 
+Domain Knowledge (Core Skills to look for): {core_skills}
+Forbidden Skills (Ignore these): {forbidden_skills}
+
 Return a JSON object with EXACTLY this structure:
 {{
   "required_skills": {{
-    "technical": ["Python", "React", "SQL"],
-    "frameworks": ["FastAPI", "Django"],
-    "tools": ["Git", "Docker", "AWS"],
-    "soft": ["Communication", "Leadership"]
+    "technical": ["Skill 1", "Skill 2"],
+    "soft": ["Soft Skill 1"]
   }},
   "preferred_skills": {{
-    "technical": ["Kubernetes", "Terraform"],
-    "certifications": ["AWS Certified"],
-    "soft": ["Mentoring"]
+    "technical": ["Skill 3"],
+    "soft": ["Soft Skill 2"]
   }},
   "required_experience_years": 3.0,
-  "required_education": "Bachelor's degree in Computer Science or related field",
+  "required_education": "Degree details",
   "salary_range": {{
     "min": 80000,
     "max": 120000,
     "currency": "USD"
   }},
-  "key_responsibilities": ["Design and implement APIs", "Lead code reviews"],
-  "nice_to_have": ["Experience with microservices", "Open source contributions"]
+  "domain": "{domain}"
 }}
 
-If salary or certain fields are not mentioned, use null."""
+STRICT RULE: Only extract skills relevant to {domain}. Do not include skills from other domains (e.g., NO coding skills for Sales roles)."""
 
 
 class JobService:
     def __init__(self):
         self.llm = get_llm_service()
+        self.intel = get_intelligence_service()
         self.vector_store = get_vector_store()
 
     async def process_job(self, job: Job, db: AsyncSession) -> Job:
@@ -55,14 +57,20 @@ class JobService:
         logger.info("Processing job", job_id=job.id, title=job.title)
 
         try:
+            # 0. Classify domain if not present
+            if not job.domain:
+                job.domain = self.intel.classify_role(job.title)
+
             # 1. Extract structured requirements
-            extracted = await self._extract_requirements(job.description)
+            extracted = await self._extract_requirements(job.description, job.title, job.domain)
 
             job.required_skills = extracted.get("required_skills")
             job.preferred_skills = extracted.get("preferred_skills")
             job.required_experience_years = extracted.get("required_experience_years")
             job.required_education = extracted.get("required_education")
             job.salary_range = extracted.get("salary_range")
+            if extracted.get("domain"):
+                job.domain = extracted.get("domain")
 
             # 2. Generate embedding and store
             embedding_text = self._build_embedding_text(job)
@@ -84,12 +92,18 @@ class JobService:
 
         return job
 
-    async def _extract_requirements(self, description: str) -> dict:
+    async def _extract_requirements(self, description: str, title: str, domain: str) -> dict:
         try:
-            prompt = JOB_EXTRACTION_PROMPT.format(job_description=description[:3000])
+            intel = self.intel.get_role_intelligence(title)
+            prompt = JOB_EXTRACTION_PROMPT.format(
+                job_description=description[:3000],
+                domain=domain,
+                core_skills=", ".join(intel['core_skills']),
+                forbidden_skills=", ".join(intel['forbidden_skills'])
+            )
             return await self.llm.generate_json(
                 prompt=prompt,
-                system_prompt="You are an expert HR requirements analyst.",
+                system_prompt=f"You are an expert {domain} HR analyst.",
             )
         except Exception as e:
             logger.error("Job requirements extraction failed", error=str(e))

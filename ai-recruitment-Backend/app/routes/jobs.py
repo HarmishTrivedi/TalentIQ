@@ -25,138 +25,110 @@ class JDGenerateRequest(BaseModel):
     extra_notes: Optional[str] = None
 
 
-JD_GENERATION_PROMPT = """You are an expert technical recruiter and HR professional. Generate a complete, professional Job Description (JD) for the following role.
-
-ROLE DETAILS:
-- Job Title: {role_title}
-- Company: {company}
-- Industry: {industry}
-- Experience Required: {experience_years}
-- Location: {location}
-- Job Type: {job_type}
-- Key Skills: {key_skills}
-- Additional Notes: {extra_notes}
-
-Generate a comprehensive, well-structured JD in MARKDOWN format with these exact sections:
-
-# {role_title}
-
-**Company:** {company}  
-**Location:** {location}  
-**Job Type:** {job_type}  
-**Experience:** {experience_years}  
-
----
-
-## About the Role
-
-[Write 2-3 compelling sentences describing the role, its impact, and why it's exciting. Be specific about what the person will do and achieve.]
-
----
-
-## Key Responsibilities
-
-- [Specific responsibility with action verb - be detailed]
-- [Another key responsibility - mention technologies/tools]
-- [Responsibility related to team collaboration]
-- [Responsibility about project ownership]
-- [Responsibility about technical decisions]
-- [Responsibility about code quality/best practices]
-- [Responsibility about mentoring or leadership]
-- [Responsibility about stakeholder communication]
-- [Additional responsibility if relevant]
-- [Final key responsibility]
-
----
-
-## Required Qualifications
-
-- [Specific years of experience with technology/domain]
-- [Specific technical skill or framework - be precise]
-- [Another must-have technical skill]
-- [Soft skill or methodology requirement]
-- [Educational requirement or equivalent experience]
-- [Communication or collaboration requirement]
-- [Problem-solving or analytical skill]
-- [Additional must-have qualification]
-
----
-
-## Preferred Qualifications
-
-- [Nice-to-have technical skill or certification]
-- [Experience with specific tools or platforms]
-- [Additional programming language or framework]
-- [Industry-specific knowledge]
-- [Leadership or mentoring experience]
-
----
-
-## What We Offer
-
-- 💰 Competitive salary and equity/stock options
-- 🏥 Flexible work arrangements (remote/hybrid options)
-- 📚 Professional development and learning budget
-- 🏋️ Health, dental, and wellness benefits
-- 🌴 Generous PTO and work-life balance
-- 🚀 Opportunity to work on cutting-edge technology
-
----
-
-## About {company}
-
-[Write 2-3 sentences about the company's mission, culture, values, and what makes it a great place to work. Be authentic and specific.]
-
----
-
-**How to Apply:**  
-Interested candidates should submit their resume and portfolio through our careers portal.
-
-*{company} is an equal opportunity employer. We celebrate diversity and are committed to creating an inclusive environment for all employees.*
-
----
-
-IMPORTANT INSTRUCTIONS:
-- Use REAL, SPECIFIC details - NO placeholder text like "[Company Name]" or "[Technology]"
-- Mention actual technologies, frameworks, and tools relevant to {role_title}
-- Be professional but engaging
-- Use action verbs (Lead, Design, Implement, Collaborate, etc.)
-- Make responsibilities and qualifications realistic and achievable
-- Ensure the JD is ready to post immediately without any editing
-- Format everything in clean Markdown
-"""
-
-
 @router.post("/generate-jd")
 async def generate_jd(
     request: JDGenerateRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Generate a professional Job Description using AI with perfect formatting."""
+    """Generate a professional Job Description using AI with domain-specific intelligence."""
     from app.services.llm_service import get_llm_service
+    from app.services.intelligence_service import get_intelligence_service
+    
     llm = get_llm_service()
+    intel_service = get_intelligence_service()
 
-    prompt = JD_GENERATION_PROMPT
-    prompt = prompt.replace("{role_title}", request.role_title or "Software Engineer")
-    prompt = prompt.replace("{company}", request.company or "TechCorp")
-    prompt = prompt.replace("{industry}", request.industry or "Technology")
-    prompt = prompt.replace("{experience_years}", request.experience_years or "3-5 years")
-    prompt = prompt.replace("{location}", request.location or "Remote")
-    prompt = prompt.replace("{job_type}", request.job_type or "Full-time")
-    prompt = prompt.replace("{key_skills}", request.key_skills or "Programming, Problem Solving")
-    prompt = prompt.replace("{extra_notes}", request.extra_notes or "None")
+    # Step 1: Classify Role into Domain
+    intel = intel_service.get_role_intelligence(request.role_title)
+    domain = intel['domain']
+    core_skills = ", ".join(intel['core_skills'])
+    forbidden_skills = ", ".join(intel['forbidden_skills'])
+    base_responsibilities = "\n".join([f"- {r}" for r in intel['responsibilities']])
+
+    # Step 3: Controlled JD Generation
+    prompt = f"""You are an expert technical recruiter and HR professional specializing in the {domain} domain. 
+Generate a complete, professional Job Description (JD) for the role of {request.role_title}.
+
+ROLE DETAILS:
+- Job Title: {request.role_title}
+- Company: {request.company or "TechCorp"}
+- Industry: {request.industry or domain}
+- Domain: {domain}
+- Experience Required: {request.experience_years or "3-5 years"}
+- Location: {request.location or "Remote"}
+- Job Type: {request.job_type or "Full-time"}
+- Key Skills provided by user: {request.key_skills or "None"}
+- Additional Notes: {request.extra_notes or "None"}
+
+DOMAIN CONSTRAINTS:
+- YOU MUST include these Core Skills: {core_skills}
+- YOU MUST NOT include any of these Forbidden Skills: {forbidden_skills}
+- Ensure responsibilities are relevant to {domain}.
+
+Generate a comprehensive, well-structured JD in MARKDOWN format with these exact sections:
+
+# {request.role_title}
+
+**Company:** {request.company or "TechCorp"}  
+**Location:** {request.location or "Remote"}  
+**Job Type:** {request.job_type or "Full-time"}  
+**Experience:** {request.experience_years or "3-5 years"}  
+
+---
+
+## About the Role
+[Write 2-3 compelling sentences describing the role within the {domain} context.]
+
+---
+
+## Key Responsibilities
+{base_responsibilities}
+[Add 3-5 more specific responsibilities for this specific role]
+
+---
+
+## Required Qualifications
+- [Specific years of experience with {domain} technologies/processes]
+- [Core Skill from: {core_skills}]
+- [Another core skill or domain-specific requirement]
+- [Soft skill or methodology requirement]
+- [Educational requirement]
+
+---
+
+## Preferred Qualifications
+- [Nice-to-have skill from: {', '.join(intel['preferred_skills'][:5])}]
+- [Industry-specific knowledge]
+
+---
+
+## What We Offer
+- 💰 Competitive salary and benefits
+- 🚀 Growth opportunities
+
+---
+
+## About {request.company or "TechCorp"}
+[Mission and culture description]
+
+---
+
+**IMPORTANT:** Stay strictly within the {domain} domain. NEVER add software engineering skills (like Python, Kubernetes) to non-technical roles like Sales or HR.
+"""
 
     jd_text = await llm.generate(
         prompt=prompt,
-        system_prompt="You are a senior HR professional and technical recruiter with 15+ years of experience. Write compelling, accurate, professional job descriptions in perfect Markdown format. Be specific, realistic, and engaging. Never use placeholder text.",
-        temperature=0.7,
-        max_tokens=2500,
+        system_prompt=f"You are a senior {domain} recruiter with 15+ years of experience. Write accurate, professional job descriptions. Never hallucinate unrelated technical skills.",
+        temperature=0.5,
     )
 
+    # Step 4: AI Validation Layer
+    validated_jd = await intel_service.validate_jd(request.role_title, jd_text)
+
     return {
-        "jd": jd_text,
+        "jd": validated_jd,
         "formatted": True,
         "role_title": request.role_title,
+        "domain": domain,
         "company": request.company or "TechCorp",
         "location": request.location or "Remote",
         "job_type": request.job_type or "Full-time"

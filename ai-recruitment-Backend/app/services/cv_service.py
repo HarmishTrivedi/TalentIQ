@@ -14,6 +14,7 @@ from sqlalchemy import select
 
 from app.models.models import Candidate, CandidateStatus
 from app.services.llm_service import get_llm_service
+from app.services.intelligence_service import get_intelligence_service
 from app.vector_store.faiss_store import get_vector_store
 from app.utils.pdf_extractor import extract_text_from_bytes, chunk_text
 from app.config import settings
@@ -61,6 +62,13 @@ Extract and return a JSON object with EXACTLY this structure:
     ],
     "highest_level": "bachelor"
   }},
+  "projects": [
+    {{
+      "name": "Project Name",
+      "description": "Brief description of what was built and tools used",
+      "link": "URL if available or null"
+    }}
+  ],
   "certifications": ["AWS Certified Developer", "PMP"],
   "languages": ["English", "Spanish"]
 }}
@@ -172,6 +180,7 @@ class CVProcessingService:
 
     def __init__(self):
         self.llm = get_llm_service()
+        self.intel = get_intelligence_service()
         self.vector_store = get_vector_store()
         self.upload_dir = Path(settings.upload_dir)
         self.upload_dir.mkdir(parents=True, exist_ok=True)
@@ -220,6 +229,13 @@ class CVProcessingService:
             candidate.phone = structured.get("phone")
             candidate.location = structured.get("location")
             candidate.summary = structured.get("summary")
+            
+            # Step 1: Classify Domain
+            # Try to use current title if available, else use summary
+            positions = structured.get("experience_details", {}).get("positions", [])
+            current_role = positions[0].get("title") if positions else candidate.name
+            candidate.domain = self.intel.classify_role(current_role)
+
             candidate.experience_details = structured.get("experience_details", {"positions": []})
             # Use ONLY LLM-extracted positions for experience calculation.
             # Raw text scan is disabled because it picks up education/project dates.
@@ -244,6 +260,7 @@ class CVProcessingService:
 
             candidate.education = structured.get("education", {"degrees": []})
             candidate.certifications = structured.get("certifications", [])
+            candidate.projects = structured.get("projects", [])
             candidate.languages = structured.get("languages", [])
 
             # 6. Generate embeddings and store in FAISS
@@ -548,6 +565,7 @@ class CVProcessingService:
         )
         candidate.education = structured.get("education")
         candidate.certifications = structured.get("certifications", [])
+        candidate.projects = structured.get("projects", [])
         candidate.status = CandidateStatus.ready
 
         faiss_ids = await self._index_candidate(candidate, raw_text)

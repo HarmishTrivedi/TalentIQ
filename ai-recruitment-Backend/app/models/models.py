@@ -99,6 +99,7 @@ class Candidate(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    domain: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # CV Storage
     cv_filename: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -111,6 +112,7 @@ class Candidate(Base):
     experience_details: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     education: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     certifications: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    projects: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     languages: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -146,6 +148,7 @@ class Job(Base):
     location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     job_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # full-time, part-time, contract
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    domain: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # AI-extracted requirements
     required_skills: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
