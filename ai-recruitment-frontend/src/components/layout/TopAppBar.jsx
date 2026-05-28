@@ -1,5 +1,5 @@
 import React from 'react'
-import { Search, Bell, Settings, Apps, ChevronDown } from 'lucide-react'
+import { Search, Bell, Settings, LayoutGrid, ChevronDown } from 'lucide-react'
 import { useAuthStore } from '../../store'
 import { getInitials } from '../../utils/helpers'
 import { BASE_URL } from '../../services/api'
@@ -32,7 +32,7 @@ export default function TopAppBar() {
           <Settings size={20} />
         </button>
         <button className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
-          <Apps size={20} />
+          <LayoutGrid size={20} />
         </button>
         
         <div className="h-8 w-[1px] bg-outline-variant mx-2"></div>
