@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { Zap, ChevronRight, CheckCircle, XCircle, Brain, Sparkles, Target, TrendingUp, Clock, Users, Award, BarChart3, Briefcase, ArrowRight } from 'lucide-react'
 import { jobsApi, matchingApi } from '../services/api'
-import { Spinner, TagList, Badge } from '../components/ui'
+import { Spinner } from '../components/ui'
 import { getInitials, getScoreColor, getRecommendationLabel, formatExperience, cn } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
@@ -13,16 +14,16 @@ function ScoreRing({ score, size = 96 }) {
   const color = getScoreColor(score)
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90" style={{ filter: `drop-shadow(0 0 8px ${color}40)` }}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--border)" strokeWidth={6} />
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="currentColor" strokeWidth={6} className="text-surface-container-high" />
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={6}
           strokeDasharray={circ} strokeDashoffset={fill} strokeLinecap="round"
           style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1)' }}
         />
       </svg>
       <div className="absolute text-center">
-        <div className="text-2xl font-bold" style={{ color, fontFamily: 'Inter, sans-serif' }}>{score}</div>
-        <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>score</div>
+        <div className="text-2xl font-bold" style={{ color }}>{score}</div>
+        <div className="text-[9px] uppercase tracking-wider text-outline">score</div>
       </div>
     </div>
   )
@@ -36,13 +37,13 @@ function AnimatedBar({ score, label, icon: Icon, delay = 0 }) {
     <div className="space-y-1.5">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">
-          {Icon && <Icon size={11} style={{ color: 'var(--text-muted)' }} />}
-          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+          {Icon && <Icon size={11} className="text-outline" />}
+          <span className="text-xs text-on-surface-variant">{label}</span>
         </div>
         <span className="text-xs font-bold" style={{ color }}>{Math.round(score)}%</span>
       </div>
-      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-        <div className="h-full rounded-full" style={{ width: `${width}%`, background: `linear-gradient(90deg, ${color}80, ${color})`, transition: 'width 1s cubic-bezier(0.16,1,0.3,1)', boxShadow: `0 0 8px ${color}50` }} />
+      <div className="h-2 rounded-full overflow-hidden bg-surface-container-high">
+        <div className="h-full rounded-full" style={{ width: `${width}%`, background: `linear-gradient(90deg, ${color}80, ${color})`, transition: 'width 1s cubic-bezier(0.16,1,0.3,1)' }} />
       </div>
     </div>
   )
@@ -55,19 +56,20 @@ function AILoader() {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-5 p-8">
       <div className="relative w-16 h-16">
-        <div className="absolute inset-0 rounded-full border-2 animate-ping" style={{ borderColor: 'var(--accent-cyan)', opacity: 0.3 }} />
-        <div className="absolute inset-0 rounded-full flex items-center justify-center" style={{ background: 'var(--tag-bg)', border: '1px solid var(--tag-border)' }}>
-          <Brain size={24} style={{ color: 'var(--accent-cyan)' }} className="animate-pulse" />
+        <div className="absolute inset-0 rounded-full border-2 border-primary animate-ping opacity-30" />
+        <div className="absolute inset-0 rounded-full flex items-center justify-center bg-primary/10 border border-primary/20">
+          <Brain size={24} className="text-primary animate-pulse" />
         </div>
       </div>
       <div className="text-center space-y-1">
-        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>AI Matching in Progress</p>
-        <p className="text-xs animate-pulse" style={{ color: 'var(--accent-cyan)' }}>{steps[step]}</p>
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>This may take 30–60 seconds</p>
+        <p className="text-sm font-semibold text-on-surface">AI Matching in Progress</p>
+        <p className="text-xs animate-pulse text-primary">{steps[step]}</p>
+        <p className="text-xs text-outline">This may take 30–60 seconds</p>
       </div>
       <div className="flex gap-1.5">
         {[0,1,2,3,4].map(i => (
-          <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent-cyan)', animation: `bounce 1.2s ease-in-out ${i * 0.15}s infinite` }} />
+          <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary"
+            style={{ animation: `bounce 1.2s ease-in-out ${i * 0.15}s infinite` }} />
         ))}
       </div>
     </div>
@@ -75,10 +77,10 @@ function AILoader() {
 }
 
 function RankBadge({ rank }) {
-  if (rank === 1) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}>🥇 #1</span>
-  if (rank === 2) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>🥈 #2</span>
-  if (rank === 3) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(249,115,22,0.1)', color: '#f97316', border: '1px solid rgba(249,115,22,0.2)' }}>🥉 #3</span>
-  return <span className="text-[10px] font-bold w-5" style={{ color: 'var(--text-muted)' }}>#{rank}</span>
+  if (rank === 1) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-200">🥇 #1</span>
+  if (rank === 2) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-surface-container text-on-surface-variant border border-outline-variant">🥈 #2</span>
+  if (rank === 3) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-600 border border-orange-200">🥉 #3</span>
+  return <span className="text-[10px] font-bold w-5 text-outline">#{rank}</span>
 }
 
 export default function Matching() {
