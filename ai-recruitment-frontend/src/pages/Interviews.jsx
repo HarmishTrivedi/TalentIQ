@@ -47,94 +47,83 @@ export default function Interviews() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 p-6">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-              <Brain className="w-10 h-10 text-purple-400" />
-              AI Interview Intelligence
-            </h1>
-            <p className="text-purple-300">Conduct and analyze intelligent interviews</p>
-          </div>
-
-          <button
-            onClick={() => navigate('/interviews/new')}
-            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-          >
-            <Plus className="w-5 h-5 inline mr-2" />
-            Schedule Interview
-          </button>
+    <div className="page-enter bg-surface">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-on-surface mb-1">Interview Intelligence</h2>
+          <p className="text-on-surface-variant text-sm opacity-70">
+            Conduct and analyze AI-powered screening sessions
+          </p>
         </div>
+        <button
+          onClick={() => navigate('/interviews/new')}
+          className="btn-primary"
+        >
+          <Plus size={18} />
+          <span>Schedule New Session</span>
+        </button>
       </div>
 
       {/* Filters & Search */}
-      <div className="max-w-7xl mx-auto mb-6">
-        <div className="bg-black/40 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-purple-400" />
-              <input
-                type="text"
-                placeholder="Search interviews..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white placeholder-purple-300/50 focus:outline-none focus:border-purple-500"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div className="flex gap-2">
-              {['all', 'scheduled', 'in_progress', 'completed'].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setFilter(status)}
-                  className={`px-4 py-3 rounded-xl font-semibold transition-all ${
-                    filter === status
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                      : 'bg-black/60 text-purple-300 hover:bg-black/80 border border-purple-500/20'
-                  }`}
-                >
-                  {status.replace('_', ' ').charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
-                </button>
-              ))}
-            </div>
-          </div>
+      <div className="portal-card mb-8 p-2 flex flex-col lg:flex-row gap-4 bg-surface-container-lowest shadow-sm">
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-70" />
+          <input
+            type="text"
+            placeholder="Search by candidate name or role title..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-4 py-2.5 bg-surface-container-low border border-transparent rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+          />
+        </div>
+        
+        <div className="flex items-center gap-1.5 p-1 bg-surface-container-low rounded-xl">
+          {['all', 'scheduled', 'in_progress', 'completed'].map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilter(status)}
+              className={cn(
+                "px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
+                filter === status 
+                  ? "bg-primary text-on-primary shadow-md scale-[1.02]" 
+                  : "text-outline hover:bg-surface-container-high"
+              )}
+            >
+              {status.replace('_', ' ')}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Interviews Grid */}
-      <div className="max-w-7xl mx-auto">
+      {/* Main Grid */}
+      <div className="flex-1">
         {loading ? (
-          <div className="text-center py-12">
-            <Brain className="w-16 h-16 text-purple-400 animate-pulse mx-auto mb-4" />
-            <p className="text-purple-300">Loading interviews...</p>
+          <div className="py-20 flex flex-col items-center justify-center gap-5">
+             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+             <p className="text-sm font-bold text-outline uppercase tracking-widest">Compiling sessions...</p>
           </div>
         ) : filteredInterviews.length === 0 ? (
-          <div className="text-center py-12">
-            <Video className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-            <p className="text-purple-300 text-lg mb-4">No interviews found</p>
-            <button
-              onClick={() => navigate('/interviews/new')}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-            >
-              Schedule Your First Interview
-            </button>
+          <div className="portal-card p-20 text-center flex flex-col items-center gap-6">
+            <div className="w-20 h-20 rounded-[40px] bg-surface-container border border-outline-variant flex items-center justify-center shadow-inner">
+               <Video size={36} className="text-outline opacity-20" />
+            </div>
+            <div className="max-w-xs mx-auto">
+               <p className="text-lg font-bold text-on-surface mb-2">No interviews found</p>
+               <p className="text-sm text-outline mb-6">There are no active sessions matching your current filter.</p>
+               <button onClick={() => navigate('/interviews/new')} className="btn-primary w-full shadow-lg">Schedule First Interview</button>
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 stagger">
             {filteredInterviews.map((interview, index) => {
               const statusBadge = getStatusBadge(interview.status);
               
               return (
                 <motion.div
                   key={interview.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-black/40 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-purple-500/40 transition-all cursor-pointer group"
+                  whileHover={{ y: -4 }}
+                  className="portal-card p-6 flex flex-col h-full bg-surface-container-lowest group cursor-pointer border-outline-variant/60 shadow-md hover:shadow-xl hover:border-primary/30 transition-all"
                   onClick={() => {
                     if (interview.status === 'completed') {
                       navigate(`/interviews/${interview.id}/analysis`);
@@ -143,90 +132,99 @@ export default function Interviews() {
                     }
                   }}
                 >
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`px-3 py-1 rounded-lg border ${statusBadge.color} text-sm font-semibold`}>
+                  {/* Status & Badge */}
+                  <div className="flex items-start justify-between mb-6">
+                    <div className={cn("px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-widest", 
+                      interview.status === 'completed' ? "bg-tertiary/10 text-tertiary border-tertiary/20" :
+                      interview.status === 'in_progress' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                      "bg-primary/5 text-primary border-primary/20"
+                    )}>
                       {statusBadge.label}
                     </div>
                     {interview.status === 'in_progress' && (
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                        <span className="text-xs text-green-400">Live</span>
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-red-500/10 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+                        <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                        <span className="text-[10px] font-black text-red-600 uppercase tracking-tighter">Live Session</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Title */}
-                  <h3 className="text-white font-bold text-lg mb-2 group-hover:text-purple-400 transition-colors">
-                    {interview.title}
-                  </h3>
-
-                  {/* Candidate Info */}
-                  <div className="flex items-center gap-2 text-purple-300 text-sm mb-4">
-                    <User className="w-4 h-4" />
-                    <span>{interview.candidate?.name || 'Unknown Candidate'}</span>
+                  {/* Body Content */}
+                  <div className="flex-1 mb-8">
+                     <h3 className="text-xl font-bold text-on-surface group-hover:text-primary transition-colors leading-tight mb-4">
+                       {interview.title}
+                     </h3>
+                     
+                     <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center shrink-0">
+                              <User size={14} className="text-outline" />
+                           </div>
+                           <span className="text-sm font-bold text-on-surface opacity-80">{interview.candidate?.name || 'Anonymous Talent'}</span>
+                        </div>
+                        
+                        {interview.job && (
+                          <div className="flex items-center gap-3">
+                             <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center shrink-0">
+                                <Briefcase size={14} className="text-outline" />
+                             </div>
+                             <span className="text-sm font-semibold text-outline truncate">{interview.job.title}</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center gap-6 pt-1">
+                           <div className="flex items-center gap-2 text-outline">
+                              <Calendar size={13} />
+                              <span className="text-[11px] font-bold uppercase tracking-wider">
+                                {interview.scheduled_at ? formatDate(interview.scheduled_at) : 'Manual Start'}
+                              </span>
+                           </div>
+                           {interview.duration_minutes && (
+                             <div className="flex items-center gap-2 text-outline">
+                                <Clock size={13} />
+                                <span className="text-[11px] font-bold uppercase tracking-wider">{interview.duration_minutes}m</span>
+                             </div>
+                           )}
+                        </div>
+                     </div>
                   </div>
 
-                  {/* Job Info */}
-                  {interview.job && (
-                    <div className="flex items-center gap-2 text-purple-300 text-sm mb-4">
-                      <Briefcase className="w-4 h-4" />
-                      <span>{interview.job.title}</span>
-                    </div>
-                  )}
-
-                  {/* Date & Time */}
-                  <div className="flex items-center gap-4 text-purple-300 text-sm mb-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>
-                        {interview.scheduled_at 
-                          ? new Date(interview.scheduled_at).toLocaleDateString()
-                          : 'Not scheduled'}
-                      </span>
-                    </div>
-                    {interview.duration_minutes && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        <span>{interview.duration_minutes} min</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Scores (for completed interviews) */}
+                  {/* Summary Metric (Conditional) */}
                   {interview.status === 'completed' && interview.overall_score && (
-                    <div className="pt-4 border-t border-purple-500/20">
+                    <div className="mb-6 p-4 rounded-2xl bg-surface-container shadow-inner border border-outline-variant/30">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-purple-300 text-sm">Overall Score</span>
-                        <span className="text-white font-bold text-xl">
-                          {Math.round(interview.overall_score)}
+                        <span className="text-[10px] font-black text-outline uppercase tracking-widest">Match Score</span>
+                        <span className="text-base font-black font-display" style={{ color: getScoreColor(interview.overall_score) }}>
+                          {Math.round(interview.overall_score)}%
                         </span>
                       </div>
-                      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-                          style={{ width: `${interview.overall_score}%` }}
+                          className="h-full transition-all duration-1000"
+                          style={{ 
+                            width: `${interview.overall_score}%`,
+                            background: `linear-gradient(90deg, ${getScoreColor(interview.overall_score)}cc, ${getScoreColor(interview.overall_score)})` 
+                          }}
                         />
                       </div>
                     </div>
                   )}
 
-                  {/* Action Button */}
-                  <div className="mt-4 pt-4 border-t border-purple-500/20">
+                  {/* Footer Actions */}
+                  <div className="mt-auto pt-5 border-t border-outline-variant group-hover:border-primary/20 transition-colors">
                     {interview.status === 'scheduled' && (
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           let url = interview.recruiter_meeting_url;
-                          // Detect broken localhost fallback in production/Render
                           if (!url || url.includes('localhost:3000')) {
                             url = `/interview-room/${interview.id}`;
                           }
                           window.open(url, '_blank', 'noopener,noreferrer');
                         }}
-                        className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all">
-                        <Play className="w-4 h-4 inline mr-2" />
-                        Start Interview
+                        className="btn-primary w-full shadow-lg group-hover:scale-[1.02] transition-transform">
+                        <Play size={16} />
+                        <span>Launch Session</span>
                       </button>
                     )}
                     {interview.status === 'in_progress' && (
@@ -234,23 +232,22 @@ export default function Interviews() {
                         onClick={(e) => {
                           e.stopPropagation();
                           let url = interview.recruiter_meeting_url;
-                          // Detect broken localhost fallback in production/Render
                           if (!url || url.includes('localhost:3000')) {
                             url = `/interview-room/${interview.id}`;
                           }
                           window.open(url, '_blank', 'noopener,noreferrer');
                         }}
-                        className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all">
-                        <Video className="w-4 h-4 inline mr-2" />
-                        Join Interview
+                        className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 group-hover:scale-[1.02] transition-transform">
+                        <Video size={18} />
+                        <span>Rejoin Session</span>
                       </button>
                     )}
                     {interview.status === 'completed' && (
                       <button 
                         onClick={() => navigate(`/interviews/${interview.id}/analysis`)}
-                        className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all">
-                        <Eye className="w-4 h-4 inline mr-2" />
-                        View Analysis
+                        className="btn-secondary w-full py-3 flex items-center justify-center gap-2 group-hover:bg-primary/5 transition-all">
+                        <Eye size={18} />
+                        <span>Examine Intelligence</span>
                       </button>
                     )}
                   </div>

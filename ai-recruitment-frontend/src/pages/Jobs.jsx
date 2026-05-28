@@ -524,7 +524,7 @@ export default function Jobs() {
   }
 
   return (
-    <div className="p-6 page-enter">
+    <div className="page-enter">
       {showModal && (
         <CreateJobModal
           onClose={() => { setShowModal(false); setPrefillJD('') }}
@@ -534,22 +534,21 @@ export default function Jobs() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
-            Job Listings
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            {total} job{total !== 1 ? 's' : ''} posted
+          <h2 className="text-3xl font-bold text-on-surface mb-1">Active Openings</h2>
+          <p className="text-on-surface-variant text-sm opacity-70">
+            {total} position{total !== 1 ? 's' : ''} currently being filled
           </p>
         </div>
         <button onClick={() => { setPrefillJD(''); setShowModal(true) }} className="btn-primary">
-          <Plus size={16} /> New Job
+          <Plus size={18} />
+          <span>New Job Opening</span>
         </button>
       </div>
 
-      {/* Upload and AI JD Maker — inline panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* AI Tools Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2">
           <AIJDMaker onUseJD={handleUseJD} />
         </div>
@@ -558,15 +557,26 @@ export default function Jobs() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative mb-5">
-        <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="input-field pl-11 h-11"
-          placeholder="Search jobs..."
-        />
+      {/* Search & Actions */}
+      <div className="portal-card mb-6 p-2 flex flex-col md:flex-row gap-4 bg-surface-container-lowest">
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-70" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-11 pr-4 py-2.5 bg-surface-container-low border border-transparent rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+            placeholder="Search by job title, company, or keyword..."
+          />
+        </div>
+        <div className="flex gap-2 px-2 pb-2 md:pb-0">
+           <button className="btn-secondary py-2 flex items-center gap-2">
+             <Filter size={16} />
+             <span>Status</span>
+           </button>
+           <button className="btn-secondary py-2 flex items-center gap-2">
+             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} onClick={() => load(search)} />
+           </button>
+        </div>
       </div>
 
       {/* Job cards */}
@@ -575,77 +585,89 @@ export default function Jobs() {
           {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : jobs.length === 0 ? (
-        <EmptyState
-          icon={Briefcase}
-          title="No jobs yet"
-          description="Use the AI JD Maker above or create a job manually."
-          action={<button onClick={() => setShowModal(true)} className="btn-primary">Create First Job</button>}
-        />
+        <div className="portal-card p-20 text-center">
+          <EmptyState
+            icon={Briefcase}
+            title="No job openings found"
+            description={search ? `No jobs match "${search}"` : "You haven't posted any jobs yet. Use the AI JD Maker to get started."}
+            action={!search && <button onClick={() => setShowModal(true)} className="btn-primary">Create First Job</button>}
+          />
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 stagger">
           {jobs.map(job => {
-            const skills = [...(job.required_skills?.technical || []), ...(job.required_skills?.frameworks || [])].slice(0, 5)
+            const skills = [...(job.required_skills?.technical || []), ...(job.required_skills?.frameworks || [])].slice(0, 4)
             return (
-              <div key={job.id} className="portal-card p-5 group">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'var(--tag-bg)', border: '1px solid var(--tag-border)' }}>
-                    <Briefcase size={18} style={{ color: 'var(--accent-cyan)' }} />
+              <div key={job.id} className="portal-card p-6 group flex flex-col h-full">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-surface-container-low border border-outline-variant shadow-sm group-hover:border-primary transition-all">
+                    <Briefcase size={22} className="text-primary" />
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {job.job_type && <Badge variant={JOB_TYPE_COLORS[job.job_type] || 'blue'}>{job.job_type}</Badge>}
-                    <Badge variant={job.status === 'active' ? 'green' : 'yellow'}>{job.status}</Badge>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-outline px-2 py-0.5 rounded-full border border-outline-variant bg-surface-container-low">
+                      {job.job_type || 'Full-time'}
+                    </span>
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-tertiary/10 border border-tertiary/20">
+                      <div className="w-1.5 h-1.5 rounded-full bg-tertiary" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-tertiary">{job.status || 'Active'}</span>
+                    </div>
                   </div>
                 </div>
 
-                <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
+                <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors line-clamp-1">
                   {job.title}
                 </h3>
 
-                <div className="space-y-1 mb-3">
+                <div className="flex flex-wrap gap-x-4 gap-y-2 mb-4 opacity-70">
                   {job.company && (
-                    <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      <Building size={11} /> {job.company}
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <Building size={14} className="text-outline" /> {job.company}
                     </div>
                   )}
                   {job.location && (
-                    <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      <MapPin size={11} /> {job.location}
-                    </div>
-                  )}
-                  {job.required_experience_years && (
-                    <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      <Clock size={11} /> {job.required_experience_years}+ years required
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <MapPin size={14} className="text-outline" /> {job.location}
                     </div>
                   )}
                 </div>
 
-                <p className="text-xs mb-3 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
-                  {truncate(job.description, 100)}
+                <p className="text-sm text-on-surface-variant mb-5 line-clamp-3 leading-relaxed">
+                  {truncate(job.description, 140)}
                 </p>
 
-                {skills.length > 0 && <TagList tags={skills} max={4} />}
-
-                <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(job.created_at)}</span>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleDelete(job.id, job.title)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-                      style={{ color: 'var(--text-muted)' }}
-                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--error-text)'; e.currentTarget.style.background = 'var(--error-bg)' }}
-                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                    <Link
-                      to={`/jobs/${job.id}`}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
-                      style={{ color: 'var(--accent-cyan)', background: 'var(--tag-bg)' }}
-                    >
-                      View <ChevronRight size={12} />
-                    </Link>
-                  </div>
+                <div className="mt-auto pt-4 border-t border-outline-variant/50">
+                   <div className="flex flex-wrap gap-1.5 mb-5">
+                      {skills.length > 0 ? (
+                        skills.map((sk, j) => (
+                          <span key={j} className="text-[10px] font-bold px-2 py-0.5 rounded bg-surface-container text-primary uppercase">
+                            {sk}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[10px] text-outline italic">No skills defined</span>
+                      )}
+                   </div>
+                   
+                   <div className="flex items-center justify-between">
+                     <span className="text-[11px] font-bold text-outline uppercase tracking-wider">
+                       Posted {formatDate(job.created_at)}
+                     </span>
+                     <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleDelete(job.id, job.title)}
+                          className="p-2 text-outline hover:text-error hover:bg-error/5 rounded-lg transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <Link
+                          to={`/jobs/${job.id}`}
+                          className="btn-secondary py-1.5 px-3 flex items-center gap-2 text-xs"
+                        >
+                          <span>Manage</span>
+                          <ChevronRight size={14} />
+                        </Link>
+                     </div>
+                   </div>
                 </div>
               </div>
             )

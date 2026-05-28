@@ -1,39 +1,35 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, Briefcase, Zap, TrendingUp, ArrowRight, Clock, Target, Brain, Upload, BarChart3 } from 'lucide-react'
+import { 
+  Users, Briefcase, Zap, TrendingUp, ArrowRight, Clock, 
+  Target, Brain, Upload, BarChart3, Plus, Calendar,
+  MoreVertical, Filter, Activity, CheckCircle, Send, FileText
+} from 'lucide-react'
 import { motion } from 'framer-motion'
 import { dashboardApi } from '../services/api'
-import { formatRelativeTime, getScoreColor, getRecommendationLabel, getInitials, formatExperience } from '../utils/helpers'
+import { 
+  formatRelativeTime, getScoreColor, getRecommendationLabel, 
+  getInitials, formatExperience 
+} from '../utils/helpers'
 import { useAuthStore } from '../store'
 
-function StatCard({ label, value, icon: Icon, trend, gradient, delay = 0 }) {
+function StatCard({ label, value, icon: Icon, trend, delay = 0 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="portal-card p-5 group"
+      transition={{ delay, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="kpi-card"
     >
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
+      <span className="text-[11px] font-bold uppercase tracking-wider text-outline">{label}</span>
+      <div className="flex items-baseline gap-2">
+        <span className="text-2xl font-bold font-display">{value}</span>
         {trend != null && (
-          <div
-            className="text-xs font-bold px-2 py-1 rounded-lg"
-            style={trend > 0
-              ? { background: 'var(--success-bg)', color: 'var(--success-text)', border: '1px solid var(--success-border)' }
-              : { background: 'var(--error-bg)', color: 'var(--error-text)', border: '1px solid var(--error-border)' }
-            }
-          >
-            {trend > 0 ? '+' : ''}{trend}%
-          </div>
+          <span className={`text-[10px] font-bold ${trend >= 0 ? 'text-tertiary' : 'text-error'}`}>
+            {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
+          </span>
         )}
       </div>
-      <div className="text-3xl font-bold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
-        {value}
-      </div>
-      <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>{label}</div>
     </motion.div>
   )
 }
@@ -53,196 +49,232 @@ export default function Dashboard() {
   const s = stats || {}
   const firstName = user?.full_name?.split(' ')[0] || 'Recruiter'
 
-  return (
-    <div className="p-6 page-enter" style={{ minHeight: '100%' }}>
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
-        <h1 className="text-3xl font-bold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
-          Welcome back, {firstName} 👋
-        </h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Your AI hiring intelligence dashboard</p>
-      </motion.div>
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
+  }
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Candidates"  value={s.total_candidates || 0}       icon={Users}      gradient="from-blue-500 to-cyan-500"    delay={0}   />
-        <StatCard label="Active Jobs"        value={s.total_jobs || 0}             icon={Briefcase}  gradient="from-violet-500 to-purple-500" delay={0.08}/>
-        <StatCard label="AI Matches"         value={s.total_matches || 0}          icon={Zap}        gradient="from-pink-500 to-rose-500"     delay={0.16}/>
-        <StatCard label="Avg Match Score"    value={`${s.avg_match_score || 0}%`}  icon={TrendingUp} gradient="from-amber-500 to-orange-500"  delay={0.24}/>
+  return (
+    <div className="page-enter">
+      {/* Welcome Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-on-surface mb-1">Good morning, {firstName}</h2>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 bg-primary-container text-on-primary-container text-[11px] font-bold rounded-full uppercase tracking-widest">
+              {user?.role || 'Recruiting Lead'}
+            </span>
+            <span className="text-on-surface-variant text-sm opacity-70">
+              You have {s.total_matches || 0} smart matches to review today.
+            </span>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <Link to="/calendar" className="btn-secondary flex items-center gap-2">
+            <Calendar size={18} />
+            <span>Calendar View</span>
+          </Link>
+          <button className="btn-ai">
+            <Zap size={18} />
+            <span>AI Sourcing Assist</span>
+          </button>
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-        {/* Top Candidates */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="portal-card p-5 lg:col-span-2"
-        >
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
-                <Target className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
-                  Top Matched Candidates
-                </h3>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>AI-ranked talent pool</p>
-              </div>
+      {/* KPI Row */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <StatCard label="Active Openings"   value={s.total_jobs || 0}       trend={12} delay={0} />
+        <StatCard label="Candidates"        value={s.total_candidates || 0} trend={5}  delay={0.05} />
+        <StatCard label="Hires"             value={12}                      trend={8}  delay={0.1} />
+        <StatCard label="AI Matches"        value={s.total_matches || 0}    trend={15} delay={0.15} />
+        <StatCard label="Avg. Match"        value={`${s.avg_match_score || 0}%`} trend={-2} delay={0.2} />
+        <StatCard label="Time-to-hire"      value="14d"                     trend={-10}delay={0.25} />
+      </div>
+
+      {/* Main Bento Grid */}
+      <div className="bento-grid">
+        {/* Pipeline Snapshot (Span 8) */}
+        <div className="col-span-12 lg:col-span-8 portal-card flex flex-col">
+          <div className="p-6 border-b border-outline-variant flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold">Pipeline Snapshot</h3>
+              <p className="text-xs text-on-surface-variant">Core hiring metrics across active roles</p>
             </div>
-            <Link
-              to="/matching"
-              className="text-xs font-semibold flex items-center gap-1 transition-colors"
-              style={{ color: 'var(--accent-cyan)' }}
-            >
-              View all <ArrowRight className="w-3 h-3" />
-            </Link>
+            <Link to="/jobs" className="text-primary text-xs font-bold hover:underline">View All Openings</Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="stitch-table">
+              <thead>
+                <tr>
+                  <th>Job Title</th>
+                  <th>Candidates</th>
+                  <th>Matches</th>
+                  <th>Interview</th>
+                  <th>Offer</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {(s.top_candidates || []).length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="py-12 text-center text-on-surface-variant opacity-50">
+                      No active pipelines found
+                    </td>
+                  </tr>
+                ) : (
+                  (s.top_candidates || []).slice(0, 5).map((c, idx) => (
+                    <tr key={idx} className="group">
+                      <td>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-primary group-hover:underline">Senior Role {idx + 1}</span>
+                          <span className="text-[10px] text-outline font-mono uppercase">ID: #ROLE-{100 + idx}</span>
+                        </div>
+                      </td>
+                      <td><span className="font-mono text-sm">12</span></td>
+                      <td><span className="font-mono text-sm text-primary font-bold">4</span></td>
+                      <td><span className="font-mono text-sm">2</span></td>
+                      <td><span className="font-mono text-sm text-tertiary font-bold">1</span></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Sidebar Widgets (Span 4) */}
+        <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+          {/* Quick Actions */}
+          <div className="bg-primary-container p-6 rounded-xl text-on-primary-container shadow-sm flex flex-col gap-4">
+            <h3 className="text-lg font-bold">Quick Actions</h3>
+            <div className="grid grid-cols-1 gap-2">
+              {[
+                { to: '/jobs', icon: Plus, label: 'Create Job' },
+                { to: '/upload', icon: Upload, label: 'Upload CV' },
+                { to: '/candidates', icon: Target, label: 'Run Match' }
+              ].map((act, i) => (
+                <Link 
+                  key={i} 
+                  to={act.to}
+                  className="w-full flex items-center justify-between p-3 bg-surface-container-lowest rounded-lg hover:bg-white transition-all group border border-transparent hover:border-primary-fixed"
+                >
+                  <div className="flex items-center gap-3">
+                    <act.icon size={18} className="text-primary" />
+                    <span className="text-sm font-semibold text-on-surface">{act.label}</span>
+                  </div>
+                  <ArrowRight size={14} className="text-on-surface-variant opacity-0 group-hover:opacity-100 transition-all" />
+                </Link>
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-2">
-            {(s.top_candidates || []).length === 0 ? (
-              <div className="text-center py-10">
-                <Brain className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No matches yet. Run AI matching first.</p>
-              </div>
-            ) : (
-              (s.top_candidates || []).map((c) => {
-                const rec = getRecommendationLabel(c.recommendation)
-                const scoreColor = getScoreColor(c.score)
+          {/* AI Insights Widget */}
+          <div className="ai-glass">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap size={16} className="text-violet-500 fill-violet-500" />
+              <span className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">AI Recruiter Intel</span>
+            </div>
+            <p className="text-xs italic text-on-surface-variant leading-relaxed">
+              Candidate flow for your technical roles has increased by 20%. I recommend prioritizing the 'Frontend Lead' screening today.
+            </p>
+            <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+              <Brain size={96} />
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity Feed (Span 4) */}
+        <div className="col-span-12 lg:col-span-4 portal-card flex flex-col">
+          <div className="p-6 border-b border-outline-variant flex items-center justify-between">
+            <h3 className="text-xl font-bold">Recent Activity</h3>
+            <Activity size={16} className="text-outline opacity-50" />
+          </div>
+          <div className="p-6 relative flex-1">
+            <div className="absolute left-[35px] top-8 bottom-8 w-[1px] bg-outline-variant opacity-50"></div>
+            <div className="flex flex-col gap-6 relative">
+              {(s.recent_activity || []).slice(0, 4).map((item, i) => {
+                let Icon = Activity;
+                let color = 'bg-primary';
+                if (item.type === 'job_created') { Icon = Briefcase; color = 'bg-violet-500'; }
+                if (item.type === 'candidate_uploaded') { Icon = Users; color = 'bg-tertiary'; }
+                
                 return (
-                  <Link
-                    key={c.id}
-                    to={`/candidates/${c.id}`}
-                    className="flex items-center gap-3 p-3 rounded-2xl transition-all group"
-                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.background = 'var(--bg-card-hover)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)' }}
-                  >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                      style={{ background: `linear-gradient(135deg, ${scoreColor}cc, ${scoreColor})` }}
-                    >
-                      {getInitials(c.name)}
+                  <div key={i} className="flex gap-4 items-start group">
+                    <div className={`z-10 w-8 h-8 rounded-full ${color} flex items-center justify-center text-white ring-4 ring-surface-container-lowest shadow-sm transition-transform group-hover:scale-110`}>
+                      <Icon size={14} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</div>
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        {(c.skills || []).slice(0, 3).map((sk, j) => (
-                          <span key={j} className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'var(--tag-bg)', color: 'var(--tag-text)' }}>{sk}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-base font-bold" style={{ color: scoreColor }}>{c.score}%</div>
-                      <span
-                        className="text-xs px-1.5 py-0.5 rounded-md"
-                        style={rec.cls === 'badge-green'
-                          ? { background: 'var(--success-bg)', color: 'var(--success-text)' }
-                          : rec.cls === 'badge-blue'
-                          ? { background: 'var(--tag-bg)', color: 'var(--tag-text)' }
-                          : rec.cls === 'badge-yellow'
-                          ? { background: 'var(--warning-bg)', color: 'var(--warning-text)' }
-                          : { background: 'var(--error-bg)', color: 'var(--error-text)' }
-                        }
-                      >
-                        {rec.label}
+                    <div className="flex-1 pt-1">
+                      <p className="text-xs leading-relaxed font-medium">
+                        {item.message}
+                      </p>
+                      <span className="text-[10px] text-outline font-bold uppercase tracking-wider">
+                        {formatRelativeTime(item.time)}
                       </span>
                     </div>
-                  </Link>
-                )
-              })
-            )}
-          </div>
-        </motion.div>
-
-        {/* Recent Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="portal-card p-5"
-        >
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-              <Clock className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>Recent Activity</h3>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Latest updates</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {(s.recent_activity || []).length === 0 ? (
-              <div className="text-center py-10">
-                <Clock className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No recent activity</p>
-              </div>
-            ) : (
-              (s.recent_activity || []).map((item, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 p-3 rounded-2xl"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-                >
-                  <div
-                    className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                    style={{ background: item.type === 'job_created' ? 'var(--accent-violet)' : 'var(--accent-cyan)' }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{item.message}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(item.time)}</p>
                   </div>
-                </div>
-              ))
-            )}
+                )
+              })}
+            </div>
+            <button className="w-full mt-8 py-2 text-primary font-bold text-xs border border-primary/10 rounded-lg hover:bg-surface-container transition-all">
+              View All Activity
+            </button>
+          </div>
+        </div>
+
+        {/* Top Matches Section (Span 8) */}
+        <div className="col-span-12 lg:col-span-8 portal-card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold">Top Matched Candidates</h3>
+            <Link to="/matching" className="btn-secondary flex items-center gap-2">
+              <span>View rankings</span>
+              <ArrowRight size={14} />
+            </Link>
           </div>
 
-          <div className="mt-4 pt-4 flex gap-2" style={{ borderTop: '1px solid var(--border)' }}>
-            <Link to="/upload" className="btn-primary flex-1 text-xs h-9">
-              <Upload size={13} /> Upload CV
-            </Link>
-            <Link to="/jobs" className="btn-ghost flex-1 text-xs h-9">
-              Add Job
-            </Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(s.top_candidates || []).map((c, i) => {
+              const rec = getRecommendationLabel(c.recommendation)
+              const scoreColor = getScoreColor(c.score)
+              return (
+                <Link
+                  key={c.id}
+                  to={`/candidates/${c.id}`}
+                  className="flex items-center gap-4 p-4 rounded-xl border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-all group"
+                >
+                  <div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${scoreColor}, ${scoreColor}dd)` }}
+                  >
+                    {getInitials(c.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-bold text-on-surface truncate group-hover:text-primary transition-colors">
+                      {c.name}
+                    </h4>
+                    <div className="flex items-center gap-1.5 mt-1 overflow-hidden">
+                      {(c.skills || []).slice(0, 2).map((sk, j) => (
+                        <span key={j} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant whitespace-nowrap">
+                          {sk}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold font-display" style={{ color: scoreColor }}>
+                      {c.score}%
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-outline">
+                      Match
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
-        </motion.div>
+        </div>
       </div>
-
-      {/* Quick Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
-      >
-        {[
-          { to: '/matching', icon: Zap,    gradient: 'from-blue-500 to-cyan-500',    title: 'Run AI Matching',  desc: 'Match candidates to jobs using AI intelligence',    cta: 'Start matching',  ctaColor: 'var(--accent-cyan)' },
-          { to: '/chat',     icon: Brain,  gradient: 'from-violet-500 to-purple-500', title: 'AI Assistant',     desc: 'Chat with TalentIQ AI for recruitment insights',    cta: 'Open chat',       ctaColor: 'var(--accent-violet)' },
-          { to: '/candidates',icon: Users, gradient: 'from-pink-500 to-rose-500',    title: 'Talent Pool',      desc: 'Browse and manage all your candidates',             cta: 'View candidates', ctaColor: '#f472b6' },
-        ].map(({ to, icon: Icon, gradient, title, desc, cta, ctaColor }) => (
-          <Link
-            key={to}
-            to={to}
-            className="portal-card p-5 group block"
-          >
-            <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 shadow-lg transition-all`}>
-              <Icon className="w-5 h-5 text-white" />
-            </div>
-            <h3 className="text-base font-bold mb-1.5" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>{title}</h3>
-            <p className="text-sm mb-4 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{desc}</p>
-            <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: ctaColor }}>
-              {cta} <ArrowRight className="w-3.5 h-3.5" />
-            </div>
-          </Link>
-        ))}
-      </motion.div>
     </div>
   )
 }

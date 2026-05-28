@@ -6,7 +6,7 @@ export default {
       fontFamily: {
         sans:    ['Inter', 'system-ui', 'sans-serif'],
         serif:   ['Manrope', 'system-ui', 'sans-serif'],
-        title:   ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Hanken Grotesk', 'Inter', 'sans-serif'],
         mono:    ['JetBrains Mono', 'monospace'],
       },
       colors: {
@@ -23,13 +23,60 @@ export default {
           900: '#1e3a8a',
           950: '#172554',
         },
-        surface: {
-          DEFAULT: '#ffffff',
-          50:  '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
+        // Stitch Design System Colors
+        primary: {
+          DEFAULT: '#004ac6',
+          container: '#2563eb',
+          fixed: '#dbe1ff',
+          'fixed-dim': '#b4c5ff',
         },
+        secondary: {
+          DEFAULT: '#4b41e1',
+          container: '#645efb',
+          fixed: '#e2dfff',
+        },
+        tertiary: {
+          DEFAULT: '#006058',
+          container: '#007b71',
+          fixed: '#89f5e7',
+        },
+        surface: {
+          DEFAULT: '#f8f9ff',
+          dim: '#ccdbf3',
+          bright: '#f8f9ff',
+          variant: '#d5e3fc',
+          container: {
+            lowest: '#ffffff',
+            low: '#eff4ff',
+            DEFAULT: '#e6eeff',
+            high: '#dce9ff',
+            highest: '#d5e3fc',
+          },
+        },
+        outline: {
+          DEFAULT: '#737686',
+          variant: '#c3c6d7',
+        },
+        error: {
+          DEFAULT: '#ba1a1a',
+          container: '#ffdad6',
+        },
+      },
+      borderRadius: {
+        'none': '0',
+        'sm': '0.125rem',
+        DEFAULT: '0.25rem',
+        'md': '0.375rem',
+        'lg': '0.5rem',
+        'xl': '0.75rem',
+        '2xl': '1rem',
+        '3xl': '1.5rem',
+        'full': '9999px',
+      },
+      spacing: {
+        sidebar: '260px',
+        'sidebar-collapsed': '72px',
+        gutter: '24px',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
