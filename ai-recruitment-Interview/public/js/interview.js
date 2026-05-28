@@ -107,6 +107,10 @@ export class InterviewRoom {
           <span class="tooltip">Participants</span>
           ${SVGIcons.people()}
         </button>
+        <button class="ctrl-btn" id="ctrl-fullscreen" title="Full Screen">
+          <span class="tooltip">Full Screen</span>
+          ${SVGIcons.fullscreen()}
+        </button>
         ${isRecruiter ? `
         <div class="ctrl-divider"></div>
         <button class="ctrl-btn" id="ctrl-transcript" title="Transcript">
@@ -410,6 +414,8 @@ export class InterviewRoom {
     document.getElementById('ctrl-mic')?.addEventListener('click', () => this.toggleMic());
     // Camera
     document.getElementById('ctrl-cam')?.addEventListener('click', () => this.toggleCamera());
+    // Full Screen
+    document.getElementById('ctrl-fullscreen')?.addEventListener('click', () => this.toggleFullscreen());
     // Screen share
     document.getElementById('ctrl-screen')?.addEventListener('click', () => this.toggleScreenShare());
     // Panel buttons
@@ -598,6 +604,20 @@ export class InterviewRoom {
       showToast('Camera on', 'info', 2000);
     }
     this.socket.emit('media-state', { roomId: this.roomId, video: this.videoEnabled, audio: this.audioEnabled });
+  }
+
+  toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(e => {
+        showToast('Full screen failed', 'error');
+      });
+      document.getElementById('ctrl-fullscreen')?.classList.add('active');
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        document.getElementById('ctrl-fullscreen')?.classList.remove('active');
+      }
+    }
   }
 
   async toggleScreenShare() {
@@ -951,26 +971,33 @@ ${this.analysisState.skills?.map(s => `- ${s.name} (${s.level})`).join('\n') || 
   }
 
   leaveRoom() {
-    clearInterval(this.timerInterval);
-    this.speechRecognition?.stop();
-    this.aiEngine?.stopAnalysis();
-    this.webrtc?.closeAll();
-    this.localStream?.getTracks().forEach(t => t.stop());
-    this.socket.disconnect();
+    if (confirm('Are you sure you want to leave the interview?')) {
+      if (this.role === 'recruiter') {
+        // Recruiter ending the call can end the room for everyone
+        fetch(`/api/rooms/${this.roomId}/end`, { method: 'POST' }).catch(e => console.error(e));
+      }
+      
+      clearInterval(this.timerInterval);
+      this.speechRecognition?.stop();
+      this.aiEngine?.stopAnalysis();
+      this.webrtc?.closeAll();
+      this.localStream?.getTracks().forEach(t => t.stop());
+      this.socket.disconnect();
 
-    document.getElementById('app').innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:20px;background:var(--bg-void);">
-        <div style="width:56px;height:56px;background:linear-gradient(135deg,var(--brand),var(--accent-purple));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:white;">T</div>
-        <h2 style="font-size:22px;font-weight:700;color:var(--text-primary);">You left the interview</h2>
-        <p style="color:var(--text-muted);font-size:14px;">Duration: ${formatTime(this.elapsedSeconds)}</p>
-        <div style="display:flex;gap:10px;">
-          <button onclick="window.location.href='/'" style="padding:12px 24px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:white;border-radius:var(--r-lg);font-size:14px;font-weight:600;cursor:pointer;border:none;">Back to Home</button>
-          ${this.role === 'recruiter' && this.analysisState ? `
-          <button onclick="window.location.reload()" style="padding:12px 24px;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--r-lg);font-size:14px;font-weight:600;cursor:pointer;">Rejoin</button>
-          ` : ''}
+      document.getElementById('app').innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:20px;background:var(--bg-void);">
+          <div style="width:56px;height:56px;background:linear-gradient(135deg,var(--brand),var(--accent-purple));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:white;">T</div>
+          <h2 style="font-size:22px;font-weight:700;color:var(--text-primary);">You left the interview</h2>
+          <p style="color:var(--text-muted);font-size:14px;">Duration: ${formatTime(this.elapsedSeconds)}</p>
+          <div style="display:flex;gap:10px;">
+            <button onclick="window.location.href='/'" style="padding:12px 24px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:white;border-radius:var(--r-lg);font-size:14px;font-weight:600;cursor:pointer;border:none;">Back to Home</button>
+            ${this.role === 'recruiter' && this.analysisState ? `
+            <button onclick="window.location.reload()" style="padding:12px 24px;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--r-lg);font-size:14px;font-weight:600;cursor:pointer;">Rejoin</button>
+            ` : ''}
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
   }
 
   addSelfToParticipants() {
@@ -989,6 +1016,7 @@ const SVGIcons = {
   people: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
   transcript: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
   notes: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  fullscreen: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`,
   ai: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>`,
   phone: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 17.29 7.76 15.32 6.52 13a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 5.11 2h2.96a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L9.05 9.91"/><line x1="23" y1="1" x2="1" y2="23"/></svg>`,
   x: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,

@@ -202,6 +202,12 @@ export class LobbyPage {
   async join() {
     if (this.joining) return;
     this.joining = true;
+
+    // Request full screen on join
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+
     const name = document.getElementById('display-name').value.trim() || this.name;
     const btn = document.getElementById('btn-join');
     btn.textContent = 'Connecting...';

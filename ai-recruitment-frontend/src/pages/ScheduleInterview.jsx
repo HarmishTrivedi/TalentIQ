@@ -138,6 +138,8 @@ export default function ScheduleInterview() {
       
       const payload = {
         candidate_id: formData.candidate_id,
+        candidate_name: formData.candidate_name,
+        candidate_email: formData.candidate_email,
         job_id: formData.job_id || null,
         title: formData.title,
         scheduled_at: scheduledDateTime,

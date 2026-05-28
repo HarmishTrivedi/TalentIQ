@@ -76,6 +76,19 @@ async def create_interview(
         if not candidate:
             raise HTTPException(status_code=404, detail="Candidate not found")
         
+        # Update candidate info if provided during scheduling
+        updated_candidate = False
+        if data.candidate_name and data.candidate_name != candidate.name:
+            candidate.name = data.candidate_name
+            updated_candidate = True
+        if data.candidate_email and data.candidate_email != candidate.email:
+            candidate.email = data.candidate_email
+            updated_candidate = True
+            
+        if updated_candidate:
+            await db.flush()
+            print(f"✅ Updated candidate {candidate.id} info during scheduling")
+
         # Verify job exists if provided
         job = None
         if data.job_id:

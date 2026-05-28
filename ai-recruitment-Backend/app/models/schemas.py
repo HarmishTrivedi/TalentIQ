@@ -253,6 +253,8 @@ class SuccessResponse(BaseModel):
 
 class InterviewCreate(BaseModel):
     candidate_id: str
+    candidate_name: Optional[str] = None
+    candidate_email: Optional[EmailStr] = None
     job_id: Optional[str] = None
     title: str
     scheduled_at: datetime
@@ -265,6 +267,7 @@ class InterviewUpdate(BaseModel):
     title: Optional[str] = None
     status: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
 
 
 class InterviewQuestionResponse(BaseResponse):

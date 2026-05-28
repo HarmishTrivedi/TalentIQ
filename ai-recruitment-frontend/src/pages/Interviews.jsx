@@ -215,7 +215,11 @@ export default function Interviews() {
                   <div className="mt-4 pt-4 border-t border-purple-500/20">
                     {interview.status === 'scheduled' && (
                       <button 
-                        onClick={() => navigate(`/interview-room/${interview.id}`)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const url = interview.recruiter_meeting_url || `/interview-room/${interview.id}`;
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        }}
                         className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all">
                         <Play className="w-4 h-4 inline mr-2" />
                         Start Interview
@@ -223,7 +227,11 @@ export default function Interviews() {
                     )}
                     {interview.status === 'in_progress' && (
                       <button 
-                        onClick={() => navigate(`/interview-room/${interview.id}`)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const url = interview.recruiter_meeting_url || `/interview-room/${interview.id}`;
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        }}
                         className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all">
                         <Video className="w-4 h-4 inline mr-2" />
                         Join Interview

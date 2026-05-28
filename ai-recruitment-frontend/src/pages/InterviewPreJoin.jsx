@@ -121,6 +121,14 @@ export default function InterviewPreJoin() {
       toast.error('Please enter your display name')
       return
     }
+
+    // Request full screen on user interaction
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {
+        // Ignore if blocked or already in FS
+      });
+    }
+
     const params = new URLSearchParams()
     if (token) params.append('token', token)
     params.append('name', displayName.trim())

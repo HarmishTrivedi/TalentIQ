@@ -72,7 +72,18 @@ export default function InterviewRoom() {
     initializeWebSocket()
     initializeSpeechRecognition()
     startTimer()
-    return cleanup
+
+    // Warn before navigating away
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      cleanup();
+    };
   }, [interviewId])
 
   const loadInterview = async () => {
@@ -260,7 +271,13 @@ export default function InterviewRoom() {
   }
 
   const endInterview = async () => {
+    if (!confirm('Are you sure you want to end this interview for everyone?')) return;
+
     try {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
       if (isRecruiter) {
         await api.post(`/interviews/${interviewId}/end`)
         toast.success('Interview ended. Opening report.')
