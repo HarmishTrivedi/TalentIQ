@@ -30,16 +30,20 @@ export default {
           fixed: '#dbe1ff',
           'fixed-dim': '#b4c5ff',
         },
+        'on-primary': '#ffffff',
+        'primary-container': '#2563eb',
         secondary: {
           DEFAULT: '#4b41e1',
           container: '#645efb',
           fixed: '#e2dfff',
         },
+        'on-secondary': '#ffffff',
         tertiary: {
           DEFAULT: '#006058',
           container: '#007b71',
           fixed: '#89f5e7',
         },
+        'on-tertiary': '#ffffff',
         surface: {
           DEFAULT: '#f8f9ff',
           dim: '#ccdbf3',
@@ -53,6 +57,8 @@ export default {
             highest: '#d5e3fc',
           },
         },
+        'on-surface': '#0d1c2e',
+        'on-surface-variant': '#434655',
         outline: {
           DEFAULT: '#737686',
           variant: '#c3c6d7',
@@ -61,6 +67,7 @@ export default {
           DEFAULT: '#ba1a1a',
           container: '#ffdad6',
         },
+        'on-error': '#ffffff',
       },
       borderRadius: {
         'none': '0',

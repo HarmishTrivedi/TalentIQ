@@ -202,60 +202,53 @@ export default function AccountSettings() {
 
   if (!activeSetting) {
     return (
-      <div className="min-h-screen p-6 page-enter" style={{ background: 'var(--bg-primary)' }}>
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
-              Account Settings
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Manage your profile, security, and preferences
+      <div className="page-enter bg-surface">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-10">
+            <h1 className="text-3xl font-bold text-on-surface mb-2">Workspace Settings</h1>
+            <p className="text-on-surface-variant text-sm font-medium opacity-70">
+              Personalize your recruitment environment and security protocols
             </p>
           </div>
 
-          <div className="relative mb-5">
-            <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-            <input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="input-field pl-11 h-11"
-              placeholder="Search settings..."
-            />
+          <div className="portal-card mb-8 p-2 bg-surface-container-lowest shadow-sm">
+            <div className="relative flex-1">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-50" />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-transparent border-none text-sm font-medium focus:ring-0 outline-none"
+                placeholder="Search for a specific setting..."
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredSettings.map(({ id, label, icon: Icon, desc }) => (
               <button
                 key={id}
                 onClick={() => setSearchParams({ setting: id })}
-                className="w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.background = 'var(--bg-card-hover)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)' }}
+                className="portal-card p-6 flex items-start gap-5 text-left bg-surface-container-lowest border-outline-variant/60 shadow-md hover:border-primary/50 transition-all"
               >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'var(--tag-bg)' }}>
-                  <Icon size={18} style={{ color: 'var(--accent-cyan)' }} />
+                <div className="w-12 h-12 rounded-[18px] bg-primary/5 flex items-center justify-center flex-shrink-0 text-primary shadow-inner transition-transform group-hover:scale-105">
+                  <Icon size={22} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{desc}</div>
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <div className="text-base font-bold text-on-surface mb-1">{label}</div>
+                  <div className="text-xs text-on-surface-variant font-medium opacity-70 leading-relaxed">{desc}</div>
                 </div>
-                <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
+                <ChevronRight size={18} className="text-outline mt-1.5" />
               </button>
             ))}
           </div>
 
-          {/* Back Button at Bottom */}
-          <div className="mt-8 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+          <div className="mt-12 pt-8 border-t border-outline-variant flex justify-center">
             <button
               onClick={() => navigate(-1)}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+              className="btn-secondary py-3 px-8 flex items-center gap-2 text-sm font-bold shadow-sm"
             >
-              <ArrowLeft size={16} /> Back to Dashboard
+              <ArrowLeft size={18} /> 
+              <span>Return to Dashboard</span>
             </button>
           </div>
         </div>
@@ -266,106 +259,125 @@ export default function AccountSettings() {
   const currentSetting = SETTINGS_MENU.find(s => s.id === activeSetting)
 
   return (
-    <div className="min-h-screen p-6 page-enter" style={{ background: 'var(--bg-primary)' }}>
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            {currentSetting && <currentSetting.icon size={24} style={{ color: 'var(--accent-cyan)' }} />}
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
+    <div className="page-enter bg-surface min-h-screen">
+      <div className="max-w-3xl mx-auto">
+        
+        {/* Navigation Breadcrumb */}
+        <div className="mb-8">
+           <button 
+             onClick={() => setSearchParams({})}
+             className="btn-secondary py-1.5 px-3 flex items-center gap-2 text-xs group"
+           >
+             <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+             <span>Settings Home</span>
+           </button>
+        </div>
+
+        <div className="flex items-center gap-5 mb-10">
+          <div className="w-14 h-14 rounded-[22px] bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20">
+             {currentSetting && <currentSetting.icon size={28} />}
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-on-surface leading-tight">
               {currentSetting?.label}
             </h1>
+            <p className="text-on-surface-variant text-sm font-medium opacity-70">
+              {currentSetting?.desc}
+            </p>
           </div>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {currentSetting?.desc}
-          </p>
         </div>
 
         {activeSetting === 'profile' && (
-          <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <InputField label="Full Name" icon={User} value={profileForm.full_name} onChange={e => setProfileForm(f => ({ ...f, full_name: e.target.value }))} placeholder="Your full name" />
-              <InputField label="Email Address" icon={Mail} value={user?.email || ''} disabled hint="Contact support to change email" />
-              <InputField label="Phone Number" icon={Phone} value={profileForm.phone} onChange={e => setProfileForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 (555) 000-0000" />
-              <InputField label="Role" icon={User} value={user?.role || ''} disabled hint="System role cannot be changed" />
-              <InputField label="Company Name" icon={Building2} value={profileForm.company_name} onChange={e => setProfileForm(f => ({ ...f, company_name: e.target.value }))} placeholder="Your company" />
-              <InputField label="Role in Company" icon={Building2} value={profileForm.role_in_company} onChange={e => setProfileForm(f => ({ ...f, role_in_company: e.target.value }))} placeholder="e.g. Senior Recruiter" />
+          <div className="portal-card p-8 bg-surface-container-lowest shadow-xl border-outline-variant/60">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 mb-10">
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Full Name</label>
+                 <input value={profileForm.full_name} onChange={e => setProfileForm(f => ({ ...f, full_name: e.target.value }))} className="w-full h-11 px-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none" />
+              </div>
+              <div className="space-y-1.5 opacity-60">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Verified Email</label>
+                 <input value={user?.email || ''} disabled className="w-full h-11 px-4 rounded-xl text-sm font-bold bg-surface-container border border-outline-variant cursor-not-allowed" />
+              </div>
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Work Phone</label>
+                 <input value={profileForm.phone} onChange={e => setProfileForm(f => ({ ...f, phone: e.target.value }))} className="w-full h-11 px-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none" />
+              </div>
+              <div className="space-y-1.5 opacity-60">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">System Role</label>
+                 <input value={user?.role || ''} disabled className="w-full h-11 px-4 rounded-xl text-sm font-bold bg-surface-container border border-outline-variant cursor-not-allowed" />
+              </div>
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Organization</label>
+                 <input value={profileForm.company_name} onChange={e => setProfileForm(f => ({ ...f, company_name: e.target.value }))} className="w-full h-11 px-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none" />
+              </div>
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Internal Title</label>
+                 <input value={profileForm.role_in_company} onChange={e => setProfileForm(f => ({ ...f, role_in_company: e.target.value }))} className="w-full h-11 px-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none" />
+              </div>
             </div>
-            <button onClick={handleProfileSave} disabled={saving} className="btn-primary px-6 py-2.5 text-sm">
-              {saving ? <><div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> Saving…</> : <><Save size={14} /> Save Changes</>}
+            <button onClick={handleProfileSave} disabled={saving} className="btn-primary py-3 px-8 shadow-lg disabled:opacity-50">
+              {saving ? <RefreshCw className="animate-spin" size={18} /> : <><Save size={18} /> <span>Save Profile Intelligence</span></>}
             </button>
           </div>
         )}
 
         {activeSetting === 'avatar' && (
-          <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="flex items-center gap-5">
-              <div className="relative flex-shrink-0">
+          <div className="portal-card p-10 bg-surface-container-lowest shadow-xl border-outline-variant/60 flex flex-col items-center text-center">
+            <div className="relative mb-8">
+              <div className="w-40 h-40 rounded-[48px] overflow-hidden bg-surface-container border-4 border-white shadow-2xl">
                 {avatarSrc ? (
-                  <img src={avatarSrc} alt="avatar" className="w-24 h-24 rounded-2xl object-cover" />
+                  <img src={avatarSrc} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-3xl font-bold text-white">
+                  <div className="w-full h-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-5xl font-black text-white">
                     {getInitials(user?.full_name || 'U')}
                   </div>
                 )}
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  disabled={avatarLoading}
-                  className="absolute -bottom-2 -right-2 w-10 h-10 rounded-xl flex items-center justify-center transition-all"
-                  style={{ background: 'var(--accent-cyan)', color: '#000' }}
-                >
-                  {avatarLoading ? (
-                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                  ) : (
-                    <Camera size={16} />
-                  )}
-                </button>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
               </div>
-              <div>
-                <div className="text-base font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{user?.full_name}</div>
-                <div className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>{user?.email}</div>
-                <button onClick={() => fileRef.current?.click()} className="btn-primary text-xs px-4 py-2">
-                  <Upload size={12} /> Upload New Photo
-                </button>
-                <p className="text-[10px] mt-2" style={{ color: 'var(--text-muted)' }}>JPG, PNG or GIF. Max 5MB</p>
-              </div>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={avatarLoading}
+                className="absolute -bottom-2 -right-2 w-14 h-14 rounded-3xl bg-white border border-outline-variant shadow-xl flex items-center justify-center text-primary hover:scale-110 active:scale-95 transition-all z-10"
+              >
+                {avatarLoading ? <RefreshCw className="animate-spin" size={20} /> : <Camera size={24} />}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
             </div>
+            <h3 className="text-xl font-bold text-on-surface mb-1">{user?.full_name}</h3>
+            <p className="text-sm text-outline font-medium mb-8">Recruiter ID: {user?.id?.slice(0, 8)}</p>
+            <div className="flex gap-3">
+               <button onClick={() => fileRef.current?.click()} className="btn-primary py-2.5 px-6">Upload High-Res Portrait</button>
+               <button className="btn-secondary py-2.5 px-6">Remove</button>
+            </div>
+            <p className="text-[10px] mt-6 text-outline font-black uppercase tracking-widest">Recommended: 800x800px JPG or PNG</p>
           </div>
         )}
 
         {activeSetting === 'password' && (
-          <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="portal-card p-8 bg-surface-container-lowest shadow-xl border-outline-variant/60 space-y-6">
             {['current', 'new', 'confirm'].map(field => (
-              <div key={field}>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                  {field === 'current' ? 'Current Password' : field === 'new' ? 'New Password' : 'Confirm New Password'}
+              <div key={field} className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">
+                  {field === 'current' ? 'Current Access Key' : field === 'new' ? 'New Security Key' : 'Verify New Key'}
                 </label>
                 <div className="relative">
-                  <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-50" />
                   <input
                     type={showPassword[field] ? 'text' : 'password'}
                     value={passwordForm[field === 'current' ? 'current_password' : field === 'new' ? 'new_password' : 'confirm_password']}
                     onChange={e => setPasswordForm(f => ({ ...f, [field === 'current' ? 'current_password' : field === 'new' ? 'new_password' : 'confirm_password']: e.target.value }))}
                     placeholder="••••••••"
-                    className="input-field pr-10"
-                    style={{ paddingLeft: '2.25rem' }}
+                    className="w-full h-12 pl-11 pr-12 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
                   />
                   <button type="button" onClick={() => setShowPassword(s => ({ ...s, [field]: !s[field] }))}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                    style={{ color: 'var(--text-muted)' }}>
-                    {showPassword[field] ? <EyeOff size={14} /> : <Eye size={14} />}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors">
+                    {showPassword[field] ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
                 {field === 'new' && passwordForm.new_password && <PasswordStrength password={passwordForm.new_password} />}
               </div>
             ))}
-            {passwordForm.confirm_password && passwordForm.new_password !== passwordForm.confirm_password && (
-              <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--error-text)' }}>
-                <AlertCircle size={12} /> Passwords do not match
-              </div>
-            )}
-            <button onClick={handlePasswordChange} disabled={saving} className="btn-primary px-6 py-2.5 text-sm">
-              {saving ? <><div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> Updating…</> : <><Shield size={14} /> Update Password</>}
+            <button onClick={handlePasswordChange} disabled={saving} className="btn-primary py-3 px-8 shadow-lg mt-4 disabled:opacity-50">
+              {saving ? <RefreshCw className="animate-spin" size={18} /> : <><Shield size={18} /> <span>Update Security Key</span></>}
             </button>
           </div>
         )}

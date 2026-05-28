@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Calendar, Clock, User, Mail, Briefcase, FileText,
   Plus, X, Send, ArrowLeft, Video, Code, Users, MessageCircle,
-  CheckCircle, AlertCircle
+  CheckCircle, AlertCircle, Sparkles, Search, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { cn, formatDate } from '../utils/helpers';
 
 export default function ScheduleInterview() {
   const navigate = useNavigate();
@@ -41,21 +42,17 @@ export default function ScheduleInterview() {
   const loadInitialData = async () => {
     setLoadingData(true);
     try {
-      // Load jobs
       const jobsResponse = await api.get('/jobs');
       setJobs(jobsResponse.data.jobs || []);
 
-      // Load candidates if no candidateId provided
       if (!candidateId) {
         const candidatesResponse = await api.get('/candidates');
         setCandidates(candidatesResponse.data.candidates || []);
       } else {
-        // Load specific candidate
         const candidateResponse = await api.get(`/candidates/${candidateId}`);
         const cand = candidateResponse.data;
         setCandidate(cand);
         
-        // Auto-fill form
         setFormData(prev => ({
           ...prev,
           candidate_id: candidateId,
@@ -67,7 +64,7 @@ export default function ScheduleInterview() {
       }
     } catch (error) {
       console.error('Failed to load data:', error);
-      toast.error('Failed to load data');
+      toast.error('Failed to load system data');
     } finally {
       setLoadingData(false);
     }
@@ -108,34 +105,14 @@ export default function ScheduleInterview() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validation
-    if (!formData.candidate_id) {
-      toast.error('Please select a candidate');
-      return;
-    }
-    
-    if (!formData.title) {
-      toast.error('Please enter interview title');
-      return;
-    }
-    
-    if (!formData.scheduled_date || !formData.scheduled_time) {
-      toast.error('Please select date and time');
-      return;
-    }
-
-    if (formData.interview_types.length === 0) {
-      toast.error('Please select at least one interview type');
-      return;
-    }
+    if (!formData.candidate_id) { toast.error('Please select a candidate'); return; }
+    if (!formData.title) { toast.error('Please enter interview title'); return; }
+    if (!formData.scheduled_date || !formData.scheduled_time) { toast.error('Please select date and time'); return; }
+    if (formData.interview_types.length === 0) { toast.error('Please select at least one interview type'); return; }
 
     setLoading(true);
-    
     try {
-      // Combine date and time into ISO string
       const scheduledDateTime = `${formData.scheduled_date}T${formData.scheduled_time}:00`;
-      
       const payload = {
         candidate_id: formData.candidate_id,
         candidate_name: formData.candidate_name,
@@ -146,24 +123,12 @@ export default function ScheduleInterview() {
         duration_minutes: parseInt(formData.duration_minutes),
         interview_types: formData.interview_types
       };
-
-      console.log('Submitting interview:', payload);
-      
-      const response = await api.post('/interviews', payload);
-      
-      console.log('Interview created:', response.data);
-      
+      await api.post('/interviews', payload);
       toast.success('Interview scheduled successfully!');
-      
-      // Navigate to interviews page
-      setTimeout(() => {
-        navigate('/interviews');
-      }, 500);
-      
+      setTimeout(() => navigate('/interviews'), 500);
     } catch (error) {
       console.error('Schedule error:', error);
-      const errorMsg = error.response?.data?.detail || error.message || 'Failed to schedule interview';
-      toast.error(errorMsg);
+      toast.error(error.response?.data?.detail || 'Failed to schedule interview');
     } finally {
       setLoading(false);
     }
@@ -179,227 +144,213 @@ export default function ScheduleInterview() {
   };
 
   const interviewTypes = [
-    { value: 'technical', label: 'Technical', icon: Code, color: 'from-blue-500 to-cyan-500' },
-    { value: 'hr', label: 'HR Round', icon: Users, color: 'from-green-500 to-emerald-500' },
-    { value: 'coding', label: 'Coding', icon: Code, color: 'from-purple-500 to-pink-500' },
-    { value: 'behavioral', label: 'Behavioral', icon: MessageCircle, color: 'from-orange-500 to-red-500' },
-    { value: 'final', label: 'Final Round', icon: Video, color: 'from-indigo-500 to-purple-500' }
+    { value: 'technical', label: 'Technical', icon: Code },
+    { value: 'hr', label: 'HR Round', icon: Users },
+    { value: 'coding', label: 'Coding', icon: Code },
+    { value: 'behavioral', label: 'Behavioral', icon: MessageCircle },
+    { value: 'final', label: 'Final Round', icon: Video }
   ];
 
   const durations = [30, 45, 60, 90, 120];
-
-  // Get minimum date (today)
   const today = new Date().toISOString().split('T')[0];
 
   if (loadingData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-surface">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-purple-300">Loading...</p>
+          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary mx-auto" />
+          <p className="text-outline font-bold uppercase tracking-widest text-xs">Architecting session...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 p-6">
+    <div className="page-enter bg-surface min-h-screen">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-purple-300 hover:text-white mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
-          
-          <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-            <Calendar className="w-10 h-10 text-purple-400" />
-            Schedule Interview
-          </h1>
-          <p className="text-purple-300">
-            {candidateId ? 'Candidate details auto-filled' : 'Create a new interview'}
-          </p>
+        {/* Header Area */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+          <div>
+            <button
+              onClick={() => navigate(-1)}
+              className="btn-secondary py-1.5 px-3 flex items-center gap-2 text-xs mb-4 group"
+            >
+              <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+              <span>Back to overview</span>
+            </button>
+            <h1 className="text-3xl font-bold text-on-surface mb-1 flex items-center gap-3 leading-tight">
+              <Calendar size={28} className="text-primary" />
+              Session Architect
+            </h1>
+            <p className="text-on-surface-variant text-sm font-medium opacity-70">
+              Configure and dispatch AI-powered screening sessions
+            </p>
+          </div>
         </div>
 
-        {/* Form */}
+        {/* Main Configuration Card */}
         <motion.form
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
           onSubmit={handleSubmit}
-          className="bg-black/40 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-8"
+          className="portal-card bg-surface-container-lowest p-8 sm:p-10 shadow-xl border-outline-variant/60"
         >
-          {/* Candidate Selection */}
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-purple-400" />
-              Candidate Information
-            </h2>
+          {/* Candidate Profile Context */}
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6 border-b border-outline-variant pb-4">
+              <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary shadow-inner">
+                <User size={16} />
+              </div>
+              <h3 className="text-[11px] font-black uppercase tracking-widest text-on-surface">Target Talent</h3>
+            </div>
             
             {!candidateId && (
-              <div className="mb-4">
-                <label className="block text-purple-300 text-sm font-semibold mb-2">
-                  Select Candidate *
+              <div className="mb-6 space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">
+                  Active Candidate Database
                 </label>
-                <select
-                  value={formData.candidate_id}
-                  onChange={(e) => handleCandidateChange(e.target.value)}
-                  className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                  required
-                >
-                  <option value="">Choose a candidate...</option>
-                  {candidates.map((cand) => (
-                    <option key={cand.id} value={cand.id}>
-                      {cand.name} - {cand.email}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-50" />
+                  <select
+                    value={formData.candidate_id}
+                    onChange={(e) => handleCandidateChange(e.target.value)}
+                    className="w-full h-12 pl-11 pr-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none cursor-pointer"
+                    required
+                  >
+                    <option value="">Select candidate from pool...</option>
+                    {candidates.map((cand) => (
+                      <option key={cand.id} value={cand.id}>
+                        {cand.name} ({cand.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 {candidates.length === 0 && (
-                  <p className="text-sm text-orange-400 mt-2 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    No candidates found. Please upload candidate CVs first.
+                  <p className="text-[10px] font-bold text-amber-500 mt-2 flex items-center gap-2">
+                    <AlertCircle size={12} />
+                    Talent pool is empty. Vectorize CVs first.
                   </p>
                 )}
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-purple-300 text-sm font-semibold mb-2">
-                  Candidate Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.candidate_name}
-                  onChange={(e) => setFormData({ ...formData, candidate_name: e.target.value })}
-                  className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                  placeholder="John Doe"
-                  required
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Candidate Full Name</label>
+                <div className="relative">
+                  <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-50" />
+                  <input
+                    type="text"
+                    value={formData.candidate_name}
+                    onChange={(e) => setFormData({ ...formData, candidate_name: e.target.value })}
+                    className="w-full h-12 pl-11 pr-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                    placeholder="E.g. Jane Doe"
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-purple-300 text-sm font-semibold mb-2">
-                  Candidate Email *
-                </label>
-                <input
-                  type="email"
-                  value={formData.candidate_email}
-                  onChange={(e) => setFormData({ ...formData, candidate_email: e.target.value })}
-                  className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                  placeholder="john@example.com"
-                  required
-                />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Dispatch Email</label>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-50" />
+                  <input
+                    type="email"
+                    value={formData.candidate_email}
+                    onChange={(e) => setFormData({ ...formData, candidate_email: e.target.value })}
+                    className="w-full h-12 pl-11 pr-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                    placeholder="name@company.com"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
             {candidate && (
-              <div className="mt-4 p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm text-purple-200 mb-2">
-                      <strong>Skills:</strong> {(candidate.skills?.technical || []).join(', ') || 'N/A'}
-                    </p>
-                    <p className="text-sm text-purple-200">
-                      <strong>Experience:</strong> {candidate.experience_years || 0} years
-                    </p>
-                  </div>
+              <div className="mt-6 p-5 bg-primary/5 border border-primary/10 rounded-2xl flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                   <Sparkles size={18} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Intelligence Insight</p>
+                  <p className="text-xs font-bold text-on-surface opacity-80 leading-relaxed">
+                    Matched Skills: {(candidate.skills?.technical || []).slice(0, 5).join(', ') || 'General Profile'}
+                  </p>
+                  <p className="text-[10px] font-black text-outline uppercase mt-1">Verified Experience: {candidate.experience_years || 0} years</p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Interview Details */}
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Briefcase className="w-5 h-5 text-purple-400" />
-              Interview Details
-            </h2>
+          {/* Session Logic */}
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6 border-b border-outline-variant pb-4">
+              <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary shadow-inner">
+                <Briefcase size={16} />
+              </div>
+              <h3 className="text-[11px] font-black uppercase tracking-widest text-on-surface">Session Parameters</h3>
+            </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-purple-300 text-sm font-semibold mb-2">
-                  Interview Title *
-                </label>
+            <div className="space-y-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Session Branding Title</label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                  placeholder="Senior Frontend Developer Interview"
+                  className="w-full h-12 px-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                  placeholder="E.g. Technical System Design Interview"
                   required
                 />
               </div>
 
-              <div>
-                <label className="block text-purple-300 text-sm font-semibold mb-2">
-                  Job Position (Optional)
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Related Job Position (Context)</label>
                 <select
                   value={formData.job_id}
                   onChange={(e) => setFormData({ ...formData, job_id: e.target.value })}
-                  className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                  className="w-full h-12 px-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none cursor-pointer"
                 >
                   <option value="">Select a job position</option>
                   {jobs.map((job) => (
                     <option key={job.id} value={job.id}>
-                      {job.title} - {job.company}
+                      {job.title} — {job.company}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-purple-300 text-sm font-semibold mb-2 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Date *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={formData.scheduled_date}
-                      onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
-                      min={today}
-                      className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all [color-scheme:dark]"
-                      style={{
-                        colorScheme: 'dark'
-                      }}
-                      required
-                    />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Execution Date</label>
+                  <input
+                    type="date"
+                    value={formData.scheduled_date}
+                    onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
+                    min={today}
+                    className="w-full h-12 px-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                    required
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-purple-300 text-sm font-semibold mb-2 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Time *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="time"
-                      value={formData.scheduled_time}
-                      onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
-                      className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all [color-scheme:dark]"
-                      style={{
-                        colorScheme: 'dark'
-                      }}
-                      required
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Start Time (UTC)</label>
+                  <input
+                    type="time"
+                    value={formData.scheduled_time}
+                    onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
+                    className="w-full h-12 px-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                    required
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-purple-300 text-sm font-semibold mb-2">
-                    Duration (min)
-                  </label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Block Duration</label>
                   <select
                     value={formData.duration_minutes}
                     onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
-                    className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                    className="w-full h-12 px-4 rounded-xl text-sm font-bold bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none cursor-pointer"
                   >
                     {durations.map((dur) => (
                       <option key={dur} value={dur}>{dur} minutes</option>
@@ -409,8 +360,8 @@ export default function ScheduleInterview() {
               </div>
 
               <div>
-                <label className="block text-purple-300 text-sm font-semibold mb-2">
-                  Interview Types * (Select at least one)
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1 block mb-3">
+                  Intelligence Focus Modules
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   {interviewTypes.map((type) => {
@@ -421,120 +372,90 @@ export default function ScheduleInterview() {
                         key={type.value}
                         type="button"
                         onClick={() => toggleInterviewType(type.value)}
-                        className={`p-4 rounded-xl border transition-all ${
+                        className={cn(
+                          "p-4 rounded-2xl border transition-all flex flex-col items-center gap-2 group",
                           isSelected
-                            ? `bg-gradient-to-r ${type.color} border-transparent text-white shadow-lg transform scale-105`
-                            : 'bg-black/60 border-purple-500/20 text-purple-300 hover:border-purple-500/40'
-                        }`}
-                      >
-                        <Icon className="w-5 h-5 mx-auto mb-2" />
-                        <span className="text-xs font-semibold block">{type.label}</span>
-                        {isSelected && (
-                          <CheckCircle className="w-4 h-4 mx-auto mt-1" />
+                            ? "bg-primary text-on-primary border-primary shadow-lg scale-105"
+                            : "bg-surface-container-low border-outline-variant text-on-surface hover:border-primary/50"
                         )}
+                      >
+                        <Icon size={18} className={cn("transition-transform group-hover:scale-110", isSelected ? "text-on-primary" : "text-primary opacity-70")} />
+                        <span className="text-[10px] font-black uppercase tracking-tighter text-center">{type.label}</span>
                       </button>
                     );
                   })}
                 </div>
-                {formData.interview_types.length > 0 && (
-                  <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-                    <p className="text-sm text-green-200 flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4" />
-                      <strong>Selected:</strong> {formData.interview_types.map(t => 
-                        interviewTypes.find(opt => opt.value === t)?.label
-                      ).join(', ')}
-                    </p>
-                  </div>
-                )}
               </div>
 
-              <div>
-                <label className="block text-purple-300 text-sm font-semibold mb-2">
-                  Description / Agenda
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Session Agenda / Requirements</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all resize-none"
-                  placeholder="Interview agenda, topics to cover, etc."
-                />
-              </div>
-
-              <div>
-                <label className="block text-purple-300 text-sm font-semibold mb-2">
-                  Notes (Internal)
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={3}
-                  className="w-full px-4 py-3 bg-black/60 border border-purple-500/20 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all resize-none"
-                  placeholder="Internal notes for recruiters..."
+                  className="w-full p-4 rounded-xl text-sm font-medium bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none resize-none"
+                  placeholder="Key topics to verify during AI analysis..."
                 />
               </div>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-6 border-t border-purple-500/20">
+          {/* Action Hub */}
+          <div className="flex items-center justify-between pt-8 border-t border-outline-variant">
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="px-6 py-3 bg-black/60 text-purple-300 rounded-xl font-semibold hover:bg-black/80 transition-all border border-purple-500/20"
+              className="btn-secondary py-3 px-8 font-bold"
             >
-              Cancel
+              Discard
             </button>
 
             <button
               type="submit"
               disabled={loading || !formData.candidate_id}
-              className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="btn-primary py-3 px-10 shadow-xl shadow-primary/20 scale-105 hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100"
             >
               {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Scheduling...
-                </>
+                <div className="flex items-center gap-3">
+                  <RefreshCw className="animate-spin" size={18} />
+                  <span>Synchronizing...</span>
+                </div>
               ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  Schedule Interview
-                </>
+                <div className="flex items-center gap-3">
+                  <Send size={18} />
+                  <span>Dispatch Invitation</span>
+                </div>
               )}
             </button>
           </div>
         </motion.form>
 
-        {/* Info Box */}
+        {/* Global Dispatch Log */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mt-6 p-6 bg-blue-500/10 border border-blue-500/20 rounded-2xl"
+          className="mt-10 p-8 portal-card bg-primary/5 border border-primary/10 rounded-[32px] shadow-sm flex flex-col md:flex-row gap-8 items-center"
         >
-          <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-            <Mail className="w-5 h-5 text-blue-400" />
-            Automatic Email Notifications
-          </h3>
-          <ul className="space-y-2 text-sm text-blue-200">
-            <li className="flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-              Interview invitation will be sent to candidate immediately
-            </li>
-            <li className="flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-              Meeting link will be included in the email
-            </li>
-            <li className="flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-              Reminder will be sent 30 minutes before the interview
-            </li>
-            <li className="flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-              Recruiter will receive a confirmation email
-            </li>
-          </ul>
+          <div className="w-16 h-16 rounded-[24px] bg-white border border-outline-variant flex items-center justify-center shrink-0 shadow-sm">
+             <Mail size={24} className="text-primary" />
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <h3 className="text-lg font-bold text-on-surface mb-2">Automated Communications Pipeline</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-8">
+               {[
+                 "Encrypted candidate invitation dispatched immediately",
+                 "Integrated meeting key generated & validated",
+                 "30-minute pre-session countdown alert",
+                 "Recruiter confirmation & dashboard sync"
+               ].map((log, i) => (
+                 <div key={i} className="flex items-center gap-2 text-xs font-bold text-outline uppercase tracking-tight">
+                    <CheckCircle size={14} className="text-tertiary" />
+                    <span>{log}</span>
+                 </div>
+               ))}
+            </div>
+          </div>
         </motion.div>
       </div>
     </div>

@@ -299,233 +299,221 @@ export default function Register() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#07080f] text-white">
+    <div className="min-h-screen bg-surface text-on-surface flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Background Decor */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-violet-600/8 blur-[130px]" />
-        <div className="absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-cyan-500/8 blur-[130px]" />
-        <div className="absolute left-1/2 top-1/2 h-[300px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-600/5 blur-[100px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:64px_64px]" />
+        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] -ml-48 -mt-48" />
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-tertiary/5 rounded-full blur-[100px] -mr-40 -mb-40" />
       </div>
 
-      <div ref={shellRef} className="relative z-10 flex min-h-screen flex-col px-5 py-5 sm:px-8">
-
-        <header data-reveal className="flex items-center justify-between mb-2">
-          <BrandMark />
-          <Link
-            to="/login"
-            className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-slate-200 backdrop-blur-xl transition hover:bg-white/[0.09]"
-          >
-            Sign in
-          </Link>
-        </header>
-
-        <main className="grid flex-1 items-center gap-6 py-4 lg:grid-cols-[0.9fr_1.1fr]">
-
-          <section className="hidden lg:block max-w-xl">
-            <div data-reveal className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-300/20 bg-fuchsia-300/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-fuchsia-100">
-              <Sparkles size={13} /> Recruiter Platform
-            </div>
-            <h1 data-reveal className="font-title text-5xl font-black leading-[0.96] tracking-tight text-white">
-              Ignite your recruitment galaxy.
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="relative z-10 w-full max-w-4xl"
+      >
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Info Side */}
+          <div className="hidden lg:block">
+            <Link to="/" className="inline-flex items-center gap-3 mb-10 group">
+              <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-on-primary shadow-lg group-hover:scale-105 transition-transform">
+                <BarChart3 size={24} />
+              </div>
+              <span className="text-3xl font-black tracking-tight text-primary">TalentIQ</span>
+            </Link>
+            
+            <h1 className="text-5xl font-black text-on-surface leading-[1.1] mb-6">
+              Ignite your <span className="text-primary">recruitment pipeline</span> with AI.
             </h1>
-            <p data-reveal className="mt-5 text-base leading-7 text-slate-400">
-              CV parsing, AI matching, interview reasoning, and Talent DNA scoring — all in one living core.
+            <p className="text-lg text-on-surface-variant font-medium leading-relaxed mb-10 opacity-80">
+              Transform your hiring process with autonomous CV parsing, intelligent match scoring, and predictive interview analytics.
             </p>
-            <div data-reveal className="mt-7 space-y-2.5">
+            
+            <div className="space-y-4">
               {[
-                'Google OAuth for instant sign-up',
-                'Secure email/password authentication',
-                'Enterprise-grade password security',
-              ].map(item => (
-                <div key={item} className="flex items-center gap-3 text-sm font-semibold text-slate-300">
-                  <Check size={15} className="shrink-0 text-emerald-400" /> {item}
+                { icon: Sparkles, text: "Advanced LLM-based profile vectorization", color: "text-primary" },
+                { icon: Target, text: "95% accuracy in cross-domain matching", color: "text-tertiary" },
+                { icon: ShieldCheck, text: "Enterprise-grade security and data privacy", color: "text-secondary" }
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <div className={cn("w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center shadow-sm", item.color)}>
+                    <item.icon size={20} />
+                  </div>
+                  <span className="font-bold text-on-surface-variant text-sm">{item.text}</span>
                 </div>
               ))}
             </div>
-          </section>
+          </div>
 
-          <GlassPanel data-reveal className="mx-auto w-full max-w-lg p-5 sm:p-6">
-            <div className="mb-5">
-              <h2 className="font-title text-xl font-black text-white">Create your account</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Fields marked <span className="text-cyan-400">*</span> are required
-              </p>
+          {/* Form Side */}
+          <div className="portal-card bg-surface-container-lowest p-8 sm:p-10 shadow-2xl border-outline-variant/60">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-on-surface mb-1">Create Organization</h2>
+              <p className="text-on-surface-variant text-sm font-medium">Join 500+ teams hiring with TalentIQ</p>
             </div>
 
-            <div className="mb-5">
-              <PremiumButton type="button" variant="ghost" className="w-full text-sm" onClick={handleGoogleOAuth}>
-                <GoogleIcon /> Continue with Google
-              </PremiumButton>
+            <button
+              onClick={handleGoogleOAuth}
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface font-bold text-sm transition-all border border-outline-variant/40 mb-6"
+            >
+              <GoogleIcon />
+              <span>Continue with Google</span>
+            </button>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-outline-variant" /></div>
+              <div className="relative flex justify-center text-[10px] font-black uppercase tracking-[0.2em] text-outline">
+                <span className="px-4 bg-surface-container-lowest">Or join manually</span>
+              </div>
             </div>
 
-            <div className="mb-5 flex items-center gap-3">
-              <div className="h-px flex-1 bg-white/[0.07]" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">or register with email</span>
-              <div className="h-px flex-1 bg-white/[0.07]" />
-            </div>
-
-            <form onSubmit={submit} noValidate autoComplete="on">
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-
-                <Field icon={User} label="Full Name" error={errors.full_name} touched={touched.full_name} required>
-                  <input
-                    name="full_name"
-                    type="text"
-                    value={form.full_name}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="Jane Smith"
-                    autoComplete="name"
-                    autoFocus
-                    className={inputCls(touched.full_name, errors.full_name, 'pr-9')}
-                  />
-                </Field>
-
-                <Field icon={Mail} label="Work Email" error={errors.email} touched={touched.email} required>
-                  <input
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="you@company.com"
-                    autoComplete="email"
-                    inputMode="email"
-                    className={inputCls(touched.email, errors.email, 'pr-9')}
-                  />
-                </Field>
-
-                <Field icon={Building2} label="Company Name" error={errors.company_name} touched={touched.company_name} required>
-                  <input
-                    name="company_name"
-                    type="text"
-                    value={form.company_name}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="Acme Corp"
-                    autoComplete="organization"
-                    className={inputCls(touched.company_name, errors.company_name, 'pr-9')}
-                  />
-                </Field>
-
-                <Field icon={Briefcase} label="Role in Company" error={errors.role_in_company} touched={touched.role_in_company} required>
-                  <select
-                    name="role_in_company"
-                    value={form.role_in_company}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    className={`${inputCls(touched.role_in_company, errors.role_in_company, 'pr-9')} appearance-none cursor-pointer`}
-                    style={{ colorScheme: 'dark' }}
-                  >
-                    <option value="" disabled className="bg-slate-900 text-slate-400">Select your role</option>
-                    {ROLE_OPTIONS.map(r => (
-                      <option key={r} value={r} className="bg-slate-900">{r}</option>
-                    ))}
-                  </select>
-                </Field>
-
-                <Field icon={Phone} label="Phone (optional)" error={errors.phone} touched={touched.phone}>
-                  <input
-                    name="phone"
-                    type="tel"
-                    value={form.phone}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="+91 98765 43210"
-                    autoComplete="tel"
-                    inputMode="tel"
-                    className={inputCls(touched.phone, errors.phone, 'pr-9')}
-                  />
-                </Field>
-
-                <div className="hidden sm:block" />
-
-                <div className="sm:col-span-2">
-                  <Field icon={Lock} label="Password" error={errors.password} touched={touched.password} required isPassword>
+            <form onSubmit={submit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Admin Name</label>
+                  <div className="relative">
+                    <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-outline opacity-50" />
                     <input
-                      name="password"
-                      type={showPw ? 'text' : 'password'}
-                      value={form.password}
+                      name="full_name"
+                      type="text"
+                      value={form.full_name}
                       onChange={handleChange}
                       onBlur={handleBlur}
-                      placeholder="Min. 8 chars, 1 uppercase, 1 number"
-                      autoComplete="new-password"
-                      className={inputCls(touched.password, errors.password, 'pr-10')}
+                      placeholder="Jane Doe"
+                      className={cn(
+                        "w-full h-11 pl-10 pr-4 rounded-xl text-xs font-bold transition-all outline-none border",
+                        touched.full_name && errors.full_name ? "border-error bg-error/5" : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-4 focus:ring-primary/5"
+                      )}
                     />
-                    <button
-                      type="button"
-                      onMouseDown={togglePw}
-                      tabIndex={-1}
-                      aria-label={showPw ? 'Hide password' : 'Show password'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-200 focus:outline-none"
-                    >
-                      {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </Field>
-                  <PasswordStrengthBar password={form.password} />
+                  </div>
                 </div>
 
-                <div className="sm:col-span-2">
-                  <Field icon={Lock} label="Confirm Password" error={errors.confirm_password} touched={touched.confirm_password} required isPassword>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Work Email</label>
+                  <div className="relative">
+                    <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-outline opacity-50" />
                     <input
-                      name="confirm_password"
-                      type={showCPw ? 'text' : 'password'}
-                      value={form.confirm_password}
+                      name="email"
+                      type="email"
+                      value={form.email}
                       onChange={handleChange}
                       onBlur={handleBlur}
-                      placeholder="Repeat your password"
-                      autoComplete="new-password"
-                      className={inputCls(touched.confirm_password, errors.confirm_password, 'pr-10')}
+                      placeholder="jane@company.com"
+                      className={cn(
+                        "w-full h-11 pl-10 pr-4 rounded-xl text-xs font-bold transition-all outline-none border",
+                        touched.email && errors.email ? "border-error bg-error/5" : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-4 focus:ring-primary/5"
+                      )}
                     />
-                    <button
-                      type="button"
-                      onMouseDown={toggleCPw}
-                      tabIndex={-1}
-                      aria-label={showCPw ? 'Hide password' : 'Show password'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-200 focus:outline-none"
-                    >
-                      {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </Field>
-                  {form.confirm_password && (
-                    <div className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold ${
-                      form.confirm_password === form.password ? 'text-emerald-400' : 'text-red-400'
-                    }`}>
-                      {form.confirm_password === form.password
-                        ? <><Check size={11} /> Passwords match</>
-                        : <><X size={11} /> Passwords do not match</>
-                      }
-                    </div>
-                  )}
+                  </div>
                 </div>
 
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Organization</label>
+                  <div className="relative">
+                    <Building2 size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-outline opacity-50" />
+                    <input
+                      name="company_name"
+                      type="text"
+                      value={form.company_name}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      placeholder="Acme Inc."
+                      className={cn(
+                        "w-full h-11 pl-10 pr-4 rounded-xl text-xs font-bold transition-all outline-none border",
+                        touched.company_name && errors.company_name ? "border-error bg-error/5" : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-4 focus:ring-primary/5"
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Your Role</label>
+                  <div className="relative">
+                    <Briefcase size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-outline opacity-50" />
+                    <select
+                      name="role_in_company"
+                      value={form.role_in_company}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      className={cn(
+                        "w-full h-11 pl-10 pr-4 rounded-xl text-xs font-bold transition-all outline-none border appearance-none cursor-pointer",
+                        touched.role_in_company && errors.role_in_company ? "border-error bg-error/5" : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-4 focus:ring-primary/5"
+                      )}
+                    >
+                      <option value="">Select Role</option>
+                      {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Password</label>
+                <div className="relative">
+                  <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-outline opacity-50" />
+                  <input
+                    name="password"
+                    type={showPw ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="••••••••"
+                    className={cn(
+                      "w-full h-11 pl-10 pr-12 rounded-xl text-xs font-bold transition-all outline-none border",
+                      touched.password && errors.password ? "border-error bg-error/5" : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-4 focus:ring-primary/5"
+                    )}
+                  />
+                  <button type="button" onMouseDown={togglePw} className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors">
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <PasswordStrengthBar password={form.password} />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Confirm Password</label>
+                <div className="relative">
+                  <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-outline opacity-50" />
+                  <input
+                    name="confirm_password"
+                    type={showCPw ? 'text' : 'password'}
+                    value={form.confirm_password}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="••••••••"
+                    className={cn(
+                      "w-full h-11 pl-10 pr-12 rounded-xl text-xs font-bold transition-all outline-none border",
+                      touched.confirm_password && errors.confirm_password ? "border-error bg-error/5" : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-4 focus:ring-primary/5"
+                    )}
+                  />
+                </div>
               </div>
 
               {submitError && (
-                <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
-                  <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-400" />
-                  <p className="text-sm text-red-300">{submitError}</p>
+                <div className="p-3 rounded-lg bg-error/10 border border-error/20 flex items-start gap-2 animate-enter">
+                   <AlertCircle size={14} className="text-error mt-0.5" />
+                   <p className="text-xs font-bold text-error">{submitError}</p>
                 </div>
               )}
 
-              <PremiumButton type="submit" disabled={isLoading} className="mt-5 h-11 w-full">
-                {isLoading
-                  ? <Spinner size={15} className="text-slate-950" />
-                  : <><span>Create Account</span><ArrowRight size={15} /></>
-                }
-              </PremiumButton>
-
-              <p className="mt-4 text-center text-xs text-slate-500">
-                Already have an account?{' '}
-                <Link to="/login" className="font-bold text-cyan-300 transition hover:text-cyan-200">
-                  Sign in
-                </Link>
-              </p>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full btn-primary h-12 shadow-lg mt-4 disabled:opacity-50"
+              >
+                {isLoading ? <RefreshCw className="animate-spin" size={20} /> : <span>Create Account</span>}
+              </button>
             </form>
-          </GlassPanel>
 
-        </main>
-      </div>
+            <p className="text-center text-sm text-outline mt-6 font-medium">
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary font-bold hover:underline">
+                Sign In
+              </Link>
+            </p>
+          </div>
+        </div>
+      </motion.div>
     </div>
   )
 }

@@ -179,143 +179,126 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050508] text-white flex items-center justify-center px-4 py-8 relative overflow-hidden">
-      {/* Background */}
+    <div className="min-h-screen bg-surface text-on-surface flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Background Decor */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-48 -top-48 h-[700px] w-[700px] rounded-full bg-blue-600/8 blur-[140px]" />
-        <div className="absolute -bottom-48 -right-48 h-[700px] w-[700px] rounded-full bg-violet-600/8 blur-[140px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[800px] rounded-full bg-indigo-500/4 blur-[100px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:64px_64px]" />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] -mr-48 -mt-48" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-tertiary/5 rounded-full blur-[100px] -ml-40 -mb-40" />
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="relative z-10 w-full max-w-md"
       >
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-3 mb-3 group">
-            <div
-              className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105"
-              style={{ background: 'linear-gradient(135deg, #0080ff, #8c1aff)', boxShadow: '0 0 28px #0080ff45' }}
-            >
-              <Sparkles className="w-5 h-5 text-white" />
+        {/* Brand */}
+        <div className="text-center mb-10">
+          <Link to="/" className="inline-flex items-center gap-3 mb-2 group">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-lg group-hover:scale-105 transition-transform">
+              <BarChart3 size={20} />
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">TalentIQ</span>
+            <span className="text-2xl font-bold tracking-tight text-primary">TalentIQ</span>
           </Link>
-          <p className="text-white/35 text-sm">AI Hiring Intelligence Platform</p>
+          <p className="text-outline font-bold text-[10px] uppercase tracking-[0.2em]">Next-Gen AI Recruitment</p>
         </div>
 
-        {/* Card */}
-        <div
-          className="rounded-2xl border border-white/[0.08] p-8"
-          style={{ background: 'rgba(10, 10, 18, 0.88)', backdropFilter: 'blur(28px)' }}
-        >
-          <div className="mb-7">
-            <h1 className="text-[22px] font-bold text-white mb-1 tracking-tight">Welcome back</h1>
-            <p className="text-white/40 text-sm">Sign in to continue to your workspace</p>
+        {/* Login Card */}
+        <div className="portal-card bg-surface-container-lowest p-10 shadow-xl border-outline-variant/60">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-on-surface mb-1 leading-tight">Welcome Back</h1>
+            <p className="text-on-surface-variant text-sm font-medium">Access your intelligent hiring portal</p>
           </div>
 
-          {/* OAuth buttons */}
-          <div className="mb-6">
+          {/* Social Sign In */}
+          <div className="mb-8">
             <GoogleButton onClick={handleGoogleOAuth} />
           </div>
 
-          {/* Divider */}
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/[0.07]" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="px-3 text-xs text-white/25 bg-[#0a0a12]">or continue with email</span>
+          <div className="relative mb-8">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-outline-variant" /></div>
+            <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-widest text-outline">
+              <span className="px-4 bg-surface-container-lowest">Or Corporate Login</span>
             </div>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
-            <InputField icon={Mail} label="Email" error={errors.email} touched={touched.email}>
-              <input
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="you@company.com"
-                autoComplete="email"
-                autoFocus
-                className={inputCls(touched.email, errors.email, 'pr-4')}
-              />
-            </InputField>
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
+            <div className="space-y-1.5">
+               <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Email ID</label>
+               <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-50" size={16} />
+                  <input
+                    name="email"
+                    type="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="name@company.com"
+                    className={cn(
+                      "w-full h-12 pl-11 pr-4 rounded-xl text-sm font-medium transition-all outline-none border",
+                      touched.email && errors.email ? "border-error bg-error/5" : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-4 focus:ring-primary/5"
+                    )}
+                  />
+               </div>
+               {touched.email && errors.email && <p className="text-[10px] font-bold text-error mt-1 ml-1">{errors.email}</p>}
+            </div>
 
-            <InputField icon={Lock} label="Password" error={errors.password} touched={touched.password}>
-              <input
-                name="password"
-                type={showPw ? 'text' : 'password'}
-                value={form.password}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-                className={inputCls(touched.password, errors.password, 'pr-11')}
-              />
-              <button
-                type="button"
-                onMouseDown={togglePassword}
-                tabIndex={-1}
-                aria-label={showPw ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-white/30 hover:text-white/65 hover:bg-white/8 transition-all duration-150 focus:outline-none"
-              >
-                {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
-            </InputField>
+            <div className="space-y-1.5">
+               <label className="text-[10px] font-black uppercase tracking-widest text-outline ml-1">Secure Password</label>
+               <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-outline opacity-50" size={16} />
+                  <input
+                    name="password"
+                    type={showPw ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="••••••••"
+                    className={cn(
+                      "w-full h-12 pl-11 pr-12 rounded-xl text-sm font-medium transition-all outline-none border",
+                      touched.password && errors.password ? "border-error bg-error/5" : "border-outline-variant bg-surface-container-low focus:border-primary focus:ring-4 focus:ring-primary/5"
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={togglePassword}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+               </div>
+               {touched.password && errors.password && <p className="text-[10px] font-bold text-error mt-1 ml-1">{errors.password}</p>}
+            </div>
 
-            {/* Submit error */}
-            <AnimatePresence mode="wait">
-              {submitError && (
-                <motion.div
-                  key="submit-err"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/8 px-4 py-3"
-                >
-                  <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-400" />
-                  <p className="text-sm text-red-300">{submitError}</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {submitError && (
+              <div className="p-3 rounded-lg bg-error/10 border border-error/20 flex items-start gap-2 animate-enter">
+                 <AlertCircle size={14} className="text-error mt-0.5" />
+                 <p className="text-xs font-bold text-error">{submitError}</p>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.015] active:scale-[0.985] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 mt-1"
-              style={{ background: 'linear-gradient(135deg, #0080ff, #8c1aff)', boxShadow: '0 0 28px #0080ff35' }}
+              className="w-full btn-primary h-12 shadow-md hover:shadow-lg disabled:opacity-50"
             >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>Sign In <ArrowRight size={16} /></>
-              )}
+              {isLoading ? <RefreshCw className="animate-spin" size={18} /> : <><span>Sign In</span> <ArrowRight size={18} /></>}
             </button>
           </form>
 
-          <p className="text-center text-sm text-white/35 mt-6">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
-              Create account
+          <p className="text-center text-sm text-outline mt-8 font-medium">
+            New to TalentIQ?{' '}
+            <Link to="/register" className="text-primary font-bold hover:underline">
+              Create Organization Account
             </Link>
           </p>
         </div>
 
-        <p className="text-center text-white/20 text-xs mt-5">
-          By signing in, you agree to TalentIQ's{' '}
-          <Link to="/terms" className="hover:text-white/40 transition-colors">Terms</Link>
-          {' '}and{' '}
-          <Link to="/privacy" className="hover:text-white/40 transition-colors">Privacy Policy</Link>
-        </p>
+        <div className="text-center mt-8">
+           <Link to="/terms" className="text-[10px] font-bold text-outline hover:text-primary transition-colors uppercase tracking-widest mx-3">Legal</Link>
+           <span className="text-outline opacity-30">•</span>
+           <Link to="/privacy" className="text-[10px] font-bold text-outline hover:text-primary transition-colors uppercase tracking-widest mx-3">Privacy</Link>
+        </div>
       </motion.div>
     </div>
   )
