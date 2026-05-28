@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight, Eye, EyeOff, Lock, Mail,
-  Phone, User, Building2, Briefcase, Sparkles, AlertCircle, Check, X
+  Phone, User, Building2, Briefcase, Sparkles, AlertCircle, Check, X, BarChart3, Target, ShieldCheck
 } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { cn } from '../utils/helpers'
 import { gsap } from 'gsap'
 import { useAuthStore } from '../store'
 import { Spinner } from '../components/ui'

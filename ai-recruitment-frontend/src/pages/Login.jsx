@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Eye, EyeOff, Lock, Mail, Sparkles, AlertCircle } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Lock, Mail, Sparkles, AlertCircle, BarChart3 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../store'
 import { BASE_URL, API_BASE } from '../services/api'
