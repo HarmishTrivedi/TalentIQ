@@ -4,10 +4,53 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Download, Share2, Brain, TrendingUp, AlertTriangle,
   CheckCircle, XCircle, Code, MessageCircle, Shield, Clock,
-  Target, Award, ThumbsUp, ThumbsDown, Eye, Activity, Zap
+  Target, Award, ThumbsUp, ThumbsDown, Activity, Zap, User
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { cn } from '../utils/helpers';
+
+function ScoreBar({ label, value, icon: Icon, color }) {
+  const [w, setW] = useState(0)
+  useEffect(() => { const t = setTimeout(() => setW(value), 200); return () => clearTimeout(t) }, [value])
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2 text-on-surface-variant">
+          {Icon && <Icon size={13} />}
+          <span className="text-xs font-semibold">{label}</span>
+        </div>
+        <span className="text-xs font-black" style={{ color }}>{Math.round(value)}</span>
+      </div>
+      <div className="h-2 rounded-full bg-surface-container-high overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-1000 ease-out"
+          style={{ width: `${w}%`, background: `linear-gradient(90deg, ${color}99, ${color})` }} />
+      </div>
+    </div>
+  )
+}
+
+function ScoreRing({ value, size = 120 }) {
+  const r = (size - 14) / 2
+  const circ = 2 * Math.PI * r
+  const color = value >= 80 ? '#006058' : value >= 60 ? '#004ac6' : value >= 40 ? '#f59e0b' : '#ba1a1a'
+  const [offset, setOffset] = useState(circ)
+  useEffect(() => { const t = setTimeout(() => setOffset(circ * (1 - value / 100)), 300); return () => clearTimeout(t) }, [value, circ])
+  return (
+    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="currentColor" strokeWidth={7} className="text-surface-container-high" />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={7}
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1)', filter: `drop-shadow(0 0 6px ${color}60)` }} />
+      </svg>
+      <div className="absolute text-center">
+        <div className="text-3xl font-black" style={{ color }}>{Math.round(value)}</div>
+        <div className="text-[10px] font-bold uppercase tracking-widest text-outline">Score</div>
+      </div>
+    </div>
+  )
+}
 
 export default function InterviewAnalysis() {
   const { interviewId } = useParams();
@@ -17,9 +60,7 @@ export default function InterviewAnalysis() {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadAnalysis();
-  }, [interviewId]);
+  useEffect(() => { loadAnalysis() }, [interviewId]);
 
   const loadAnalysis = async () => {
     try {
@@ -27,484 +68,320 @@ export default function InterviewAnalysis() {
         api.get(`/interviews/${interviewId}`),
         api.get(`/interviews/${interviewId}/analysis`)
       ]);
-      
       setInterview(interviewRes.data);
       setAnalysis(analysisRes.data);
-    } catch (error) {
-      toast.error('Failed to load analysis');
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error('Failed to load analysis') }
+    finally { setLoading(false) }
   };
 
   const handleShare = async () => {
-    const shareData = {
-      title: `TalentIQ interview analysis${interview?.title ? ` - ${interview.title}` : ''}`,
-      text: 'View the TalentIQ interview analysis report.',
-      url: window.location.href
-    };
-
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareData.url);
-        toast.success('Report link copied');
-      }
-    } catch (error) {
-      if (error?.name !== 'AbortError') {
-        toast.error('Unable to share report');
-      }
-    }
+      if (navigator.share) await navigator.share({ title: `TalentIQ Analysis`, url: window.location.href });
+      else { await navigator.clipboard.writeText(window.location.href); toast.success('Link copied!') }
+    } catch (e) { if (e?.name !== 'AbortError') toast.error('Unable to share') }
   };
 
-  const handleExport = () => {
-    toast.success('Use the print dialog to save the report as PDF');
-    window.print();
-  };
+  const recColor = (r) => ({ strong_hire: '#006058', hire: '#004ac6', maybe: '#f59e0b', no_hire: '#ba1a1a' }[r] || '#737686')
+  const recLabel = (r) => ({ strong_hire: 'Strong Hire', hire: 'Hire', maybe: 'Maybe', no_hire: 'No Hire' }[r] || r)
+  const riskColor = (l) => ({ low: 'text-tertiary bg-tertiary/10 border-tertiary/20', medium: 'text-amber-600 bg-amber-50 border-amber-200', high: 'text-error bg-error/10 border-error/20' }[l] || '')
 
-  const getRecommendationColor = (recommendation) => {
-    const colors = {
-      'strong_hire': 'from-green-500 to-emerald-500',
-      'hire': 'from-blue-500 to-cyan-500',
-      'maybe': 'from-yellow-500 to-orange-500',
-      'no_hire': 'from-red-500 to-rose-500'
-    };
-    return colors[recommendation] || colors.maybe;
-  };
-
-  const getRiskBadge = (level) => {
-    const badges = {
-      'low': { color: 'bg-green-500/20 text-green-400 border-green-500/20', icon: CheckCircle },
-      'medium': { color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20', icon: AlertTriangle },
-      'high': { color: 'bg-red-500/20 text-red-400 border-red-500/20', icon: XCircle }
-    };
-    return badges[level] || badges.low;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <Brain className="w-16 h-16 text-purple-400 animate-pulse mx-auto mb-4" />
-          <p className="text-white text-xl">Generating AI Analysis...</p>
-        </div>
+  if (loading) return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-bold text-outline uppercase tracking-widest">Generating AI Analysis...</p>
       </div>
-    );
-  }
+    </div>
+  )
 
-  if (!analysis) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <AlertTriangle className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-          <p className="text-white text-xl">Analysis not available</p>
-        </div>
+  if (!analysis) return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="text-center">
+        <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+        <p className="text-lg font-bold text-on-surface">Analysis not available</p>
+        <p className="text-sm text-outline mt-2">This interview may not have completed yet.</p>
+        <button onClick={() => navigate('/interviews')} className="btn-primary mt-6">Back to Interviews</button>
       </div>
-    );
-  }
+    </div>
+  )
 
-  const riskBadge = getRiskBadge(analysis.fraud_risk_level);
-  const RiskIcon = riskBadge.icon;
   const reportTranscript = location.state?.transcript || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+    <div className="page-enter">
       {/* Header */}
-      <div className="border-b border-purple-500/20 bg-black/40 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/interviews')}
-                className="p-2 hover:bg-purple-500/20 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-purple-400" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <Brain className="w-8 h-8 text-purple-400" />
-                  Interview Analysis Report
-                </h1>
-                <p className="text-purple-300 text-sm mt-1">{interview?.title}</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button onClick={handleShare} className="px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-all border border-purple-500/20">
-                <Share2 className="w-4 h-4 inline mr-2" />
-                Share
-              </button>
-              <button onClick={handleExport} className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all">
-                <Download className="w-4 h-4 inline mr-2" />
-                Export PDF
-              </button>
-            </div>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <div>
+          <button onClick={() => navigate('/interviews')}
+            className="btn-secondary py-1.5 px-3 flex items-center gap-2 text-xs mb-4 group">
+            <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+            Back to Interviews
+          </button>
+          <h2 className="text-3xl font-bold text-on-surface mb-1 flex items-center gap-3">
+            <Brain size={28} className="text-primary" />
+            Interview Analysis Report
+          </h2>
+          <p className="text-sm text-on-surface-variant opacity-70">{interview?.title}</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={handleShare} className="btn-secondary flex items-center gap-2">
+            <Share2 size={16} /> Share
+          </button>
+          <button onClick={() => { toast.success('Use print dialog to save as PDF'); window.print() }}
+            className="btn-primary flex items-center gap-2">
+            <Download size={16} /> Export PDF
+          </button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Overall Score Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <div className="bg-black/40 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Overall Rating */}
-              <div className="text-center">
-                <div className="relative inline-block">
-                  <svg className="w-40 h-40 transform -rotate-90">
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r="70"
-                      stroke="currentColor"
-                      strokeWidth="12"
-                      fill="none"
-                      className="text-purple-500/20"
-                    />
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r="70"
-                      stroke="url(#gradient)"
-                      strokeWidth="12"
-                      fill="none"
-                      strokeDasharray={`${2 * Math.PI * 70}`}
-                      strokeDashoffset={`${2 * Math.PI * 70 * (1 - analysis.overall_rating / 100)}`}
-                      className="transition-all duration-1000"
-                      strokeLinecap="round"
-                    />
-                    <defs>
-                      <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#a855f7" />
-                        <stop offset="100%" stopColor="#ec4899" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div>
-                      <div className="text-5xl font-bold text-white">
-                        {Math.round(analysis.overall_rating)}
-                      </div>
-                      <div className="text-purple-300 text-sm">Overall</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+      {/* Overall Score Hero */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="portal-card p-8 mb-6 bg-surface-container-lowest shadow-lg">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+          {/* Ring */}
+          <div className="flex flex-col items-center gap-3">
+            <ScoreRing value={analysis.overall_rating || 0} size={130} />
+            <p className="text-[11px] font-black uppercase tracking-widest text-outline">Overall Rating</p>
+          </div>
 
-              {/* Recommendation */}
-              <div className="flex flex-col justify-center">
-                <h3 className="text-purple-300 text-sm font-semibold mb-3">Hiring Recommendation</h3>
-                <div className={`inline-flex items-center gap-3 px-6 py-4 bg-gradient-to-r ${getRecommendationColor(analysis.hiring_recommendation)} rounded-2xl text-white font-bold text-2xl mb-4`}>
-                  {analysis.hiring_recommendation === 'strong_hire' && <ThumbsUp className="w-8 h-8" />}
-                  {analysis.hiring_recommendation === 'hire' && <CheckCircle className="w-8 h-8" />}
-                  {analysis.hiring_recommendation === 'maybe' && <AlertTriangle className="w-8 h-8" />}
-                  {analysis.hiring_recommendation === 'no_hire' && <ThumbsDown className="w-8 h-8" />}
-                  {analysis.hiring_recommendation.replace('_', ' ').toUpperCase()}
-                </div>
-                <p className="text-purple-200 text-sm">
-                  {analysis.ai_summary?.substring(0, 150)}...
-                </p>
-              </div>
+          {/* Recommendation */}
+          <div className="flex flex-col items-center md:items-start gap-4">
+            <p className="text-[11px] font-black uppercase tracking-widest text-outline">Hiring Recommendation</p>
+            <div className="flex items-center gap-3 px-6 py-4 rounded-2xl border-2 text-white font-black text-xl"
+              style={{ background: recColor(analysis.hiring_recommendation), borderColor: recColor(analysis.hiring_recommendation) }}>
+              {analysis.hiring_recommendation === 'strong_hire' && <ThumbsUp size={24} />}
+              {analysis.hiring_recommendation === 'hire' && <CheckCircle size={24} />}
+              {analysis.hiring_recommendation === 'maybe' && <AlertTriangle size={24} />}
+              {analysis.hiring_recommendation === 'no_hire' && <ThumbsDown size={24} />}
+              {recLabel(analysis.hiring_recommendation)}
+            </div>
+            {analysis.ai_summary && (
+              <p className="text-sm text-on-surface-variant leading-relaxed line-clamp-3">{analysis.ai_summary}</p>
+            )}
+          </div>
 
-              {/* Key Metrics */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                  <span className="text-blue-300 flex items-center gap-2">
-                    <Code className="w-4 h-4" />
-                    Technical
-                  </span>
-                  <span className="text-white font-bold text-xl">{Math.round(analysis.technical_rating)}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                  <span className="text-purple-300 flex items-center gap-2">
-                    <MessageCircle className="w-4 h-4" />
-                    Communication
-                  </span>
-                  <span className="text-white font-bold text-xl">{Math.round(analysis.communication_rating)}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-xl border border-green-500/20">
-                  <span className="text-green-300 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    Confidence
-                  </span>
-                  <span className="text-white font-bold text-xl">{Math.round(analysis.confidence_rating)}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-yellow-500/10 rounded-xl border border-yellow-500/20">
-                  <span className="text-yellow-300 flex items-center gap-2">
-                    <Code className="w-4 h-4" />
-                    Coding
-                  </span>
-                  <span className="text-white font-bold text-xl">{Math.round(analysis.coding_rating)}</span>
+          {/* Key Scores */}
+          <div className="space-y-3">
+            {[
+              { label: 'Technical', value: analysis.technical_rating, icon: Code, color: '#004ac6' },
+              { label: 'Communication', value: analysis.communication_rating, icon: MessageCircle, color: '#4b41e1' },
+              { label: 'Confidence', value: analysis.confidence_rating, icon: TrendingUp, color: '#006058' },
+              { label: 'Coding', value: analysis.coding_rating, icon: Code, color: '#f59e0b' },
+            ].filter(s => s.value).map(s => (
+              <ScoreBar key={s.label} label={s.label} value={s.value} icon={s.icon} color={s.color} />
+            ))}
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* Fraud Detection */}
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="portal-card p-6 bg-surface-container-lowest shadow-md">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-outline-variant">
+              <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+                <Shield size={18} />
+              </div>
+              <h3 className="text-base font-bold text-on-surface">AI Fraud Detection</h3>
+            </div>
+
+            <div className={cn('flex items-center justify-between p-4 rounded-xl border mb-5', riskColor(analysis.fraud_risk_level))}>
+              <div className="flex items-center gap-3">
+                {analysis.fraud_risk_level === 'low' && <CheckCircle size={20} />}
+                {analysis.fraud_risk_level === 'medium' && <AlertTriangle size={20} />}
+                {analysis.fraud_risk_level === 'high' && <XCircle size={20} />}
+                <div>
+                  <p className="font-black text-sm uppercase tracking-wider">{(analysis.fraud_risk_level || 'low').toUpperCase()} RISK</p>
+                  <p className="text-xs opacity-80">AI Assistance Probability: {Math.round(analysis.ai_assistance_probability || 0)}%</p>
                 </div>
               </div>
             </div>
-          </div>
-        </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Fraud Analysis */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-black/40 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6"
-            >
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                <Shield className="w-6 h-6 text-purple-400" />
-                AI Fraud Detection Analysis
-              </h2>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              {[
+                { label: 'Tab Switches', value: analysis.tab_switching_count || 0 },
+                { label: 'Copy-Paste', value: analysis.copy_paste_count || 0 },
+                { label: 'Suspicious Events', value: analysis.plagiarism_indicators?.length || 0 },
+              ].map(({ label, value }) => (
+                <div key={label} className="p-4 bg-surface-container-low rounded-xl border border-outline-variant text-center">
+                  <p className="text-2xl font-black text-on-surface">{value}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-outline mt-1">{label}</p>
+                </div>
+              ))}
+            </div>
 
-              <div className={`p-4 rounded-xl border ${riskBadge.color} mb-4`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <RiskIcon className="w-6 h-6" />
-                    <div>
-                      <div className="font-bold text-lg">
-                        {analysis.fraud_risk_level.toUpperCase()} RISK
-                      </div>
-                      <div className="text-sm opacity-80">
-                        AI Assistance Probability: {Math.round(analysis.ai_assistance_probability)}%
-                      </div>
-                    </div>
+            {analysis.plagiarism_indicators?.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-black uppercase tracking-widest text-outline mb-2">Detected Indicators</p>
+                {analysis.plagiarism_indicators.map((ind, i) => (
+                  <div key={i} className="flex items-start gap-2 p-3 bg-error/5 rounded-xl border border-error/10">
+                    <AlertTriangle size={14} className="text-error shrink-0 mt-0.5" />
+                    <span className="text-xs text-on-surface-variant">{ind}</span>
                   </div>
-                </div>
+                ))}
               </div>
+            )}
+          </motion.div>
 
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20">
-                  <div className="text-purple-300 text-sm mb-1">Tab Switches</div>
-                  <div className="text-white text-2xl font-bold">{analysis.tab_switching_count}</div>
-                </div>
-                <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20">
-                  <div className="text-purple-300 text-sm mb-1">Copy-Paste</div>
-                  <div className="text-white text-2xl font-bold">{analysis.copy_paste_count}</div>
-                </div>
-                <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20">
-                  <div className="text-purple-300 text-sm mb-1">Suspicious Events</div>
-                  <div className="text-white text-2xl font-bold">
-                    {(analysis.plagiarism_indicators?.length || 0)}
-                  </div>
-                </div>
+          {/* Technical Analysis */}
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+            className="portal-card p-6 bg-surface-container-lowest shadow-md">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-outline-variant">
+              <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+                <Code size={18} />
               </div>
+              <h3 className="text-base font-bold text-on-surface">Technical Analysis</h3>
+            </div>
 
-              {analysis.plagiarism_indicators && analysis.plagiarism_indicators.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-white font-semibold text-sm mb-2">Detected Indicators:</h3>
-                  {analysis.plagiarism_indicators.map((indicator, index) => (
-                    <div key={index} className="flex items-start gap-2 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                      <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                      <span className="text-red-200 text-sm">{indicator}</span>
-                    </div>
-                  ))}
+            {analysis.technical_fit && (
+              <p className="text-sm text-on-surface-variant leading-relaxed mb-6">{analysis.technical_fit}</p>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-5 rounded-2xl bg-tertiary/5 border border-tertiary/20">
+                <div className="flex items-center gap-2 mb-4">
+                  <CheckCircle size={14} className="text-tertiary" />
+                  <span className="text-[11px] font-black uppercase tracking-widest text-tertiary">Strengths</span>
                 </div>
-              )}
-            </motion.div>
-
-            {/* Transcript */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="bg-black/40 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6"
-            >
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                <MessageCircle className="w-6 h-6 text-purple-400" />
-                Interview Transcript
-              </h2>
-              {reportTranscript.length ? (
-                <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
-                  {reportTranscript.map((line, index) => (
-                    <div key={`${line.timestamp}-${index}`} className="rounded-xl bg-purple-500/10 border border-purple-500/10 p-3">
-                      <div className="flex items-center gap-2 mb-1 text-xs">
-                        <span className="font-semibold text-purple-300 capitalize">{line.speaker}</span>
-                        <span className="text-purple-300/50">{new Date(line.timestamp).toLocaleTimeString()}</span>
-                      </div>
-                      <p className="text-sm text-purple-100">{line.text}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-purple-300/70">Transcript was not carried in this browser session. Stored analysis remains available above.</p>
-              )}
-            </motion.div>
-
-            {/* Technical Analysis */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-black/40 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6"
-            >
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                <Code className="w-6 h-6 text-purple-400" />
-                Technical Analysis
-              </h2>
-
-              {analysis.technical_fit && (
-                <div className="prose prose-invert max-w-none mb-4">
-                  <p className="text-purple-200">{analysis.technical_fit}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-green-400 font-semibold mb-3 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4" />
-                    Strengths
-                  </h3>
-                  <ul className="space-y-2">
-                    {analysis.candidate_strengths?.map((strength, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm text-purple-200">
-                        <Award className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                        {strength}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-yellow-400 font-semibold mb-3 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    Weaknesses
-                  </h3>
-                  <ul className="space-y-2">
-                    {analysis.candidate_weaknesses?.map((weakness, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm text-purple-200">
-                        <Target className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                        {weakness}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Communication Analysis */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-black/40 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6"
-            >
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                <MessageCircle className="w-6 h-6 text-purple-400" />
-                Communication Analysis
-              </h2>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20">
-                  <div className="text-purple-300 text-sm mb-2">Speech Clarity</div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-                        style={{ width: `${analysis.speech_clarity || 75}%` }}
-                      />
-                    </div>
-                    <span className="text-white font-bold">{Math.round(analysis.speech_clarity || 75)}</span>
-                  </div>
-                </div>
-
-                <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20">
-                  <div className="text-purple-300 text-sm mb-2">Professionalism</div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
-                        style={{ width: `${analysis.professionalism || 80}%` }}
-                      />
-                    </div>
-                    <span className="text-white font-bold">{Math.round(analysis.professionalism || 80)}</span>
-                  </div>
-                </div>
-
-                <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20">
-                  <div className="text-purple-300 text-sm mb-1">Filler Words</div>
-                  <div className="text-white text-2xl font-bold">{analysis.filler_words_count || 12}</div>
-                </div>
-
-                <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20">
-                  <div className="text-purple-300 text-sm mb-1">Speaking Speed</div>
-                  <div className="text-white text-2xl font-bold">{Math.round(analysis.speaking_speed_wpm || 125)} WPM</div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Interview Info */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-black/40 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6"
-            >
-              <h3 className="text-white font-bold mb-4">Interview Details</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-purple-300">Duration</span>
-                  <span className="text-white font-semibold">{interview?.duration_minutes || 0} min</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-purple-300">Date</span>
-                  <span className="text-white font-semibold">
-                    {new Date(interview?.started_at).toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-purple-300">Questions</span>
-                  <span className="text-white font-semibold">{interview?.questions?.length || 0}</span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Improvement Areas */}
-            {analysis.improvement_areas && analysis.improvement_areas.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-black/40 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6"
-              >
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                  <Target className="w-5 h-5 text-purple-400" />
-                  Improvement Areas
-                </h3>
-                <ul className="space-y-2">
-                  {analysis.improvement_areas.map((area, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm text-purple-200">
-                      <Zap className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                      {area}
+                <ul className="space-y-2.5">
+                  {(analysis.candidate_strengths || []).map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-on-surface font-medium">
+                      <Award size={12} className="text-tertiary shrink-0 mt-0.5" /> {s}
                     </li>
                   ))}
                 </ul>
-              </motion.div>
-            )}
+              </div>
+              <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertTriangle size={14} className="text-amber-600" />
+                  <span className="text-[11px] font-black uppercase tracking-widest text-amber-600">Weaknesses</span>
+                </div>
+                <ul className="space-y-2.5">
+                  {(analysis.candidate_weaknesses || []).map((w, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-on-surface font-medium">
+                      <Target size={12} className="text-amber-600 shrink-0 mt-0.5" /> {w}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </motion.div>
 
-            {/* Next Steps */}
-            {analysis.next_round_suggestion && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6"
-              >
-                <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-purple-400" />
-                  Next Round Suggestion
-                </h3>
-                <p className="text-purple-200 text-sm">{analysis.next_round_suggestion}</p>
-              </motion.div>
-            )}
-          </div>
+          {/* Communication */}
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="portal-card p-6 bg-surface-container-lowest shadow-md">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-outline-variant">
+              <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+                <MessageCircle size={18} />
+              </div>
+              <h3 className="text-base font-bold text-on-surface">Communication Analysis</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: 'Speech Clarity', value: analysis.speech_clarity || 75, type: 'bar' },
+                { label: 'Professionalism', value: analysis.professionalism || 80, type: 'bar' },
+                { label: 'Filler Words', value: analysis.filler_words_count || 0, type: 'count' },
+                { label: 'Speaking Speed', value: `${Math.round(analysis.speaking_speed_wpm || 125)} WPM`, type: 'text' },
+              ].map(({ label, value, type }) => (
+                <div key={label} className="p-4 bg-surface-container-low rounded-xl border border-outline-variant">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-2">{label}</p>
+                  {type === 'bar' ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-surface-container-high rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${value}%` }} />
+                      </div>
+                      <span className="text-sm font-black text-on-surface">{Math.round(value)}</span>
+                    </div>
+                  ) : (
+                    <p className="text-2xl font-black text-on-surface">{value}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Transcript */}
+          {reportTranscript.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+              className="portal-card p-6 bg-surface-container-lowest shadow-md">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-outline-variant">
+                <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+                  <MessageCircle size={18} />
+                </div>
+                <h3 className="text-base font-bold text-on-surface">Interview Transcript</h3>
+              </div>
+              <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                {reportTranscript.map((line, i) => (
+                  <div key={i} className="p-3 bg-surface-container-low rounded-xl border border-outline-variant">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-primary capitalize">{line.speaker}</span>
+                      <span className="text-[10px] text-outline">{new Date(line.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <p className="text-xs text-on-surface-variant">{line.text}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Interview Details */}
+          <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
+            className="portal-card p-6 bg-surface-container-lowest shadow-md">
+            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-outline-variant">
+              <User size={16} className="text-primary" />
+              <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Interview Details</h3>
+            </div>
+            <div className="space-y-4">
+              {[
+                { label: 'Duration', value: `${interview?.duration_minutes || 0} min`, icon: Clock },
+                { label: 'Date', value: interview?.started_at ? new Date(interview.started_at).toLocaleDateString() : '—', icon: Activity },
+                { label: 'Questions', value: interview?.questions?.length || 0, icon: Brain },
+              ].map(({ label, value, icon: Icon }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-on-surface-variant">
+                    <Icon size={14} className="text-outline" />
+                    <span className="text-xs font-semibold">{label}</span>
+                  </div>
+                  <span className="text-xs font-black text-on-surface">{value}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Improvement Areas */}
+          {analysis.improvement_areas?.length > 0 && (
+            <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
+              className="portal-card p-6 bg-surface-container-lowest shadow-md">
+              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-outline-variant">
+                <Target size={16} className="text-primary" />
+                <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Improvement Areas</h3>
+              </div>
+              <ul className="space-y-3">
+                {analysis.improvement_areas.map((area, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-on-surface-variant">
+                    <Zap size={12} className="text-amber-500 shrink-0 mt-0.5" /> {area}
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          )}
+
+          {/* Next Steps */}
+          {analysis.next_round_suggestion && (
+            <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
+              className="portal-card p-6 bg-primary/5 border-primary/20 shadow-md">
+              <div className="flex items-center gap-3 mb-4">
+                <Activity size={16} className="text-primary" />
+                <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Next Round</h3>
+              </div>
+              <p className="text-sm text-on-surface-variant leading-relaxed">{analysis.next_round_suggestion}</p>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>

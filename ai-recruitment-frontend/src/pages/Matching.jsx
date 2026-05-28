@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Zap, ChevronRight, CheckCircle, XCircle, Brain, Sparkles, Target, TrendingUp, Clock, Users, Award, BarChart3, Briefcase } from 'lucide-react'
+import { Zap, ChevronRight, CheckCircle, XCircle, Brain, Sparkles, Target, TrendingUp, Clock, Users, Award, BarChart3, Briefcase, ArrowRight } from 'lucide-react'
 import { jobsApi, matchingApi } from '../services/api'
 import { Spinner, TagList, Badge } from '../components/ui'
 import { getInitials, getScoreColor, getRecommendationLabel, formatExperience, cn } from '../utils/helpers'

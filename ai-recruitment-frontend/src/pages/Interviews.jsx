@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Plus, Video, Calendar, Clock, User, Briefcase,
-  TrendingUp, Brain, Search, Filter, Play, Eye
+  TrendingUp, Brain, Search, Play, Eye
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { cn, formatDate, getScoreColor } from '../utils/helpers';
 
 export default function Interviews() {
   const navigate = useNavigate();
@@ -57,7 +58,7 @@ export default function Interviews() {
           </p>
         </div>
         <button
-          onClick={() => navigate('/interviews/new')}
+          onClick={() => navigate('/interviews/schedule')}
           className="btn-primary"
         >
           <Plus size={18} />
@@ -111,7 +112,7 @@ export default function Interviews() {
             <div className="max-w-xs mx-auto">
                <p className="text-lg font-bold text-on-surface mb-2">No interviews found</p>
                <p className="text-sm text-outline mb-6">There are no active sessions matching your current filter.</p>
-               <button onClick={() => navigate('/interviews/new')} className="btn-primary w-full shadow-lg">Schedule First Interview</button>
+               <button onClick={() => navigate('/interviews/schedule')} className="btn-primary w-full shadow-lg">Schedule First Interview</button>
             </div>
           </div>
         ) : (

@@ -13,12 +13,11 @@ import { cn, getInitials } from '../../utils/helpers'
 import { BASE_URL } from '../../services/api'
 
 const navItems = [
-  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/candidates', icon: Users,           label: 'Candidates' },
-  { to: '/jobs',       icon: Briefcase,       label: 'Jobs' },
-  { to: '/ai-interviews', icon: Brain,        label: 'Interviews' },
-  { to: '/matching',   icon: Target,          label: 'Analytics' },
-  { to: '/account',    icon: Settings,        label: 'Settings' },
+  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/candidates',    icon: Users,           label: 'Candidates' },
+  { to: '/jobs',          icon: Briefcase,       label: 'Jobs' },
+  { to: '/interviews',    icon: Brain,           label: 'Interviews' },
+  { to: '/account',       icon: Settings,        label: 'Settings' },
 ]
 
 export default function Sidebar() {
@@ -71,7 +70,17 @@ export default function Sidebar() {
           )}
         >
           <Sparkles size={20} className="text-violet-500" />
-          <span className="text-sm">Smart Matching</span>
+          <span className="text-sm">AI Matching</span>
+        </NavLink>
+        <NavLink
+          to="/ai-interviews"
+          className={({ isActive }) => cn(
+            'flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container transition-all group',
+            isActive && 'text-primary font-bold border-r-4 border-primary bg-surface-container'
+          )}
+        >
+          <Target size={20} className="text-violet-500" />
+          <span className="text-sm">Interview Analytics</span>
         </NavLink>
         <NavLink
           to="/questions/generate"
