@@ -85,13 +85,11 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <StatCard label="Active Openings"   value={s.total_jobs || 0}       trend={12} delay={0} />
-        <StatCard label="Candidates"        value={s.total_candidates || 0} trend={5}  delay={0.05} />
-        <StatCard label="Hires"             value={12}                      trend={8}  delay={0.1} />
-        <StatCard label="AI Matches"        value={s.total_matches || 0}    trend={15} delay={0.15} />
-        <StatCard label="Avg. Match"        value={`${s.avg_match_score || 0}%`} trend={-2} delay={0.2} />
-        <StatCard label="Time-to-hire"      value="14d"                     trend={-10}delay={0.25} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard label="Active Openings"   value={s.total_jobs || 0}       delay={0} />
+        <StatCard label="Candidates"        value={s.total_candidates || 0} delay={0.05} />
+        <StatCard label="AI Matches"        value={s.total_matches || 0}    delay={0.15} />
+        <StatCard label="Avg. Match"        value={`${s.avg_match_score || 0}%`} delay={0.2} />
       </div>
 
       {/* Main Bento Grid */}
@@ -113,29 +111,27 @@ export default function Dashboard() {
                   <th>Candidates</th>
                   <th>Matches</th>
                   <th>Interview</th>
-                  <th>Offer</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
-                {(s.top_candidates || []).length === 0 ? (
+                {(s.top_jobs || []).length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="py-12 text-center text-on-surface-variant opacity-50">
+                    <td colSpan="4" className="py-12 text-center text-on-surface-variant opacity-50">
                       No active pipelines found
                     </td>
                   </tr>
                 ) : (
-                  (s.top_candidates || []).slice(0, 5).map((c, idx) => (
-                    <tr key={idx} className="group">
+                  (s.top_jobs || []).map((job, idx) => (
+                    <tr key={job.id} className="group">
                       <td>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-primary group-hover:underline">Senior Role {idx + 1}</span>
-                          <span className="text-[10px] text-outline font-mono uppercase">ID: #ROLE-{100 + idx}</span>
-                        </div>
+                        <Link to={`/jobs/${job.id}`} className="flex flex-col">
+                          <span className="font-semibold text-primary group-hover:underline">{job.title}</span>
+                          <span className="text-[10px] text-outline font-mono uppercase">ID: #{job.id.slice(0, 8)}</span>
+                        </Link>
                       </td>
-                      <td><span className="font-mono text-sm">12</span></td>
-                      <td><span className="font-mono text-sm text-primary font-bold">4</span></td>
-                      <td><span className="font-mono text-sm">2</span></td>
-                      <td><span className="font-mono text-sm text-tertiary font-bold">1</span></td>
+                      <td><span className="font-mono text-sm">{job.candidates}</span></td>
+                      <td><span className="font-mono text-sm text-primary font-bold">{job.matches}</span></td>
+                      <td><span className="font-mono text-sm">{job.interviews}</span></td>
                     </tr>
                   ))
                 )}
@@ -167,20 +163,6 @@ export default function Dashboard() {
                   <ArrowRight size={14} className="text-on-surface-variant opacity-0 group-hover:opacity-100 transition-all" />
                 </Link>
               ))}
-            </div>
-          </div>
-
-          {/* AI Insights Widget */}
-          <div className="ai-glass">
-            <div className="flex items-center gap-2 mb-3">
-              <Zap size={16} className="text-violet-500 fill-violet-500" />
-              <span className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">AI Recruiter Intel</span>
-            </div>
-            <p className="text-xs italic text-on-surface-variant leading-relaxed">
-              Candidate flow for your technical roles has increased by 20%. I recommend prioritizing the 'Frontend Lead' screening today.
-            </p>
-            <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
-              <Brain size={96} />
             </div>
           </div>
         </div>

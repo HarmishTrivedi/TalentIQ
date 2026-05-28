@@ -230,6 +230,7 @@ class DashboardStats(BaseModel):
     total_matches: int
     avg_match_score: float
     top_candidates: List[Dict[str, Any]]
+    top_jobs: List[Dict[str, Any]] = []
     recent_activity: List[Dict[str, Any]]
     candidates_by_status: Dict[str, int]
     jobs_by_status: Dict[str, int]

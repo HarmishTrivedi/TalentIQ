@@ -62,6 +62,41 @@ async def get_dashboard_stats(
             "skills": (candidate.skills or {}).get("technical", [])[:3],
         })
 
+    # Top Jobs (Pipeline Snapshot)
+    from app.models.models import Interview
+    top_jobs_query = await db.execute(
+        select(Job)
+        .where(Job.created_by == current_user.id)
+        .where(Job.status == JobStatus.active)
+        .order_by(Job.created_at.desc())
+        .limit(5)
+    )
+    top_jobs = []
+    for job in top_jobs_query.scalars():
+        # Candidate count
+        c_count = (await db.execute(
+            select(func.count(MatchScore.id)).where(MatchScore.job_id == job.id)
+        )).scalar() or 0
+        
+        # Match count (>= 80)
+        m_count = (await db.execute(
+            select(func.count(MatchScore.id))
+            .where(MatchScore.job_id == job.id, MatchScore.overall_score >= 80)
+        )).scalar() or 0
+        
+        # Interview count
+        i_count = (await db.execute(
+            select(func.count(Interview.id)).where(Interview.job_id == job.id)
+        )).scalar() or 0
+        
+        top_jobs.append({
+            "id": job.id,
+            "title": job.title,
+            "candidates": c_count,
+            "matches": m_count,
+            "interviews": i_count
+        })
+
     # Recent activity — this user's candidates + jobs
     recent_candidates = await db.execute(
         select(Candidate)
@@ -147,6 +182,7 @@ async def get_dashboard_stats(
         total_matches=total_matches,
         avg_match_score=avg_score,
         top_candidates=top_candidates,
+        top_jobs=top_jobs,
         recent_activity=recent_activity[:6],
         candidates_by_status=candidates_by_status,
         jobs_by_status=jobs_by_status,
