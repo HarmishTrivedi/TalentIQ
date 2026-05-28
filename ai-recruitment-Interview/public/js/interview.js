@@ -93,11 +93,11 @@ export class InterviewRoom {
           <span class="tooltip">Camera</span>
           ${SVGIcons.camera()}
         </button>
-        <div class="ctrl-divider"></div>
-        <button class="ctrl-btn" id="ctrl-screen" title="Screen Share">
+        <button class="ctrl-btn" id="ctrl-screen" title="Share Screen">
           <span class="tooltip">Share Screen</span>
           ${SVGIcons.screen()}
         </button>
+        <div class="ctrl-divider"></div>
         <button class="ctrl-btn" id="ctrl-chat" title="Chat">
           <span class="tooltip">Chat</span>
           ${SVGIcons.chat()}
@@ -490,7 +490,25 @@ export class InterviewRoom {
 
     this.socket.on('interview-ended', () => {
       showToast('Interview has ended', 'warn');
-      setTimeout(() => window.location.href = '/', 3000);
+      setTimeout(() => {
+        if (this.role === 'recruiter') {
+          window.location.href = '/';
+        } else {
+          // Show thank you screen same as leaveRoom
+          document.getElementById('app').innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:24px;background:var(--bg-void);text-align:center;padding:20px;">
+              <div style="width:80px;height:80px;background:linear-gradient(135deg,var(--brand),var(--accent-purple));border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:white;box-shadow:0 20px 40px rgba(0,0,0,0.3);">✓</div>
+              <div>
+                <h2 style="font-size:32px;font-weight:800;color:var(--text-primary);margin-bottom:12px;letter-spacing:-0.5px;">Interview Completed</h2>
+                <p style="color:var(--text-secondary);font-size:16px;max-width:400px;line-height:1.6;margin:0 auto;">Thanks for joining the interview! We appreciate your time. Our team will review the session and get back to you soon.</p>
+              </div>
+              <div style="font-size:18px;font-weight:600;color:var(--brand-light);display:flex;align-items:center;gap:8px;">
+                Have a good day! ❤️
+              </div>
+            </div>
+          `;
+        }
+      }, 3000);
     });
 
     this.socket.on('transcript-update', (entry) => {
@@ -984,19 +1002,39 @@ ${this.analysisState.skills?.map(s => `- ${s.name} (${s.level})`).join('\n') || 
       this.localStream?.getTracks().forEach(t => t.stop());
       this.socket.disconnect();
 
-      document.getElementById('app').innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:20px;background:var(--bg-void);">
-          <div style="width:56px;height:56px;background:linear-gradient(135deg,var(--brand),var(--accent-purple));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:white;">T</div>
-          <h2 style="font-size:22px;font-weight:700;color:var(--text-primary);">You left the interview</h2>
-          <p style="color:var(--text-muted);font-size:14px;">Duration: ${formatTime(this.elapsedSeconds)}</p>
-          <div style="display:flex;gap:10px;">
-            <button onclick="window.location.href='/'" style="padding:12px 24px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:white;border-radius:var(--r-lg);font-size:14px;font-weight:600;cursor:pointer;border:none;">Back to Home</button>
-            ${this.role === 'recruiter' && this.analysisState ? `
-            <button onclick="window.location.reload()" style="padding:12px 24px;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--r-lg);font-size:14px;font-weight:600;cursor:pointer;">Rejoin</button>
-            ` : ''}
+      if (this.role === 'recruiter') {
+        document.getElementById('app').innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:20px;background:var(--bg-void);">
+            <div style="width:56px;height:56px;background:linear-gradient(135deg,var(--brand),var(--accent-purple));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:white;">T</div>
+            <h2 style="font-size:22px;font-weight:700;color:var(--text-primary);">You left the interview</h2>
+            <p style="color:var(--text-muted);font-size:14px;">Duration: ${formatTime(this.elapsedSeconds)}</p>
+            <div style="display:flex;gap:10px;">
+              <button onclick="window.location.href='/'" style="padding:12px 24px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:white;border-radius:var(--r-lg);font-size:14px;font-weight:600;cursor:pointer;border:none;">Back to Home</button>
+              ${this.analysisState ? `
+              <button onclick="window.location.reload()" style="padding:12px 24px;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--r-lg);font-size:14px;font-weight:600;cursor:pointer;">Rejoin</button>
+              ` : ''}
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      } else {
+        // Candidate Thank You Page
+        document.getElementById('app').innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:24px;background:var(--bg-void);text-align:center;padding:20px;">
+            <div style="width:80px;height:80px;background:linear-gradient(135deg,var(--brand),var(--accent-purple));border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:white;box-shadow:0 20px 40px rgba(0,0,0,0.3);">✓</div>
+            <div>
+              <h2 style="font-size:32px;font-weight:800;color:var(--text-primary);margin-bottom:12px;letter-spacing:-0.5px;">Interview Completed</h2>
+              <p style="color:var(--text-secondary);font-size:16px;max-width:400px;line-height:1.6;margin:0 auto;">Thanks for joining the interview! We appreciate your time. Our team will review the session and get back to you soon.</p>
+            </div>
+            <div style="font-size:18px;font-weight:600;color:var(--brand-light);display:flex;align-items:center;gap:8px;">
+              Have a good day! ❤️
+            </div>
+            <div style="margin-top:40px;opacity:0.5;display:flex;align-items:center;gap:8px;">
+               <div style="width:24px;height:24px;background:rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">T</div>
+               <span style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">TalentIQ AI</span>
+            </div>
+          </div>
+        `;
+      }
     }
   }
 

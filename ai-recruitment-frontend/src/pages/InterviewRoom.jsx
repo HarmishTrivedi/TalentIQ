@@ -14,6 +14,48 @@ import RecruiterAIPanel from '../components/interview/RecruiterAIPanel'
 import SharedCodeEditor from '../components/interview/SharedCodeEditor'
 import TranscriptPanel from '../components/interview/TranscriptPanel'
 
+function MicVisualizer({ stream, active }) {
+  const [levels, setLevels] = useState([10, 20, 50, 30, 10]);
+  
+  useEffect(() => {
+    if (!stream || !active) return;
+    
+    let audioContext, analyser, dataArray, interval;
+    try {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 32;
+      source.connect(analyser);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      interval = setInterval(() => {
+        analyser.getByteFrequencyData(dataArray);
+        const newLevels = Array.from(dataArray.slice(0, 5)).map(v => Math.max(10, v / 2));
+        setLevels(newLevels);
+      }, 50);
+    } catch (e) { console.error(e); }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+      if (audioContext) audioContext.close();
+    };
+  }, [stream, active]);
+
+  return (
+    <div className="flex items-end gap-1 h-8">
+      {levels.map((level, i) => (
+        <motion.div
+          key={i}
+          animate={{ height: active ? level / 2 : 2 }}
+          className="w-1 bg-violet-400 rounded-full"
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function Control({ active, danger, label, onClick, children }) {
   return (
     <button
@@ -223,7 +265,10 @@ export default function InterviewRoom() {
 
       case 'interview_ended':
         toast('Interview has ended');
-        setTimeout(() => navigate(isRecruiter ? '/interviews' : '/'), 3000);
+        setTimeout(() => {
+          if (isCandidate) navigate('/thanks');
+          else navigate('/interviews');
+        }, 3000);
         break;
 
       case 'transcript':
@@ -364,7 +409,7 @@ export default function InterviewRoom() {
         navigate(`/interviews/${interviewId}/analysis`, { state: { transcript } })
       } else {
         cleanup()
-        navigate('/')
+        navigate('/thanks')
       }
     } catch (error) {
       console.error('Error ending interview:', error)
@@ -484,7 +529,7 @@ export default function InterviewRoom() {
           <Control label={isAudioOn ? 'Mute microphone' : 'Unmute microphone'} active={!isAudioOn} onClick={toggleAudio}>{isAudioOn ? <Mic size={20} /> : <MicOff size={20} />}</Control>
           <Control label={isVideoOn ? 'Turn off camera' : 'Turn on camera'} active={!isVideoOn} onClick={toggleVideo}>{isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}</Control>
           <Control label={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen'} active={isFullscreen} onClick={toggleFullscreen}>{isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}</Control>
-          {isRecruiter && <Control label="Share screen" active={isScreenSharing} onClick={toggleScreenShare}>{isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}</Control>}
+          <Control label="Share screen" active={isScreenSharing} onClick={toggleScreenShare}>{isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}</Control>
           <Control label="Chat" active={activePanel === 'chat'} onClick={() => openPanel('chat')}><MessageSquare size={20} /></Control>
           {isCandidate && <Control label="Raise hand" active={handRaised} onClick={raiseHand}><Hand size={20} /></Control>}
           {isRecruiter && (

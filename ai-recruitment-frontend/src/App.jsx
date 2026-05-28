@@ -42,6 +42,7 @@ const LiveInterview = lazy(() => import('./pages/LiveInterview'))
 const InterviewAnalysis = lazy(() => import('./pages/InterviewAnalysis'))
 const QuestionGenerator = lazy(() => import('./pages/QuestionGenerator'))
 const Calendar = lazy(() => import('./pages/Calendar'))
+const ThankYou = lazy(() => import('./pages/ThankYou'))
 
 function AdminRoute({ children }) {
   const { token, user } = useAuthStore()
@@ -94,6 +95,7 @@ export default function App() {
           <Route path="/join/:interviewId" element={<CandidateJoin />} />
           <Route path="/interview-prejoin/:interviewId" element={<InterviewPreJoin />} />
           <Route path="/interview-room/:interviewId" element={<InterviewRoom />} />
+          <Route path="/thanks" element={<ThankYou />} />
 
           <Route path="/welcome" element={<PrivateRoute><RecruiterWelcome /></PrivateRoute>} />
 
