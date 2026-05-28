@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   Plus, Search, Briefcase, Building, MapPin, Clock, Trash2,
   ChevronRight, X, Sparkles, Wand2, Copy, Check, ArrowRight,
-  FileText, Zap, RotateCcw, ChevronDown, ChevronUp
+  FileText, Zap, RotateCcw, ChevronDown, ChevronUp, UploadCloud
 } from 'lucide-react'
 import { jobsApi } from '../services/api'
 import { Spinner, EmptyState, SkeletonCard, Badge, TagList } from '../components/ui'
@@ -385,6 +385,89 @@ function AIJDMaker({ onUseJD }) {
   )
 }
 
+// ── JD Uploader Panel ────────────────────────────────────────────────────────
+function JDUploader({ onUploaded }) {
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const fileInputRef = useRef(null)
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files)
+    if (!files.length) return
+
+    setUploading(true)
+    setProgress(0)
+    const formData = new FormData()
+    files.forEach(file => formData.append('files', file))
+
+    try {
+      const res = await jobsApi.uploadJds(formData, (p) => setProgress(p))
+      toast.success(res.data.message)
+      if (res.data.data?.created_jobs?.length) {
+        onUploaded(res.data.data.created_jobs)
+      }
+      if (res.data.data?.errors?.length) {
+        res.data.data.errors.forEach(err => {
+          toast.error(`Failed to process ${err.filename}: ${err.error}`)
+        })
+      }
+    } catch (err) {
+      console.error('JD Upload Error:', err)
+    } finally {
+      setUploading(false)
+      setProgress(0)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="mb-6 p-5 rounded-3xl border border-dashed transition-all flex flex-col items-center justify-center text-center group"
+      style={{ 
+        background: 'rgba(99, 102, 241, 0.03)', 
+        borderColor: uploading ? 'var(--accent-cyan)' : 'var(--border)',
+      }}>
+      <input
+        type="file"
+        multiple
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept=".pdf,.docx,.doc,.txt"
+      />
+      
+      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/10 to-violet-600/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+        <UploadCloud size={24} className="text-blue-500" />
+      </div>
+
+      <h4 className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+        Bulk Publish via JD Upload
+      </h4>
+      <p className="text-xs mb-4 max-w-sm" style={{ color: 'var(--text-muted)' }}>
+        Upload one or more JD files (PDF, DOCX). AI will automatically parse and publish them as job openings.
+      </p>
+
+      {uploading ? (
+        <div className="w-full max-w-xs space-y-2">
+          <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <span>Processing JDs...</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-black/10 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      ) : (
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          className="btn-primary py-2 px-6 h-auto text-xs"
+        >
+          Select JD Files
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── Main Jobs Page ────────────────────────────────────────────────────────────
 const JOB_TYPE_COLORS = { 'full-time': 'green', 'part-time': 'blue', 'contract': 'yellow', 'freelance': 'purple', 'internship': 'blue' }
 
@@ -435,6 +518,11 @@ export default function Jobs() {
     }
   }
 
+  const handleJDUploaded = (newJobs) => {
+    // We need to refresh the list to get full job objects or we can just reload
+    load()
+  }
+
   return (
     <div className="p-6 page-enter">
       {showModal && (
@@ -460,8 +548,15 @@ export default function Jobs() {
         </button>
       </div>
 
-      {/* AI JD Maker — inline panel */}
-      <AIJDMaker onUseJD={handleUseJD} />
+      {/* Upload and AI JD Maker — inline panels */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <AIJDMaker onUseJD={handleUseJD} />
+        </div>
+        <div>
+          <JDUploader onUploaded={handleJDUploaded} />
+        </div>
+      </div>
 
       {/* Search */}
       <div className="relative mb-5">

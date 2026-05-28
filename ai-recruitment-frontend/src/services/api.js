@@ -112,6 +112,11 @@ export const jobsApi = {
   update: (id, data) => api.put(`/jobs/${id}`, data),
   delete: (id) => api.delete(`/jobs/${id}`),
   generateJD: (data) => api.post('/jobs/generate-jd', data, { timeout: 60000 }),
+  uploadJds: (formData, onProgress) => api.post('/jobs/upload-jds', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (e) => onProgress && onProgress(Math.round(e.loaded / e.total * 100)),
+    timeout: 120000,
+  }),
 }
 
 export const matchingApi = {

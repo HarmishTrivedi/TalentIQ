@@ -92,6 +92,43 @@ class JobService:
 
         return job
 
+    async def parse_jd_from_file(self, file_bytes: bytes, filename: str) -> dict:
+        """Extract text from file and use LLM to parse basic job metadata."""
+        from app.utils.pdf_extractor import extract_text_from_bytes
+        
+        try:
+            text = extract_text_from_bytes(file_bytes, filename)
+            if not text or len(text) < 100:
+                raise ValueError("Extracted text is too short or empty")
+            
+            prompt = f"""You are an expert HR assistant. Extract basic job metadata from the following Job Description text.
+            
+JD TEXT:
+{text[:4000]}
+
+Return a JSON object with EXACTLY this structure:
+{{
+  "title": "Job Title",
+  "company": "Company Name (or null)",
+  "location": "Location (or null)",
+  "job_type": "full-time, part-time, contract, freelance, or internship",
+  "required_experience_years": 3.5 (float or null),
+  "domain": "Detected domain (e.g. Technology, Healthcare, Sales)"
+}}
+"""
+            metadata = await self.llm.generate_json(
+                prompt=prompt,
+                system_prompt="You are a precise HR data extractor. Only return JSON."
+            )
+            
+            # Ensure description is included
+            metadata["description"] = text
+            return metadata
+            
+        except Exception as e:
+            logger.error("Failed to parse JD from file", filename=filename, error=str(e))
+            raise e
+
     async def _extract_requirements(self, description: str, title: str, domain: str) -> dict:
         try:
             intel = self.intel.get_role_intelligence(title)

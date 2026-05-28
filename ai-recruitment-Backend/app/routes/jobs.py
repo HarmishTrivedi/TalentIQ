@@ -1,13 +1,13 @@
 """Job management routes: create, list, get, update, delete — scoped per user."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 from app.database import get_db
 from app.models.models import Job, User
-from app.models.schemas import JobCreate, JobUpdate, JobResponse, JobListResponse
+from app.models.schemas import JobCreate, JobUpdate, JobResponse, JobListResponse, SuccessResponse
 from app.services.job_service import get_job_service
 from app.utils.auth import get_current_user
 
@@ -133,6 +133,52 @@ Generate a comprehensive, well-structured JD in MARKDOWN format with these exact
         "location": request.location or "Remote",
         "job_type": request.job_type or "Full-time"
     }
+
+
+@router.post("/upload-jds", response_model=SuccessResponse)
+async def upload_jds(
+    files: List[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload multiple JD files, parse them, and create job openings."""
+    job_service = get_job_service()
+    created_jobs = []
+    errors = []
+
+    for file in files:
+        try:
+            content = await file.read()
+            # 1. Parse metadata from file
+            metadata = await job_service.parse_jd_from_file(content, file.filename)
+            
+            # 2. Create Job object
+            job = Job(
+                title=metadata.get("title") or file.filename,
+                company=metadata.get("company"),
+                location=metadata.get("location"),
+                job_type=metadata.get("job_type", "full-time"),
+                description=metadata.get("description"),
+                required_experience_years=metadata.get("required_experience_years"),
+                domain=metadata.get("domain"),
+                created_by=current_user.id,
+            )
+            db.add(job)
+            await db.flush()
+
+            # 3. Process job (deep extraction & embedding)
+            job = await job_service.process_job(job, db)
+            created_jobs.append({"id": job.id, "title": job.title, "filename": file.filename})
+            
+        except Exception as e:
+            errors.append({"filename": file.filename, "error": str(e)})
+
+    await db.commit()
+
+    return SuccessResponse(
+        message=f"Successfully processed {len(created_jobs)} jobs. {len(errors)} failed.",
+        data={"created_jobs": created_jobs, "errors": errors}
+    )
 
 
 @router.post("", response_model=JobResponse, status_code=201)
