@@ -18,10 +18,10 @@ logger = structlog.get_logger()
 
 # Scoring weights
 WEIGHTS = {
-    "semantic_similarity": 0.15,
-    "skill_match": 0.45,
+    "semantic_similarity": 0.10,
+    "skill_match": 0.40,
     "experience_match": 0.15,
-    "domain_match": 0.15,
+    "domain_match": 0.25, # Increased weight
     "llm_evaluation": 0.05,
     "education_match": 0.05,
 }
@@ -202,23 +202,28 @@ class MatchingEngine:
         }
 
     def _compute_domain_match(self, candidate: Candidate, job: Job) -> float:
-        """Score based on domain alignment."""
+        """Score based on domain alignment with strict cross-domain penalties."""
         if not candidate.domain or not job.domain:
-            return 50.0
+            return 40.0 # Unknown is risky
         
         if candidate.domain == job.domain:
             return 100.0
         
         # Cross-domain penalties
-        # Technical to Non-Technical or vice versa
+        # Categorize domains
         tech_domains = ["Software Engineering", "Infrastructure", "Data & AI"]
         biz_domains = ["Sales", "Marketing", "Product", "Human Resources"]
+        enterprise_domains = ["Enterprise Systems"]
         
+        # Hard penalty for jumping across tech, biz, and enterprise
         if (candidate.domain in tech_domains and job.domain in biz_domains) or \
-           (candidate.domain in biz_domains and job.domain in tech_domains):
-            return 20.0
+           (candidate.domain in biz_domains and job.domain in tech_domains) or \
+           (candidate.domain in enterprise_domains and (job.domain in tech_domains or job.domain in biz_domains)) or \
+           ((candidate.domain in tech_domains or candidate.domain in biz_domains) and job.domain in enterprise_domains):
+            return 5.0 # Very low score for fundamental domain mismatch
             
-        return 40.0 # Same category (biz/tech) but different domain
+        # Moderate penalty for different domains within same category
+        return 30.0 
 
     def _compute_skill_match(self, candidate: Candidate, job: Job) -> float:
         """Calculate skill overlap between candidate and job requirements with synonym matching."""

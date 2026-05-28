@@ -34,6 +34,7 @@ Extract and return a JSON object with EXACTLY this structure:
   "phone": "phone number or null",
   "location": "city, country or null",
   "summary": "2-3 sentence professional summary",
+  "domain": "Detected domain (e.g. Software Engineering, Data & AI, Enterprise Systems, Sales, etc.)",
   "experience_years": 0.0,
   "experience_details": {{
     "positions": [
@@ -230,11 +231,24 @@ class CVProcessingService:
             candidate.location = structured.get("location")
             candidate.summary = structured.get("summary")
             
-            # Step 1: Classify Domain
-            # Try to use current title if available, else use summary
+            # Step 1: Deep Domain Classification
+            # Use LLM to study the candidate profile thoroughly
             positions = structured.get("experience_details", {}).get("positions", [])
             current_role = positions[0].get("title") if positions else candidate.name
-            candidate.domain = self.intel.classify_role(current_role)
+            
+            # Extract skills string for classification
+            cand_skills_raw = structured.get("skills", {})
+            skills_str = ""
+            if isinstance(cand_skills_raw, dict):
+                skills_str = ", ".join([str(s) for sublist in cand_skills_raw.values() if isinstance(sublist, list) for s in sublist])
+            elif isinstance(cand_skills_raw, list):
+                skills_str = ", ".join([str(s) for s in cand_skills_raw])
+                
+            candidate.domain = await self.intel.classify_role_deep(
+                role_title=current_role,
+                summary=candidate.summary or "",
+                skills=skills_str
+            )
 
             candidate.experience_details = structured.get("experience_details", {"positions": []})
             # Use ONLY LLM-extracted positions for experience calculation.
@@ -556,6 +570,25 @@ class CVProcessingService:
         candidate.name = structured.get("name", candidate.name)
         candidate.email = structured.get("email", candidate.email)
         candidate.skills = structured.get("skills")
+        candidate.summary = structured.get("summary")
+        
+        # Deep Domain Classification during reprocessing
+        positions = (structured.get("experience_details") or {}).get("positions", [])
+        current_role = positions[0].get("title") if positions else candidate.name
+        
+        cand_skills_raw = candidate.skills or {}
+        skills_str = ""
+        if isinstance(cand_skills_raw, dict):
+            skills_str = ", ".join([str(s) for sublist in cand_skills_raw.values() if isinstance(sublist, list) for s in sublist])
+        elif isinstance(cand_skills_raw, list):
+            skills_str = ", ".join([str(s) for s in cand_skills_raw])
+
+        candidate.domain = await self.intel.classify_role_deep(
+            role_title=current_role,
+            summary=candidate.summary or "",
+            skills=skills_str
+        )
+
         candidate.experience_details = structured.get("experience_details")
         positions = (candidate.experience_details or {}).get("positions", [])
         candidate.experience_years = (

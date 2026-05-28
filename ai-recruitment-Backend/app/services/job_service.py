@@ -59,7 +59,10 @@ class JobService:
         try:
             # 0. Classify domain if not present
             if not job.domain:
-                job.domain = self.intel.classify_role(job.title)
+                job.domain = await self.intel.classify_role_deep(
+                    role_title=job.title,
+                    summary=job.description[:1000]
+                )
 
             # 1. Extract structured requirements
             extracted = await self._extract_requirements(job.description, job.title, job.domain)

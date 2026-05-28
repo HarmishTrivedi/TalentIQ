@@ -82,6 +82,18 @@ DOMAIN_KNOWLEDGE_BASE = {
             "Collaborate with development teams to optimize application deployment"
         ]
     },
+    "Enterprise Systems": {
+        "core_skills": ["SAP", "Oracle ERP", "Salesforce", "Microsoft Dynamics", "ERP Implementation", "Business Process Mapping", "ABAP", "FICO", "Supply Chain Management"],
+        "preferred_skills": ["Change Management", "Data Migration", "System Integration", "Business Analysis"],
+        "forbidden_skills": ["React", "Vue", "Frontend Development", "Mobile App Development", "Game Design"],
+        "responsibilities": [
+            "Configure and maintain ERP modules",
+            "Analyze business processes and recommend system improvements",
+            "Collaborate with stakeholders to gather requirements for system enhancements",
+            "Manage large-scale data migrations and system integrations",
+            "Provide user training and support for enterprise applications"
+        ]
+    },
     "Product": {
         "core_skills": ["Product Strategy", "Roadmapping", "Market Research", "Agile/Scrum", "User Stories", "Stakeholder Management", "Data-Driven Decision Making"],
         "preferred_skills": ["Technical Background", "A/B Testing", "Product Analytics", "Customer Discovery"],
@@ -151,9 +163,10 @@ class IntelligenceService:
             "Sales": ["sales", "account", "business development", "prospecting"],
             "Human Resources": ["hr", "human resources", "recruitment", "talent", "people"],
             "Software Engineering": ["developer", "engineer", "fullstack", "backend", "frontend", "programmer", "software"],
-            "Data & AI": ["data", "ai", "machine learning", "ml", "scientist", "analytics"],
+            "Data & AI": ["data", "ai", "machine learning", "ml", "scientist", "analytics", "intern"],
             "Design": ["design", "ui", "ux", "creative", "artist"],
             "Infrastructure": ["devops", "sre", "cloud", "infrastructure", "sysadmin", "network"],
+            "Enterprise Systems": ["sap", "erp", "oracle", "salesforce", "dynamics", "abap", "fico", "business process"],
             "Product": ["product", "roadmap", "owner"],
             "Marketing": ["marketing", "seo", "content", "social media", "brand"]
         }
@@ -161,13 +174,47 @@ class IntelligenceService:
         for domain, domain_keywords in keywords.items():
             if any(kw in role_lower for kw in domain_keywords):
                 # Specific overrides for overlap
-                if domain == "Software Engineering" and "data" in role_lower:
+                if domain == "Software Engineering" and any(k in role_lower for k in ["data", "ai", "ml"]):
                     return "Data & AI"
                 if domain == "Software Engineering" and "devops" in role_lower:
                     return "Infrastructure"
+                if domain == "Software Engineering" and any(k in role_lower for k in ["sap", "erp"]):
+                    return "Enterprise Systems"
                 return domain
                 
         return "Software Engineering"  # Default
+
+    async def classify_role_deep(self, role_title: str, summary: str = "", skills: str = "") -> str:
+        """Deeply classify a role using LLM based on title, summary, and skills."""
+        if not self.llm:
+            from app.services.llm_service import get_llm_service
+            self.llm = get_llm_service()
+            
+        prompt = f"""You are an expert HR analyst. Classify the following candidate profile into exactly ONE of these domains:
+{", ".join(DOMAIN_KNOWLEDGE_BASE.keys())}
+
+PROFILE:
+Title: {role_title}
+Summary: {summary}
+Skills: {skills}
+
+Consider the core nature of the work. If it's SAP, Oracle, or ERP related, it MUST be 'Enterprise Systems'. If it's AI, ML, or Data related, it MUST be 'Data & AI'.
+
+Return ONLY the domain name, nothing else."""
+
+        try:
+            domain = await self.llm.generate(
+                prompt=prompt,
+                system_prompt="You are a precise role classifier. Return only the domain name.",
+                temperature=0.1
+            )
+            domain = domain.strip()
+            if domain in DOMAIN_KNOWLEDGE_BASE:
+                return domain
+        except Exception as e:
+            logger.error("Deep classification failed", error=str(e))
+            
+        return self.classify_role(role_title)
 
     def get_role_intelligence(self, role_title: str) -> Dict[str, Any]:
         """Get core, preferred, and forbidden skills for a role."""
