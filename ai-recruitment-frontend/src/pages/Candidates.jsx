@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Upload, Trash2, ChevronRight, User, RefreshCw, ChevronLeft, Calendar } from 'lucide-react'
+import { Search, Upload, Trash2, ChevronRight, User, RefreshCw, ChevronLeft, Calendar, Filter } from 'lucide-react'
 import { candidatesApi } from '../services/api'
 import { SkeletonCard, EmptyState, TagList, Badge, ConfirmationModal } from '../components/ui'
 import { formatRelativeTime, getInitials, formatExperience, truncate } from '../utils/helpers'

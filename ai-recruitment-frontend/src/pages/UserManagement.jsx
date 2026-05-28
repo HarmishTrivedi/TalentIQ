@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Users, UserPlus, Trash2, Shield, Power, Search, ShieldCheck } from 'lucide-react'
+import { Users, UserPlus, Trash2, Shield, Power, Search, Filter, ShieldCheck } from 'lucide-react'
 import { adminApi } from '../services/api'
 import { Spinner, EmptyState, ConfirmationModal } from '../components/ui'
 import toast from 'react-hot-toast'
