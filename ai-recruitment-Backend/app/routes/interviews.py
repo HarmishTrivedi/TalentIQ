@@ -47,11 +47,14 @@ class ConnectionManager:
     
     def disconnect(self, websocket: WebSocket, interview_id: str):
         if interview_id in self.active_connections:
-            self.active_connections[interview_id].remove(websocket)
+            if websocket in self.active_connections[interview_id]:
+                self.active_connections[interview_id].remove(websocket)
     
-    async def broadcast(self, interview_id: str, message: dict):
+    async def broadcast(self, interview_id: str, message: dict, exclude_websocket: WebSocket = None):
         if interview_id in self.active_connections:
             for connection in self.active_connections[interview_id]:
+                if exclude_websocket and connection == exclude_websocket:
+                    continue
                 try:
                     await connection.send_json(message)
                 except:
@@ -357,7 +360,7 @@ async def get_interview(
     }
 
 
-@router.get("/join/{interview_id}", response_model=InterviewResponse)
+@router.get("/join/{interview_id}")
 async def get_interview_by_token(
     interview_id: str,
     token: str,
@@ -370,7 +373,7 @@ async def get_interview_by_token(
         select(Interview)
         .options(
             selectinload(Interview.candidate),
-            selectinload(Interview.questions)
+            selectinload(Interview.job)
         )
         .where(Interview.id == interview_id)
     )
@@ -382,7 +385,34 @@ async def get_interview_by_token(
     if interview.candidate_access_token != token:
         raise HTTPException(status_code=403, detail="Invalid access token")
     
-    return interview
+    # Return dict to avoid lazy loading
+    return {
+        "id": interview.id,
+        "candidate_id": interview.candidate_id,
+        "job_id": interview.job_id,
+        "recruiter_id": interview.recruiter_id,
+        "title": interview.title,
+        "status": interview.status,
+        "scheduled_at": interview.scheduled_at,
+        "started_at": interview.started_at,
+        "ended_at": interview.ended_at,
+        "duration_minutes": interview.duration_minutes,
+        "interview_types": interview.interview_types,
+        "candidate_access_token": interview.candidate_access_token,
+        "meeting_url": interview.meeting_url,
+        "recruiter_meeting_url": interview.recruiter_meeting_url,
+        "created_at": interview.created_at,
+        "candidate": {
+            "id": interview.candidate.id,
+            "name": interview.candidate.name,
+            "email": interview.candidate.email,
+        } if interview.candidate else None,
+        "job": {
+            "id": interview.job.id,
+            "title": interview.job.title,
+            "company": interview.job.company,
+        } if interview.job else None
+    }
 
 
 @router.patch("/{interview_id}")
@@ -449,14 +479,23 @@ async def delete_interview(
     return {"message": "Interview deleted successfully", "id": interview_id}
 
 
-@router.post("/{interview_id}/start", response_model=InterviewResponse)
+@router.post("/{interview_id}/start")
 async def start_interview(
     interview_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Start an interview"""
-    interview = await db.get(Interview, interview_id)
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(Interview)
+        .options(selectinload(Interview.candidate))
+        .options(selectinload(Interview.job))
+        .where(Interview.id == interview_id)
+    )
+    interview = result.scalar_one_or_none()
+    
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
     
@@ -464,7 +503,6 @@ async def start_interview(
     interview.started_at = datetime.utcnow()
     
     await db.commit()
-    await db.refresh(interview)
     
     await manager.broadcast(interview_id, {
         "type": "interview_started",
@@ -472,17 +510,41 @@ async def start_interview(
         "started_at": interview.started_at.isoformat()
     })
     
-    return interview
+    # Return dict to avoid lazy loading
+    return {
+        "id": interview.id,
+        "candidate_id": interview.candidate_id,
+        "job_id": interview.job_id,
+        "recruiter_id": interview.recruiter_id,
+        "title": interview.title,
+        "status": interview.status,
+        "scheduled_at": interview.scheduled_at,
+        "started_at": interview.started_at,
+        "ended_at": interview.ended_at,
+        "duration_minutes": interview.duration_minutes,
+        "interview_types": interview.interview_types,
+        "created_at": interview.created_at,
+        "message": "Interview started successfully"
+    }
 
 
-@router.post("/{interview_id}/end", response_model=InterviewResponse)
+@router.post("/{interview_id}/end")
 async def end_interview(
     interview_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """End an interview and trigger AI analysis"""
-    interview = await db.get(Interview, interview_id)
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(Interview)
+        .options(selectinload(Interview.candidate))
+        .options(selectinload(Interview.job))
+        .where(Interview.id == interview_id)
+    )
+    interview = result.scalar_one_or_none()
+    
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
     
@@ -504,7 +566,22 @@ async def end_interview(
         "ended_at": interview.ended_at.isoformat()
     })
     
-    return interview
+    # Return dict to avoid lazy loading
+    return {
+        "id": interview.id,
+        "candidate_id": interview.candidate_id,
+        "job_id": interview.job_id,
+        "recruiter_id": interview.recruiter_id,
+        "title": interview.title,
+        "status": interview.status,
+        "scheduled_at": interview.scheduled_at,
+        "started_at": interview.started_at,
+        "ended_at": interview.ended_at,
+        "duration_minutes": interview.duration_minutes,
+        "interview_types": interview.interview_types,
+        "created_at": interview.created_at,
+        "message": "Interview ended successfully"
+    }
 
 
 # ─── Question Management ──────────────────────────────────────────────────────

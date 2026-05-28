@@ -472,30 +472,102 @@ export default function InterviewRoom() {
     if (!confirm('Are you sure you want to leave the interview room?')) return;
 
     try {
+      // Exit fullscreen first
       if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
+        await document.exitFullscreen().catch(() => {});
       }
 
+      // Cleanup media and connections
+      cleanup();
+
       if (isRecruiter) {
-        await api.post(`/interviews/${interviewId}/end`)
-        toast.success('Interview ended. Opening report.')
-        cleanup()
-        navigate(`/interviews/${interviewId}/analysis`, { state: { transcript }, replace: true })
+        // Send end interview request
+        try {
+          await api.post(`/interviews/${interviewId}/end`);
+          toast.success('Interview ended. Opening report.');
+        } catch (error) {
+          console.error('Error ending interview:', error);
+          // Continue navigation even if API fails
+        }
+        navigate(`/interviews/${interviewId}/analysis`, { state: { transcript }, replace: true });
       } else {
-        cleanup()
-        navigate('/thanks', { replace: true })
+        // Notify server that candidate left
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'participant_left',
+            name: candidateName || 'Candidate'
+          }));
+        }
+        navigate('/thanks', { replace: true });
       }
     } catch (error) {
-      console.error('Error ending interview:', error)
-      toast.error('Failed to end interview')
-      cleanup()
-      navigate(isRecruiter ? '/interviews' : '/', { replace: true })
+      console.error('Error in endInterview:', error);
+      cleanup();
+      navigate(isRecruiter ? '/interviews' : '/', { replace: true });
     }
   }
 
   const startTimer = () => {
     timerRef.current = setInterval(() => setElapsedTime((previous) => previous + 1), 1000)
   }
+
+  const initializeSpeechRecognition = () => {
+    try {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        console.warn('Speech recognition not supported');
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join('');
+
+        if (event.results[event.results.length - 1].isFinal) {
+          const speaker = candidateName || user?.full_name || 'Participant';
+          setTranscript(prev => [...prev, {
+            speaker,
+            text: transcript,
+            timestamp: new Date().toISOString()
+          }]);
+
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              type: 'transcript',
+              speaker,
+              text: transcript,
+              timestamp: new Date().toISOString()
+            }));
+          }
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'no-speech') {
+          recognition.start();
+        }
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          recognition.start();
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Failed to initialize speech recognition:', error);
+    }
+  };
 
   const cleanup = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop())
