@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useNavigate } from 'react-router-dom'
-import { Upload, FileText, CheckCircle, AlertCircle, X, Sparkles, ChevronRight, Trash2, Loader, Brain } from 'lucide-react'
+import { Upload, FileText, CheckCircle, AlertCircle, X, Sparkles, ChevronRight, Trash2, Loader, Brain, RefreshCw } from 'lucide-react'
 import { candidatesApi } from '../services/api'
 import { Spinner } from '../components/ui'
 import { formatFileSize, formatExperience } from '../utils/helpers'
