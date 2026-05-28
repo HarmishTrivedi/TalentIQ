@@ -4,8 +4,9 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Download, Share2, Brain, TrendingUp, AlertTriangle,
   CheckCircle, XCircle, Code, MessageCircle, Shield, Clock,
-  Target, Award, ThumbsUp, ThumbsDown, Activity, Zap, User
+  Target, Award, ThumbsUp, ThumbsDown, Activity, Zap, User, Trash2
 } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { cn } from '../utils/helpers';
@@ -59,6 +60,8 @@ export default function InterviewAnalysis() {
   const [interview, setInterview] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { loadAnalysis() }, [interviewId]);
 
@@ -79,6 +82,16 @@ export default function InterviewAnalysis() {
       if (navigator.share) await navigator.share({ title: `TalentIQ Analysis`, url: window.location.href });
       else { await navigator.clipboard.writeText(window.location.href); toast.success('Link copied!') }
     } catch (e) { if (e?.name !== 'AbortError') toast.error('Unable to share') }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/interviews/${interviewId}`);
+      toast.success('Interview and analysis deleted');
+      navigate('/interviews');
+    } catch { toast.error('Failed to delete'); }
+    finally { setDeleting(false); }
   };
 
   const recColor = (r) => ({ strong_hire: '#006058', hire: '#004ac6', maybe: '#f59e0b', no_hire: '#ba1a1a' }[r] || '#737686')
@@ -109,6 +122,38 @@ export default function InterviewAnalysis() {
 
   return (
     <div className="page-enter">
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onClick={() => setShowDeleteModal(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-surface-container-lowest border border-outline-variant rounded-3xl p-8 shadow-2xl"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-2xl bg-error/10 flex items-center justify-center mb-5">
+                  <Trash2 size={28} className="text-error" />
+                </div>
+                <h3 className="text-xl font-bold text-on-surface mb-2">Delete Analysis</h3>
+                <p className="text-sm text-on-surface-variant leading-relaxed mb-8">
+                  Permanently delete <span className="font-bold text-on-surface">"{interview?.title}"</span> and all its AI analysis data? This cannot be undone.
+                </p>
+                <div className="flex gap-3 w-full">
+                  <button onClick={() => setShowDeleteModal(false)} disabled={deleting}
+                    className="btn-secondary flex-1 py-3 font-bold">Cancel</button>
+                  <button onClick={handleDelete} disabled={deleting}
+                    className="flex-1 py-3 rounded-xl font-bold text-sm text-white bg-error hover:bg-error/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                    {deleting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Trash2 size={16} />}
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
@@ -128,8 +173,12 @@ export default function InterviewAnalysis() {
             <Share2 size={16} /> Share
           </button>
           <button onClick={() => { toast.success('Use print dialog to save as PDF'); window.print() }}
-            className="btn-primary flex items-center gap-2">
+            className="btn-secondary flex items-center gap-2">
             <Download size={16} /> Export PDF
+          </button>
+          <button onClick={() => setShowDeleteModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-error/30 text-error hover:bg-error/5 transition-all font-semibold text-sm">
+            <Trash2 size={16} /> Delete
           </button>
         </div>
       </div>

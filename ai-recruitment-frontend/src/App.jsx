@@ -40,6 +40,7 @@ const Pricing = lazy(() => import('./pages/Pricing'))
 const Interviews = lazy(() => import('./pages/Interviews'))
 const LiveInterview = lazy(() => import('./pages/LiveInterview'))
 const InterviewAnalysis = lazy(() => import('./pages/InterviewAnalysis'))
+const InterviewRecordings = lazy(() => import('./pages/InterviewRecordings'))
 const QuestionGenerator = lazy(() => import('./pages/QuestionGenerator'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const ThankYou = lazy(() => import('./pages/ThankYou'))
@@ -117,6 +118,7 @@ export default function App() {
             <Route path="/ai-interviews" element={<AIInterviews />} />
             <Route path="/interviews" element={<Interviews />} />
             <Route path="/interviews/schedule" element={<ScheduleInterview />} />
+            <Route path="/interviews/recordings" element={<InterviewRecordings />} />
             <Route path="/interviews/:interviewId" element={<LiveInterview />} />
             <Route path="/interviews/:interviewId/analysis" element={<InterviewAnalysis />} />
             <Route path="/questions/generate" element={<QuestionGenerator />} />

@@ -5,7 +5,7 @@ import {
   MessageSquare, Sparkles, LogOut, ShieldCheck,
   Target, Sun, Moon, Settings, Building2, 
   Crown, ChevronRight, DollarSign,
-  Brain, Wand2, Calendar, HelpCircle, Plus, Bell, BarChart3
+  Brain, Wand2, Calendar, HelpCircle, Plus, Bell, BarChart3, Film
 } from 'lucide-react'
 import { useAuthStore } from '../../store'
 import { useThemeStore } from '../../store/themeStore'
@@ -91,6 +91,16 @@ export default function Sidebar() {
         >
           <Wand2 size={20} className="text-violet-500" />
           <span className="text-sm">Question Gen</span>
+        </NavLink>
+        <NavLink
+          to="/interviews/recordings"
+          className={({ isActive }) => cn(
+            'flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container transition-all group',
+            isActive && 'text-primary font-bold border-r-4 border-primary bg-surface-container'
+          )}
+        >
+          <Film size={20} className="text-violet-500" />
+          <span className="text-sm">Recordings</span>
         </NavLink>
       </nav>
 
