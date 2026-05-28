@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Brain, Code, Copy, FileText, Hand, Maximize, Mic, MicOff, Minimize,
@@ -30,9 +30,11 @@ function MicVisualizer({ stream, active }) {
       dataArray = new Uint8Array(analyser.frequencyBinCount);
       
       interval = setInterval(() => {
-        analyser.getByteFrequencyData(dataArray);
-        const newLevels = Array.from(dataArray.slice(0, 5)).map(v => Math.max(10, v / 2));
-        setLevels(newLevels);
+        if (analyser && dataArray) {
+          analyser.getByteFrequencyData(dataArray);
+          const newLevels = Array.from(dataArray.slice(0, 5)).map(v => Math.max(10, v / 2));
+          setLevels(newLevels);
+        }
       }, 50);
     } catch (e) { console.error(e); }
     
@@ -80,15 +82,18 @@ export default function InterviewRoom() {
   const { interviewId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, token: authToken } = useAuthStore()
   const token = searchParams.get('token')
   const candidateName = searchParams.get('name')
   const isCandidate = !!token
+  
   const isRecruiter = useMemo(() => {
     if (isCandidate) return false;
+    if (!authToken) return false;
     if (!user) return null; // Still loading user
     return user.role === 'recruiter' || user.role === 'admin';
-  }, [isCandidate, user]);
+  }, [isCandidate, user, authToken]);
 
   const [interview, setInterview] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -99,7 +104,7 @@ export default function InterviewRoom() {
   const [activePanel, setActivePanel] = useState(null)
   const [showCodeEditor, setShowCodeEditor] = useState(false)
   const [handRaised, setHandRaised] = useState(false)
-  const [networkQuality] = useState('good')
+  const [networkQuality] = useState('Excellent')
   const [elapsedTime, setElapsedTime] = useState(0)
   const [isRecording, setIsRecording] = useState(false)
   const [transcript, setTranscript] = useState([])
@@ -118,19 +123,49 @@ export default function InterviewRoom() {
   const ICE_SERVERS = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
     ]
   }
+
+  // Auth Protection for Recruiters
+  useEffect(() => {
+    if (!isCandidate && !authToken) {
+      toast.error('Recruiters must be logged in to access this room.')
+      navigate('/login', { state: { from: location.pathname }, replace: true })
+    }
+  }, [isCandidate, authToken, navigate, location])
 
   useEffect(() => {
     if (isRecruiter === null) return;
     
     const init = async () => {
-      await loadInterview()
-      const stream = await initializeMedia()
-      initializeWebSocket(stream)
-      initializeSpeechRecognition()
-      startTimer()
+      try {
+        const interviewData = await loadInterview()
+        
+        if (interviewData?.status === 'completed') {
+          if (isCandidate) navigate('/thanks', { replace: true })
+          else navigate(`/interviews/${interviewId}/analysis`, { replace: true })
+          return
+        }
+
+        // Reuse stream from pre-join if available
+        let stream = location.state?.mediaStream
+        if (stream) {
+          console.log('✅ Reusing media stream from pre-join')
+          streamRef.current = stream
+          if (localVideoRef.current) localVideoRef.current.srcObject = stream
+          stream.getTracks().forEach(t => t.enabled = true)
+        } else {
+          stream = await initializeMedia()
+        }
+
+        initializeWebSocket(stream)
+        initializeSpeechRecognition()
+        startTimer()
+      } catch (e) {
+        console.error('Init failed', e)
+      }
     }
 
     init()
@@ -141,11 +176,42 @@ export default function InterviewRoom() {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
+    // Prevent back navigation
+    window.history.pushState(null, '', window.location.href);
+    const handlePopState = () => {
+      if (confirm('Are you sure you want to exit the interview room?')) {
+        endInterview();
+      } else {
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
       cleanup();
     };
   }, [interviewId, isRecruiter])
+
+  const loadInterview = async () => {
+    try {
+      const response = isCandidate
+        ? await api.get(`/interviews/join/${interviewId}?token=${token}`)
+        : await api.get(`/interviews/${interviewId}`)
+      
+      setInterview(response.data)
+      setLoading(false)
+      
+      if (isRecruiter && response.data.status === 'scheduled') {
+        await api.post(`/interviews/${interviewId}/start`)
+      }
+      return response.data
+    } catch (error) {
+      toast.error('Could not load interview. Access denied or invalid link.')
+      navigate(isCandidate ? '/' : '/interviews', { replace: true })
+    }
+  }
 
   const initializeMedia = async () => {
     try {
@@ -173,13 +239,8 @@ export default function InterviewRoom() {
     
     wsRef.current.onopen = () => {
       console.log('✅ Connected to meeting socket')
-      // If recruiter, we can start by offering (though usually newcomer offers)
-      // For simplicity, let's say whoever joins first waits, newcomer offers.
       if (stream) {
-        // Let others know we are here
-        wsRef.current.send(JSON.stringify({ type: 'participant_joined', name: user?.full_name || 'Participant' }))
-        
-        // Initiate offer if we are joining an existing session
+        wsRef.current.send(JSON.stringify({ type: 'participant_joined', name: user?.full_name || candidateName || 'Participant' }))
         createPeerConnection(stream)
       }
     }
@@ -211,10 +272,8 @@ export default function InterviewRoom() {
     };
 
     pc.onconnectionstatechange = () => {
-      console.log('Connection state:', pc.connectionState);
       if (pc.connectionState === 'failed') {
-        toast.error('Connection failed. Retrying...');
-        // logic to restart
+        toast.error('Media connection failed. Reconnecting...');
       }
     };
 
@@ -241,15 +300,12 @@ export default function InterviewRoom() {
         if (peerRef.current) {
           try {
             await peerRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-          } catch (e) {
-            console.error('Error adding ICE candidate', e);
-          }
+          } catch (e) {}
         }
         break;
 
       case 'participant_joined':
         toast.success(`${data.name} joined the interview`);
-        // We initiate the offer when someone else joins
         if (stream) {
           const pc = createPeerConnection(stream);
           const offer = await pc.createOffer();
@@ -266,8 +322,8 @@ export default function InterviewRoom() {
       case 'interview_ended':
         toast('Interview has ended');
         setTimeout(() => {
-          if (isCandidate) navigate('/thanks');
-          else navigate('/interviews');
+          if (isCandidate) navigate('/thanks', { replace: true });
+          else navigate('/interviews', { replace: true });
         }, 3000);
         break;
 
@@ -307,7 +363,7 @@ export default function InterviewRoom() {
   };
 
   const toggleVideo = () => {
-    const track = localVideoRef.current?.srcObject?.getVideoTracks()[0]
+    const track = streamRef.current?.getVideoTracks()[0]
     if (track) {
       track.enabled = !track.enabled
       setIsVideoOn(track.enabled)
@@ -315,7 +371,7 @@ export default function InterviewRoom() {
   }
 
   const toggleAudio = () => {
-    const track = localVideoRef.current?.srcObject?.getAudioTracks()[0]
+    const track = streamRef.current?.getAudioTracks()[0]
     if (track) {
       track.enabled = !track.enabled
       setIsAudioOn(track.enabled)
@@ -395,7 +451,7 @@ export default function InterviewRoom() {
   }
 
   const endInterview = async () => {
-    if (!confirm('Are you sure you want to end this interview for everyone?')) return;
+    if (!confirm('Are you sure you want to leave the interview room?')) return;
 
     try {
       if (document.fullscreenElement) {
@@ -406,24 +462,29 @@ export default function InterviewRoom() {
         await api.post(`/interviews/${interviewId}/end`)
         toast.success('Interview ended. Opening report.')
         cleanup()
-        navigate(`/interviews/${interviewId}/analysis`, { state: { transcript } })
+        navigate(`/interviews/${interviewId}/analysis`, { state: { transcript }, replace: true })
       } else {
         cleanup()
-        navigate('/thanks')
+        navigate('/thanks', { replace: true })
       }
     } catch (error) {
       console.error('Error ending interview:', error)
       toast.error('Failed to end interview')
       cleanup()
-      navigate(isRecruiter ? '/interviews' : '/')
+      navigate(isRecruiter ? '/interviews' : '/', { replace: true })
     }
   }
 
+  const startTimer = () => {
+    timerRef.current = setInterval(() => setElapsedTime((previous) => previous + 1), 1000)
+  }
+
   const cleanup = () => {
-    localVideoRef.current?.srcObject?.getTracks().forEach((track) => track.stop())
+    streamRef.current?.getTracks().forEach((track) => track.stop())
     screenShareRef.current?.srcObject?.getTracks().forEach((track) => track.stop())
     wsRef.current?.close()
     recognitionRef.current?.stop()
+    if (peerRef.current) peerRef.current.close()
     if (timerRef.current) clearInterval(timerRef.current)
   }
 
@@ -434,11 +495,11 @@ export default function InterviewRoom() {
     return [hrs, mins, secs].map((value) => value.toString().padStart(2, '0')).join(':')
   }
 
-  const participants = useMemo(() => [
+  const participantsData = useMemo(() => [
     {
       id: 'remote',
-      name: isRecruiter ? interview?.candidate?.name || 'Candidate' : 'Recruiter',
-      isHost: isCandidate,
+      name: isRecruiter ? interview?.candidate?.name || 'Candidate' : 'Interviewer',
+      isHost: !isCandidate,
       isAudioOn: true,
       isVideoOn: true
     },
@@ -452,6 +513,17 @@ export default function InterviewRoom() {
   ], [candidateName, interview, isAudioOn, isCandidate, isRecruiter, isVideoOn, user])
 
   const openPanel = (panel) => setActivePanel((current) => current === panel ? null : panel)
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#070812]">
+        <div className="text-center">
+          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-violet-500 mx-auto" />
+          <p className="text-slate-400">Loading interview room...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-[#070812] text-white">
@@ -547,7 +619,7 @@ export default function InterviewRoom() {
 
       <AnimatePresence>
         {activePanel === 'chat' && <MeetingChat messages={chatMessages} onSend={sendChatMessage} onClose={() => setActivePanel(null)} />}
-        {activePanel === 'participants' && isRecruiter && <ParticipantsList participants={participants} onClose={() => setActivePanel(null)} />}
+        {activePanel === 'participants' && isRecruiter && <ParticipantsList participants={participantsData} onClose={() => setActivePanel(null)} />}
         {activePanel === 'transcript' && isRecruiter && <TranscriptPanel transcript={transcript} recording={isRecording} onClose={() => setActivePanel(null)} />}
         {activePanel === 'ai' && isRecruiter && <RecruiterAIPanel analysis={liveAnalysis} interview={interview} transcript={transcript} recording={isRecording} onClose={() => setActivePanel(null)} />}
       </AnimatePresence>

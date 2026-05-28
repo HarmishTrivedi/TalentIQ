@@ -217,7 +217,11 @@ export default function Interviews() {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          const url = interview.recruiter_meeting_url || `/interview-room/${interview.id}`;
+                          let url = interview.recruiter_meeting_url;
+                          // Detect broken localhost fallback in production/Render
+                          if (!url || url.includes('localhost:3000')) {
+                            url = `/interview-room/${interview.id}`;
+                          }
                           window.open(url, '_blank', 'noopener,noreferrer');
                         }}
                         className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all">
@@ -229,7 +233,11 @@ export default function Interviews() {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          const url = interview.recruiter_meeting_url || `/interview-room/${interview.id}`;
+                          let url = interview.recruiter_meeting_url;
+                          // Detect broken localhost fallback in production/Render
+                          if (!url || url.includes('localhost:3000')) {
+                            url = `/interview-room/${interview.id}`;
+                          }
                           window.open(url, '_blank', 'noopener,noreferrer');
                         }}
                         className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all">

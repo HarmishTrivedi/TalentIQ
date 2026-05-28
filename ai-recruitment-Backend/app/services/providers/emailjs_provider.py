@@ -45,6 +45,7 @@ class EmailJSProvider(EmailProvider):
                 "raw_response": {}
             }
         
+        safe_params = template_params or {}
         payload = {
             "service_id": self.service_id,
             "template_id": final_template_id,
@@ -54,11 +55,11 @@ class EmailJSProvider(EmailProvider):
                 "to_email": to_email,    # Primary
                 "email": to_email,       # Alias 1
                 "recipient": to_email,   # Alias 2
-                "to_name": template_params.get("user_name") or template_params.get("candidate_name") or "User",
+                "to_name": safe_params.get("user_name") or safe_params.get("candidate_name") or "User",
                 "subject": subject,
                 "html_content": html_content,
                 "text_content": text_content or "",
-                **(template_params or {})
+                **safe_params
             }
         }
 

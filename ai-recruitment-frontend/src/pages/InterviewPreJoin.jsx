@@ -198,21 +198,34 @@ export default function InterviewPreJoin() {
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.85fr]">
           <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-3 shadow-2xl backdrop-blur-xl">
             <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-900">
-              <video ref={videoRef} autoPlay playsInline muted className="mirror h-full w-full object-cover" />
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                className="mirror h-full w-full object-cover" 
+              />
+              
               {(permissionStatus !== 'granted' || !isVideoOn) && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400">
-                  <div className="mb-3 rounded-full bg-violet-500/20 p-6 text-violet-300"><User size={42} /></div>
-                  <p className="text-sm">{permissionStatus === 'denied' ? 'Camera unavailable' : 'Camera is off'}</p>
+                  <div className="mb-3 rounded-full bg-violet-500/20 p-6 text-violet-300">
+                    <User size={42} />
+                  </div>
+                  <p className="text-sm">
+                    {permissionStatus === 'denied' ? 'Camera unavailable' : 'Camera is off'}
+                  </p>
                 </div>
               )}
               
-              <MicVisualizer stream={mediaStream} active={isAudioOn && permissionStatus === 'granted'} />
+              <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
+                <MicVisualizer stream={mediaStream} active={isAudioOn && permissionStatus === 'granted'} />
+              </div>
 
-              <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-3 rounded-full border border-white/10 bg-slate-950/65 p-2 backdrop-blur-xl">
-                <button type="button" onClick={toggleAudio} className={`rounded-full p-3 ${isAudioOn ? 'bg-white/10' : 'bg-red-500'}`} aria-label="Toggle microphone">
+              <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-3 rounded-full border border-white/10 bg-slate-950/65 p-2 backdrop-blur-xl z-30">
+                <button type="button" onClick={toggleAudio} className={`rounded-full p-3 transition-colors ${isAudioOn ? 'bg-white/10 hover:bg-white/20' : 'bg-red-500 hover:bg-red-600'}`} aria-label="Toggle microphone">
                   {isAudioOn ? <Mic size={19} /> : <MicOff size={19} />}
                 </button>
-                <button type="button" onClick={toggleVideo} className={`rounded-full p-3 ${isVideoOn ? 'bg-white/10' : 'bg-red-500'}`} aria-label="Toggle camera">
+                <button type="button" onClick={toggleVideo} className={`rounded-full p-3 transition-colors ${isVideoOn ? 'bg-white/10 hover:bg-white/20' : 'bg-red-500 hover:bg-red-600'}`} aria-label="Toggle camera">
                   {isVideoOn ? <Video size={19} /> : <VideoOff size={19} />}
                 </button>
               </div>
