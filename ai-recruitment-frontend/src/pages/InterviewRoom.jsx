@@ -38,13 +38,18 @@ export default function InterviewRoom() {
   const { interviewId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, token: authToken } = useAuthStore()
   const token = searchParams.get('token')
   const candidateName = searchParams.get('name')
   const isCandidate = !!token
-  const isRecruiter = !isCandidate && (user?.role === 'recruiter' || user?.role === 'admin')
+  const isRecruiter = useMemo(() => {
+    if (isCandidate) return false;
+    if (!user) return null; // Still loading user
+    return user.role === 'recruiter' || user.role === 'admin';
+  }, [isCandidate, user]);
 
   const [interview, setInterview] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [isVideoOn, setIsVideoOn] = useState(true)
   const [isAudioOn, setIsAudioOn] = useState(true)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
@@ -63,17 +68,31 @@ export default function InterviewRoom() {
   const remoteVideoRef = useRef(null)
   const screenShareRef = useRef(null)
   const wsRef = useRef(null)
+  const peerRef = useRef(null)
+  const streamRef = useRef(null)
   const recognitionRef = useRef(null)
   const timerRef = useRef(null)
 
-  useEffect(() => {
-    loadInterview()
-    initializeMedia()
-    initializeWebSocket()
-    initializeSpeechRecognition()
-    startTimer()
+  const ICE_SERVERS = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  }
 
-    // Warn before navigating away
+  useEffect(() => {
+    if (isRecruiter === null) return;
+    
+    const init = async () => {
+      await loadInterview()
+      const stream = await initializeMedia()
+      initializeWebSocket(stream)
+      initializeSpeechRecognition()
+      startTimer()
+    }
+
+    init()
+
     const handleBeforeUnload = (e) => {
       e.preventDefault();
       e.returnValue = '';
@@ -84,22 +103,7 @@ export default function InterviewRoom() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       cleanup();
     };
-  }, [interviewId])
-
-  const loadInterview = async () => {
-    try {
-      const response = isCandidate
-        ? await api.get(`/interviews/join/${interviewId}?token=${token}`)
-        : await api.get(`/interviews/${interviewId}`)
-      setInterview(response.data)
-      if (isRecruiter && response.data.status === 'scheduled') {
-        await api.post(`/interviews/${interviewId}/start`)
-      }
-    } catch (error) {
-      toast.error('Failed to load interview')
-      navigate(isCandidate ? '/' : '/interviews')
-    }
-  }
+  }, [interviewId, isRecruiter])
 
   const initializeMedia = async () => {
     try {
@@ -107,64 +111,133 @@ export default function InterviewRoom() {
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000 }
       })
+      streamRef.current = stream
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream
-        localVideoRef.current.play().catch((error) => console.error('Video play error:', error))
       }
+      return stream
     } catch (error) {
       console.error('Media access error:', error)
       setIsVideoOn(false)
       setIsAudioOn(false)
-      toast.error('Camera or microphone is unavailable. You can remain in the call.')
+      toast.error('Camera or microphone is unavailable.')
+      return null
     }
   }
 
-  const initializeWebSocket = () => {
-    const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8000'}/api/v1/interviews/${interviewId}/live`
+  const initializeWebSocket = (stream) => {
+    const wsUrl = `${import.meta.env.VITE_WS_URL || (window.location.protocol === 'https:' ? 'wss' : 'ws') + '://' + window.location.host + '/api/v1'}/interviews/${interviewId}/live`
     wsRef.current = new WebSocket(wsUrl)
-    wsRef.current.onmessage = (event) => handleWebSocketMessage(JSON.parse(event.data))
+    
+    wsRef.current.onopen = () => {
+      console.log('✅ Connected to meeting socket')
+      // If recruiter, we can start by offering (though usually newcomer offers)
+      // For simplicity, let's say whoever joins first waits, newcomer offers.
+      if (stream) {
+        // Let others know we are here
+        wsRef.current.send(JSON.stringify({ type: 'participant_joined', name: user?.full_name || 'Participant' }))
+        
+        // Initiate offer if we are joining an existing session
+        createPeerConnection(stream)
+      }
+    }
+
+    wsRef.current.onmessage = (event) => handleWebSocketMessage(JSON.parse(event.data), stream)
     wsRef.current.onerror = (error) => console.error('WebSocket error:', error)
   }
 
-  const initializeSpeechRecognition = () => {
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    recognitionRef.current = new SpeechRecognition()
-    recognitionRef.current.continuous = true
-    recognitionRef.current.interimResults = true
-    recognitionRef.current.onresult = (event) => {
-      const text = Array.from(event.results).map((result) => result[0].transcript).join('')
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
-          type: 'transcript',
-          text,
-          speaker: isRecruiter ? 'recruiter' : 'candidate',
-          timestamp: new Date().toISOString()
-        }))
+  const createPeerConnection = (stream) => {
+    if (peerRef.current) return peerRef.current;
+
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    peerRef.current = pc;
+
+    if (stream) {
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'ice-candidate', candidate: event.candidate }));
       }
-    }
-    if (isRecruiter) {
-      recognitionRef.current.start()
-      setIsRecording(true)
-    }
-  }
+    };
 
-  const startTimer = () => {
-    timerRef.current = setInterval(() => setElapsedTime((previous) => previous + 1), 1000)
-  }
+    pc.ontrack = (event) => {
+      if (remoteVideoRef.current && event.streams[0]) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+    };
 
-  const handleWebSocketMessage = (data) => {
+    pc.onconnectionstatechange = () => {
+      console.log('Connection state:', pc.connectionState);
+      if (pc.connectionState === 'failed') {
+        toast.error('Connection failed. Retrying...');
+        // logic to restart
+      }
+    };
+
+    return pc;
+  };
+
+  const handleWebSocketMessage = async (data, stream) => {
     switch (data.type) {
+      case 'offer':
+        const pcOffer = createPeerConnection(stream);
+        await pcOffer.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await pcOffer.createAnswer();
+        await pcOffer.setLocalDescription(answer);
+        wsRef.current.send(JSON.stringify({ type: 'answer', answer }));
+        break;
+
+      case 'answer':
+        if (peerRef.current) {
+          await peerRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+        }
+        break;
+
+      case 'ice-candidate':
+        if (peerRef.current) {
+          try {
+            await peerRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+          } catch (e) {
+            console.error('Error adding ICE candidate', e);
+          }
+        }
+        break;
+
+      case 'participant_joined':
+        toast.success(`${data.name} joined the interview`);
+        // We initiate the offer when someone else joins
+        if (stream) {
+          const pc = createPeerConnection(stream);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          wsRef.current.send(JSON.stringify({ type: 'offer', offer }));
+        }
+        break;
+        
+      case 'interview_started':
+        setInterview(prev => ({ ...prev, status: 'in_progress' }));
+        toast.success('Interview has officially started');
+        break;
+
+      case 'interview_ended':
+        toast('Interview has ended');
+        setTimeout(() => navigate(isRecruiter ? '/interviews' : '/'), 3000);
+        break;
+
       case 'transcript':
         setTranscript((previous) => [...previous, {
           speaker: data.speaker,
           text: data.text,
           timestamp: data.timestamp || new Date().toISOString()
         }])
-        break
+        break;
+
       case 'analysis':
         setLiveAnalysis(data.scores || data.analysis || data)
-        break
+        break;
+
       case 'chat_message':
         setChatMessages((previous) => [...previous, {
           id: data.id || `remote-${Date.now()}`,
@@ -173,20 +246,20 @@ export default function InterviewRoom() {
           timestamp: data.timestamp || new Date().toISOString(),
           isOwn: false
         }])
-        break
-      case 'participant_joined':
-        toast.success(`${data.name} joined the interview`)
-        break
+        break;
+
       case 'participant_left':
         toast(`${data.name} left the interview`)
-        break
+        break;
+
       case 'hand_raised':
         toast(`${data.name} raised their hand`)
-        break
+        break;
+
       default:
-        break
+        break;
     }
-  }
+  };
 
   const toggleVideo = () => {
     const track = localVideoRef.current?.srcObject?.getVideoTracks()[0]
@@ -234,12 +307,18 @@ export default function InterviewRoom() {
   }
 
   const toggleFullscreen = async () => {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen()
-      setIsFullscreen(true)
-    } else {
-      await document.exitFullscreen()
-      setIsFullscreen(false)
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen()
+        setIsFullscreen(true)
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen()
+          setIsFullscreen(false)
+        }
+      }
+    } catch (e) {
+      console.error('Fullscreen error', e)
     }
   }
 
@@ -375,6 +454,11 @@ export default function InterviewRoom() {
                 <User className="text-violet-300" size={38} />
               </div>
             )}
+            
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2">
+               <MicVisualizer stream={streamRef.current} active={isAudioOn} />
+            </div>
+
             <div className="absolute bottom-2 left-2 rounded-full bg-black/50 px-2 py-1 text-xs">You</div>
           </motion.div>
 
@@ -399,6 +483,7 @@ export default function InterviewRoom() {
         <div className="flex max-w-[calc(100vw-24px)] items-center gap-1.5 overflow-x-auto rounded-full border border-white/10 bg-slate-950/75 p-2 shadow-2xl backdrop-blur-2xl sm:gap-2">
           <Control label={isAudioOn ? 'Mute microphone' : 'Unmute microphone'} active={!isAudioOn} onClick={toggleAudio}>{isAudioOn ? <Mic size={20} /> : <MicOff size={20} />}</Control>
           <Control label={isVideoOn ? 'Turn off camera' : 'Turn on camera'} active={!isVideoOn} onClick={toggleVideo}>{isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}</Control>
+          <Control label={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen'} active={isFullscreen} onClick={toggleFullscreen}>{isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}</Control>
           {isRecruiter && <Control label="Share screen" active={isScreenSharing} onClick={toggleScreenShare}>{isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}</Control>}
           <Control label="Chat" active={activePanel === 'chat'} onClick={() => openPanel('chat')}><MessageSquare size={20} /></Control>
           {isCandidate && <Control label="Raise hand" active={handRaised} onClick={raiseHand}><Hand size={20} /></Control>}
@@ -421,7 +506,9 @@ export default function InterviewRoom() {
         {activePanel === 'transcript' && isRecruiter && <TranscriptPanel transcript={transcript} recording={isRecording} onClose={() => setActivePanel(null)} />}
         {activePanel === 'ai' && isRecruiter && <RecruiterAIPanel analysis={liveAnalysis} interview={interview} transcript={transcript} recording={isRecording} onClose={() => setActivePanel(null)} />}
       </AnimatePresence>
-      <style jsx>{`.mirror { transform: scaleX(-1); }`}</style>
+      <style jsx>{`
+        .mirror { transform: scaleX(-1); }
+      `}</style>
     </div>
   )
 }

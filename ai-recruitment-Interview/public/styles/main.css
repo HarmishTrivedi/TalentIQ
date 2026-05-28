@@ -1769,3 +1769,33 @@ input, textarea {
 .mt-1 { margin-top: 4px; }
 .mt-2 { margin-top: 8px; }
 .mt-3 { margin-top: 12px; }
+
+/* Mic Visualizer */
+.mic-visualizer {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 40px;
+  z-index: 10;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mic-bar {
+  width: 3px;
+  background: var(--accent-cyan);
+  border-radius: 999px;
+  transition: height 0.05s ease;
+  min-height: 2px;
+}
+
+.mirror {
+  transform: scaleX(-1);
+}

@@ -10,6 +10,9 @@ export class LobbyPage {
     this.name = name;
     this.onJoin = onJoin;
     this.stream = null;
+    this.audioContext = null;
+    this.analyser = null;
+    this.visualizerInterval = null;
     this.videoEnabled = true;
     this.audioEnabled = true;
     this.joining = false;
@@ -33,9 +36,16 @@ export class LobbyPage {
         <!-- Camera Preview Side -->
         <div class="lobby-preview-side">
           <div class="camera-preview-wrap" id="preview-wrap">
-            <video id="preview-video" autoplay muted playsinline></video>
+            <video id="preview-video" autoplay muted playsinline class="mirror" style="width:100%; height:100%; object-fit:cover;"></video>
             <div class="preview-overlay"></div>
             <div class="preview-badge" id="preview-badge">Camera On</div>
+            <div class="mic-visualizer" id="mic-visualizer">
+              <div class="mic-bar" style="height: 10%"></div>
+              <div class="mic-bar" style="height: 20%"></div>
+              <div class="mic-bar" style="height: 50%"></div>
+              <div class="mic-bar" style="height: 30%"></div>
+              <div class="mic-bar" style="height: 10%"></div>
+            </div>
             <div class="no-camera hidden" id="no-camera">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
@@ -120,6 +130,8 @@ export class LobbyPage {
       if (video) video.srcObject = this.stream;
       document.getElementById('conn-dot').className = 'dot';
       document.getElementById('conn-text').textContent = 'Camera Ready';
+      
+      this.startVisualizer();
     } catch (e) {
       console.warn('Media error:', e);
       document.getElementById('no-camera').classList.remove('hidden');
@@ -127,6 +139,40 @@ export class LobbyPage {
       document.getElementById('conn-dot').className = 'dot bad';
       document.getElementById('conn-text').textContent = 'No Camera';
     }
+  }
+
+  startVisualizer() {
+    if (!this.stream) return;
+    try {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = this.audioContext.createMediaStreamSource(this.stream);
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 32;
+      source.connect(this.analyser);
+      
+      const bufferLength = this.analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      const bars = document.querySelectorAll('.mic-bar');
+      
+      this.visualizerInterval = setInterval(() => {
+        if (!this.audioEnabled) {
+          bars.forEach(bar => bar.style.height = '2px');
+          return;
+        }
+        this.analyser.getByteFrequencyData(dataArray);
+        bars.forEach((bar, i) => {
+          const val = dataArray[i % bufferLength] / 2.5;
+          bar.style.height = `${Math.max(2, val)}px`;
+        });
+      }, 50);
+    } catch (e) {
+      console.error('Visualizer error:', e);
+    }
+  }
+
+  stopVisualizer() {
+    if (this.visualizerInterval) clearInterval(this.visualizerInterval);
+    if (this.audioContext) this.audioContext.close();
   }
 
   checkConnection() {
@@ -202,6 +248,7 @@ export class LobbyPage {
   async join() {
     if (this.joining) return;
     this.joining = true;
+    this.stopVisualizer();
 
     // Request full screen on join
     if (document.documentElement.requestFullscreen) {
@@ -221,6 +268,7 @@ export class LobbyPage {
       }
     }
 
+    // Small delay for transition effect
     setTimeout(() => {
       this.onJoin(this.stream, name);
     }, 400);

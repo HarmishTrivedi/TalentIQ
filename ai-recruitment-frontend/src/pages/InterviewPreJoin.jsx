@@ -15,6 +15,48 @@ function StatusRow({ icon: Icon, label, value, ready }) {
   )
 }
 
+function MicVisualizer({ stream, active }) {
+  const [levels, setLevels] = useState([10, 20, 50, 30, 10]);
+  
+  useEffect(() => {
+    if (!stream || !active) return;
+    
+    let audioContext, analyser, dataArray, interval;
+    try {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 32;
+      source.connect(analyser);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      interval = setInterval(() => {
+        analyser.getByteFrequencyData(dataArray);
+        const newLevels = Array.from(dataArray.slice(0, 5)).map(v => Math.max(10, v / 2));
+        setLevels(newLevels);
+      }, 50);
+    } catch (e) { console.error(e); }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+      if (audioContext) audioContext.close();
+    };
+  }, [stream, active]);
+
+  return (
+    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-end gap-1 h-12">
+      {levels.map((level, i) => (
+        <motion.div
+          key={i}
+          animate={{ height: active ? level : 2 }}
+          className="w-1.5 bg-violet-400 rounded-full"
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function InterviewPreJoin() {
   const { interviewId } = useParams()
   const [searchParams] = useSearchParams()
@@ -163,6 +205,9 @@ export default function InterviewPreJoin() {
                   <p className="text-sm">{permissionStatus === 'denied' ? 'Camera unavailable' : 'Camera is off'}</p>
                 </div>
               )}
+              
+              <MicVisualizer stream={mediaStream} active={isAudioOn && permissionStatus === 'granted'} />
+
               <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-3 rounded-full border border-white/10 bg-slate-950/65 p-2 backdrop-blur-xl">
                 <button type="button" onClick={toggleAudio} className={`rounded-full p-3 ${isAudioOn ? 'bg-white/10' : 'bg-red-500'}`} aria-label="Toggle microphone">
                   {isAudioOn ? <Mic size={19} /> : <MicOff size={19} />}

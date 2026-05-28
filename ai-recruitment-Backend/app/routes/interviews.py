@@ -844,6 +844,18 @@ async def interview_websocket(
                     "type": "analysis",
                     "scores": data["scores"]
                 })
+
+            elif data["type"] in ["offer", "answer", "ice-candidate"]:
+                # WebRTC Signaling pass-through
+                # We broadcast to all others in the room
+                # In a 1:1 call, this just goes to the other person
+                await manager.broadcast(interview_id, data, exclude_websocket=websocket)
+                
+            elif data["type"] == "chat_message":
+                await manager.broadcast(interview_id, data)
+                
+            elif data["type"] == "hand_raised":
+                await manager.broadcast(interview_id, data)
     
     except WebSocketDisconnect:
         manager.disconnect(websocket, interview_id)
