@@ -9,6 +9,53 @@ import {
 import toast from 'react-hot-toast';
 import api from '../services/api';
 
+function MicVisualizer({ stream, active }) {
+  const [levels, setLevels] = useState([10, 20, 50, 30, 10]);
+  
+  useEffect(() => {
+    if (!stream || !active) return;
+    
+    let audioContext, analyser, dataArray, interval;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      
+      audioContext = new AudioCtx();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 32;
+      source.connect(analyser);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      interval = setInterval(() => {
+        if (analyser && dataArray) {
+          analyser.getByteFrequencyData(dataArray);
+          const newLevels = Array.from(dataArray.slice(0, 5)).map(v => Math.max(10, v / 2));
+          setLevels(newLevels);
+        }
+      }, 50);
+    } catch (e) { console.error(e); }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+      if (audioContext && audioContext.state !== 'closed') audioContext.close();
+    };
+  }, [stream, active]);
+
+  return (
+    <div className="flex items-end gap-1 h-8">
+      {levels.map((level, i) => (
+        <motion.div
+          key={i}
+          animate={{ height: active ? level / 2 : 2 }}
+          className="w-1 bg-violet-400 rounded-full"
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function CandidateJoin() {
   const { interviewId } = useParams();
   const [searchParams] = useSearchParams();
@@ -274,6 +321,10 @@ export default function CandidateJoin() {
                       </div>
                     </div>
                   )}
+                  
+                  <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
+                    <MicVisualizer stream={streamRef.current} active={isAudioOn && permissionsGranted} />
+                  </div>
                 </>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-slate-900">

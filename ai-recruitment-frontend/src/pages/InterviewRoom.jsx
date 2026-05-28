@@ -6,7 +6,7 @@ import {
   Monitor, MonitorOff, Phone, Signal, Users, Video, VideoOff, MessageSquare, User
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import api from '../services/api'
+import api, { authApi } from '../services/api'
 import { useAuthStore } from '../store'
 import MeetingChat from '../components/interview/MeetingChat'
 import ParticipantsList from '../components/interview/ParticipantsList'
@@ -22,7 +22,10 @@ function MicVisualizer({ stream, active }) {
     
     let audioContext, analyser, dataArray, interval;
     try {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      
+      audioContext = new AudioCtx();
       const source = audioContext.createMediaStreamSource(stream);
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 32;
@@ -36,11 +39,11 @@ function MicVisualizer({ stream, active }) {
           setLevels(newLevels);
         }
       }, 50);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('Mic visualizer error:', e); }
     
     return () => {
       if (interval) clearInterval(interval);
-      if (audioContext) audioContext.close();
+      if (audioContext && audioContext.state !== 'closed') audioContext.close();
     };
   }, [stream, active]);
 
@@ -83,7 +86,7 @@ export default function InterviewRoom() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, token: authToken } = useAuthStore()
+  const { user, token: authToken, updateUser } = useAuthStore()
   const token = searchParams.get('token')
   const candidateName = searchParams.get('name')
   const isCandidate = !!token
@@ -91,12 +94,13 @@ export default function InterviewRoom() {
   const isRecruiter = useMemo(() => {
     if (isCandidate) return false;
     if (!authToken) return false;
-    if (!user) return null; // Still loading user
+    if (!user) return null; 
     return user.role === 'recruiter' || user.role === 'admin';
   }, [isCandidate, user, authToken]);
 
   const [interview, setInterview] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [isAuthLoading, setIsAuthLoading] = useState(!!(authToken && !user && !isCandidate))
   const [isVideoOn, setIsVideoOn] = useState(true)
   const [isAudioOn, setIsAudioOn] = useState(true)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
@@ -128,38 +132,51 @@ export default function InterviewRoom() {
     ]
   }
 
+  // Auth/User Loading
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (authToken && !user && !isCandidate) {
+        try {
+          const res = await authApi.me()
+          updateUser(res.data)
+        } catch (e) {
+          console.error('Failed to fetch user', e)
+          toast.error('Session expired. Please login.')
+          navigate('/login', { replace: true })
+        } finally {
+          setIsAuthLoading(false)
+        }
+      } else {
+        setIsAuthLoading(false)
+      }
+    }
+    fetchUser()
+  }, [authToken, user, isCandidate, updateUser, navigate])
+
   // Auth Protection for Recruiters
   useEffect(() => {
-    if (!isCandidate && !authToken) {
+    if (!isCandidate && !authToken && !isAuthLoading) {
       toast.error('Recruiters must be logged in to access this room.')
       navigate('/login', { state: { from: location.pathname }, replace: true })
     }
-  }, [isCandidate, authToken, navigate, location])
+  }, [isCandidate, authToken, navigate, location, isAuthLoading])
 
   useEffect(() => {
-    if (isRecruiter === null) return;
+    if (isRecruiter === null && isAuthLoading) return;
+    if (isRecruiter === null && !isCandidate && authToken) return;
     
     const init = async () => {
       try {
         const interviewData = await loadInterview()
-        
-        if (interviewData?.status === 'completed') {
+        if (!interviewData) return;
+
+        if (interviewData.status === 'completed') {
           if (isCandidate) navigate('/thanks', { replace: true })
           else navigate(`/interviews/${interviewId}/analysis`, { replace: true })
           return
         }
 
-        // Reuse stream from pre-join if available
-        let stream = location.state?.mediaStream
-        if (stream) {
-          console.log('✅ Reusing media stream from pre-join')
-          streamRef.current = stream
-          if (localVideoRef.current) localVideoRef.current.srcObject = stream
-          stream.getTracks().forEach(t => t.enabled = true)
-        } else {
-          stream = await initializeMedia()
-        }
-
+        const stream = await initializeMedia()
         initializeWebSocket(stream)
         initializeSpeechRecognition()
         startTimer()
@@ -192,7 +209,7 @@ export default function InterviewRoom() {
       window.removeEventListener('popstate', handlePopState);
       cleanup();
     };
-  }, [interviewId, isRecruiter])
+  }, [interviewId, user, authToken, isAuthLoading])
 
   const loadInterview = async () => {
     try {
@@ -210,6 +227,7 @@ export default function InterviewRoom() {
     } catch (error) {
       toast.error('Could not load interview. Access denied or invalid link.')
       navigate(isCandidate ? '/' : '/interviews', { replace: true })
+      return null
     }
   }
 
@@ -514,7 +532,7 @@ export default function InterviewRoom() {
 
   const openPanel = (panel) => setActivePanel((current) => current === panel ? null : panel)
 
-  if (loading) {
+  if (loading || isAuthLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#070812]">
         <div className="text-center">

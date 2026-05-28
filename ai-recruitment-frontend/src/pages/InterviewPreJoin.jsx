@@ -175,7 +175,9 @@ export default function InterviewPreJoin() {
     if (token) params.append('token', token)
     params.append('name', displayName.trim())
     params.append('hasMedia', permissionStatus === 'granted' ? 'true' : 'false')
-    navigate(`/interview-room/${interviewId}?${params.toString()}`, { state: { mediaStream } })
+    
+    // Do NOT pass mediaStream in state, it causes DataCloneError
+    navigate(`/interview-room/${interviewId}?${params.toString()}`)
   }
 
   if (loading) {
