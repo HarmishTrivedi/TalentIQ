@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  ArrowRight, Eye, EyeOff, Lock, Mail,
-  Phone, User, Building2, Briefcase, Sparkles, AlertCircle, Check, X, BarChart3, Target, ShieldCheck
+  ArrowRight, Eye, EyeOff, Lock, Mail, RefreshCw,
+  User, Building2, Briefcase, Sparkles, AlertCircle, Check, X, BarChart3, Target, ShieldCheck
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '../utils/helpers'
@@ -142,7 +142,7 @@ function PasswordStrengthBar({ password }) {
             <div
               key={i}
               className="h-1 flex-1 rounded-full transition-all duration-300"
-              style={{ background: i <= score ? color : 'rgba(255,255,255,0.08)' }}
+              style={{ background: i <= score ? color : '#e6eeff' }}
             />
           ))}
         </div>
@@ -153,10 +153,10 @@ function PasswordStrengthBar({ password }) {
           const ok = r.test(password)
           return (
             <div key={r.key} className="flex items-center gap-1.5">
-              <div className={`w-3 h-3 rounded-full flex items-center justify-center transition-all duration-200 ${ok ? 'bg-emerald-500' : 'bg-white/10'}`}>
+              <div className={`w-3 h-3 rounded-full flex items-center justify-center transition-all duration-200 ${ok ? 'bg-tertiary' : 'bg-surface-container-high'}`}>
                 {ok && <Check size={8} className="text-white" />}
               </div>
-              <span className={`text-[10px] transition-colors duration-200 ${ok ? 'text-emerald-400' : 'text-slate-500'}`}>{r.label}</span>
+              <span className={`text-[10px] transition-colors duration-200 ${ok ? 'text-tertiary' : 'text-outline'}`}>{r.label}</span>
             </div>
           )
         })}

@@ -4,7 +4,7 @@ import {
   ArrowLeft, MessageSquare, Zap, CheckCircle, XCircle, 
   GraduationCap, Briefcase, Mail, Phone, MapPin, Trash2, 
   Award, FileText, TrendingUp, Sparkles, ChevronRight, 
-  Clock, Calendar, User, Brain, Heart, Download
+  Clock, Calendar, User, Brain, Heart, Download, Target
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { candidatesApi, matchingApi, chatApi } from '../services/api'
