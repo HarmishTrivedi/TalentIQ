@@ -30,7 +30,7 @@ export default function AuthCallback() {
         useAuthStore.setState({ token: accessToken, user })
         localStorage.setItem('user', JSON.stringify(user))
         toast.success('Welcome to TalentIQ!')
-        navigate(user?.role === 'admin' ? '/admin/dashboard' : '/welcome', { replace: true })
+        navigate(user?.role === 'admin' ? '/admin/dashboard' : '/dashboard', { replace: true })
       })
       .catch(() => {
         toast.error('Failed to fetch user data')

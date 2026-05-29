@@ -23,7 +23,6 @@ const Landing = lazy(() => import('./pages/Landing'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const CinematicAuth = lazy(() => import('./pages/CinematicAuth'))
-const RecruiterWelcome = lazy(() => import('./pages/RecruiterWelcome'))
 const RecruiterPlans = lazy(() => import('./pages/RecruiterPlans'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const UserManagement = lazy(() => import('./pages/UserManagement'))
@@ -97,8 +96,6 @@ export default function App() {
           <Route path="/interview-prejoin/:interviewId" element={<InterviewPreJoin />} />
           <Route path="/interview-room/:interviewId" element={<InterviewRoom />} />
           <Route path="/thanks" element={<ThankYou />} />
-
-          <Route path="/welcome" element={<PrivateRoute><RecruiterWelcome /></PrivateRoute>} />
 
           <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route path="/dashboard" element={<Dashboard />} />
