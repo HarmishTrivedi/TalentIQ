@@ -38,27 +38,36 @@ router = APIRouter(prefix="/interviews", tags=["Interviews"])
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, List[WebSocket]] = {}
-    
+
     async def connect(self, websocket: WebSocket, interview_id: str):
         await websocket.accept()
         if interview_id not in self.active_connections:
             self.active_connections[interview_id] = []
         self.active_connections[interview_id].append(websocket)
-    
+        print(f"[WS] Client connected to room {interview_id}. Total: {len(self.active_connections[interview_id])}")
+
     def disconnect(self, websocket: WebSocket, interview_id: str):
         if interview_id in self.active_connections:
             if websocket in self.active_connections[interview_id]:
                 self.active_connections[interview_id].remove(websocket)
-    
+        print(f"[WS] Client disconnected from room {interview_id}. Remaining: {len(self.active_connections.get(interview_id, []))}")
+
     async def broadcast(self, interview_id: str, message: dict, exclude_websocket: WebSocket = None):
-        if interview_id in self.active_connections:
-            for connection in self.active_connections[interview_id]:
-                if exclude_websocket and connection == exclude_websocket:
-                    continue
-                try:
-                    await connection.send_json(message)
-                except:
-                    pass
+        """Send message to all connections in a room, optionally excluding the sender."""
+        if interview_id not in self.active_connections:
+            return
+        dead = []
+        for connection in self.active_connections[interview_id]:
+            if exclude_websocket is not None and connection is exclude_websocket:
+                continue
+            try:
+                await connection.send_json(message)
+            except Exception:
+                dead.append(connection)
+        # Clean up dead connections
+        for d in dead:
+            if d in self.active_connections.get(interview_id, []):
+                self.active_connections[interview_id].remove(d)
 
 manager = ConnectionManager()
 
@@ -926,34 +935,29 @@ async def interview_websocket(
     try:
         while True:
             data = await websocket.receive_json()
-            
-            # Handle different message types
-            if data["type"] == "transcript":
-                # Process speech transcript
+            msg_type = data.get("type", "")
+            print(f"[WS] Room {interview_id} received: {msg_type}")
+
+            if msg_type == "transcript":
                 await manager.broadcast(interview_id, {
                     "type": "transcript",
                     "text": data["text"],
                     "speaker": data["speaker"]
                 })
-            
-            elif data["type"] == "analysis_update":
-                # Broadcast live analysis
+
+            elif msg_type == "analysis_update":
                 await manager.broadcast(interview_id, {
                     "type": "analysis",
                     "scores": data["scores"]
                 })
 
-            elif data["type"] in ["offer", "answer", "ice-candidate"]:
-                # WebRTC Signaling pass-through
-                # We broadcast to all others in the room
-                # In a 1:1 call, this just goes to the other person
+            elif msg_type in ["offer", "answer", "ice-candidate", "participant_joined", "participant_left", "chat_message", "hand_raised"]:
+                # All signaling and room events: relay to everyone EXCEPT the sender
                 await manager.broadcast(interview_id, data, exclude_websocket=websocket)
-                
-            elif data["type"] == "chat_message":
-                await manager.broadcast(interview_id, data)
-                
-            elif data["type"] == "hand_raised":
-                await manager.broadcast(interview_id, data)
+
+            else:
+                # Unknown message type — relay to others anyway
+                await manager.broadcast(interview_id, data, exclude_websocket=websocket)
     
     except WebSocketDisconnect:
         manager.disconnect(websocket, interview_id)
