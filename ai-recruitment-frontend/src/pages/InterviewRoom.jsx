@@ -126,19 +126,16 @@ export default function InterviewRoom() {
   const recognitionRef = useRef(null)
   const timerRef = useRef(null)
   
-  // ── WebRTC State ──────────────────────────────────────────────────────────
   const makingOfferRef = useRef(false)
   const ignoreOfferRef = useRef(false)
-  const isPoliteRef = useRef(false) // Will be determined during signaling
+  const isPoliteRef = useRef(false)
   const iceCandidateQueue = useRef([])
 
-  // ── ICE servers ref — always current, no stale closure ──────────────────
   const iceServersRef = useRef([
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
   ])
 
-  // Fetch TURN credentials once on mount
   useEffect(() => {
     api.get('/interviews/turn-credentials')
       .then(res => {
@@ -150,26 +147,21 @@ export default function InterviewRoom() {
       .catch(() => console.warn('[ICE] Could not fetch TURN credentials, using STUN only'))
   }, [])
 
-  // ── Attach remote stream to video element whenever it changes ─────────────
   useEffect(() => {
     if (!remoteStream || !remoteVideoRef.current) return
     const video = remoteVideoRef.current
-    console.log('[Video] Attaching remote stream, tracks:', remoteStream.getTracks().map(t => t.kind).join(', '))
     video.srcObject = remoteStream
     video.muted = true
     video.play()
       .then(() => {
         video.muted = false
-        console.log('[Video] ✅ Remote video playing with audio')
       })
       .catch(err => {
-        console.warn('[Video] Autoplay blocked:', err.name)
         const unmute = () => { video.muted = false; video.play().catch(() => {}) }
         document.addEventListener('click', unmute, { once: true })
       })
   }, [remoteStream])
 
-  // Auth/User Loading
   useEffect(() => {
     const fetchUser = async () => {
       if (authToken && !user && !isCandidate) {
@@ -177,8 +169,6 @@ export default function InterviewRoom() {
           const res = await authApi.me()
           updateUser(res.data)
         } catch (e) {
-          console.error('Failed to fetch user', e)
-          toast.error('Session expired. Please login.')
           navigate('/login', { replace: true })
         } finally {
           setIsAuthLoading(false)
@@ -190,10 +180,8 @@ export default function InterviewRoom() {
     fetchUser()
   }, [authToken, user, isCandidate, updateUser, navigate])
 
-  // Auth Protection for Recruiters
   useEffect(() => {
     if (!isCandidate && !authToken && !isAuthLoading) {
-      toast.error('Recruiters must be logged in to access this room.')
       navigate('/login', { state: { from: location.pathname }, replace: true })
     }
   }, [isCandidate, authToken, navigate, location, isAuthLoading])
@@ -230,20 +218,8 @@ export default function InterviewRoom() {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
-    // Prevent back navigation
-    window.history.pushState(null, '', window.location.href);
-    const handlePopState = () => {
-      if (confirm('Are you sure you want to exit the interview room?')) {
-        endInterview();
-      } else {
-        window.history.pushState(null, '', window.location.href);
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', handlePopState);
       cleanup();
     };
   }, [interviewId, user, authToken, isAuthLoading])
@@ -262,7 +238,6 @@ export default function InterviewRoom() {
       }
       return response.data
     } catch (error) {
-      toast.error('Could not load interview. Access denied or invalid link.')
       navigate(isCandidate ? '/' : '/interviews', { replace: true })
       return null
     }
@@ -280,7 +255,6 @@ export default function InterviewRoom() {
       }
       return stream
     } catch (error) {
-      console.error('Media access error:', error)
       setIsVideoOn(false)
       setIsAudioOn(false)
       toast.error('Camera or microphone is unavailable.')
@@ -289,31 +263,24 @@ export default function InterviewRoom() {
   }
 
   const initializeWebSocket = (stream) => {
-    // Build correct WebSocket URL from API_BASE
-    // API_BASE is something like "https://backend.com/api/v1" or "http://localhost:8000/api/v1"
-    let wsBase = import.meta.env.VITE_WS_URL || API_BASE
+    let wsUrl = import.meta.env.VITE_WS_URL;
     
-    // Convert http(s) to ws(s)
-    wsBase = wsBase.replace(/^http/, 'ws')
-    
-    // Ensure it doesn't end with a slash
-    const cleanBase = wsBase.replace(/\/$/, '')
-    const wsUrl = `${cleanBase}/interviews/${interviewId}/live`
-
-    console.log('[WS] Connecting to:', wsUrl)
-    
-    // Safety check: On Render, the frontend cannot host WebSockets.
-    // If the wsUrl is the same as the window origin, and we are on onrender.com, it's likely a config error.
-    if (window.location.hostname.includes('onrender.com') && wsUrl.includes(window.location.hostname)) {
-      console.warn('[WS] ⚠️ WARNING: WebSocket URL points to the frontend domain. This will likely fail (Error 1006) on Render Static Sites. Please set VITE_API_URL or VITE_WS_URL to your Backend Service URL.')
+    if (!wsUrl) {
+      let base = API_BASE;
+      if (window.location.hostname.includes('onrender.com') && base.includes(window.location.hostname)) {
+        base = base.replace('-frontend-', '-backend-'); 
+      }
+      wsUrl = base.replace(/^http/, 'ws').replace(/\/$/, '') + `/interviews/${interviewId}/live`;
+    } else {
+      if (!wsUrl.includes('/interviews/')) {
+        wsUrl = wsUrl.replace(/\/$/, '') + `/interviews/${interviewId}/live`;
+      }
     }
 
+    console.log('[WS] Connecting to:', wsUrl);
     wsRef.current = new WebSocket(wsUrl)
 
     wsRef.current.onopen = () => {
-      console.log('[WS] ✅ Connected to signaling server');
-      // Announce ourselves — do NOT create peer connection yet.
-      // Wait for participant_joined from the other peer.
       wsRef.current.send(JSON.stringify({
         type: 'participant_joined',
         name: user?.full_name || candidateName || 'Participant'
@@ -323,75 +290,51 @@ export default function InterviewRoom() {
     wsRef.current.onmessage = (event) => {
       try {
         handleWebSocketMessage(JSON.parse(event.data), stream);
-      } catch (e) {
-        console.error('[WS] Failed to parse message:', e);
-      }
+      } catch (e) {}
     }
     wsRef.current.onerror = (error) => console.error('[WS] Error:', error);
-    wsRef.current.onclose = (e) => console.log('[WS] Closed:', e.code, e.reason);
+    wsRef.current.onclose = (e) => console.log('[WS] Closed:', e.code);
   }
 
   const createPeerConnection = (stream) => {
-    if (peerRef.current) {
-      console.log('[WebRTC] Closing existing peer connection')
-      peerRef.current.close()
-    }
-    
+    if (peerRef.current) peerRef.current.close();
     iceCandidateQueue.current = [] 
 
     const config = { iceServers: iceServersRef.current, iceCandidatePoolSize: 10 }
-    console.log('[WebRTC] Creating RTCPeerConnection with', config.iceServers.length, 'servers')
     const pc = new RTCPeerConnection(config)
     peerRef.current = pc
 
     if (stream) {
-      stream.getTracks().forEach(track => {
-        console.log('[WebRTC] Adding local track:', track.kind)
-        pc.addTrack(track, stream)
-      })
+      stream.getTracks().forEach(track => pc.addTrack(track, stream))
     }
 
     pc.onicecandidate = ({ candidate }) => {
       if (candidate && wsRef.current?.readyState === WebSocket.OPEN) {
-        console.log('[WebRTC] ICE candidate generated')
         wsRef.current.send(JSON.stringify({ type: 'ice-candidate', candidate }))
       }
     }
 
-    // Robust track handling
     pc.ontrack = (event) => {
-      console.log('[WebRTC] ✅ ontrack — kind:', event.track.kind)
       setRemoteStream(prev => {
-        if (!prev) {
-          console.log('[WebRTC] Creating new remote stream')
-          return new MediaStream([event.track])
-        }
-        // Check if track already exists
+        if (!prev) return new MediaStream([event.track])
         if (prev.getTracks().find(t => t.id === event.track.id)) return prev
-        console.log('[WebRTC] Adding track to existing remote stream')
         prev.addTrack(event.track)
-        return new MediaStream(prev.getTracks()) // new ref
+        return new MediaStream(prev.getTracks())
       })
     }
 
     pc.onconnectionstatechange = () => {
-      console.log('[WebRTC] Connection state:', pc.connectionState)
       if (pc.connectionState === 'connected') toast.success('Video connected')
-      if (pc.connectionState === 'failed') {
-        console.warn('[WebRTC] Connection failed, attempting ICE restart')
-        pc.restartIce()
-      }
+      if (pc.connectionState === 'failed') pc.restartIce()
     }
 
     pc.onnegotiationneeded = async () => {
       try {
-        console.log('[WebRTC] Negotiation needed — creating offer')
         makingOfferRef.current = true
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
         wsRef.current?.send(JSON.stringify({ type: 'offer', offer: pc.localDescription }))
       } catch (err) {
-        console.error('[WebRTC] Negotiation failed:', err)
       } finally {
         makingOfferRef.current = false
       }
@@ -401,65 +344,43 @@ export default function InterviewRoom() {
   }
 
   const handleWebSocketMessage = async (data, stream) => {
-    console.log('[WS] Received:', data.type)
-    
-    // Determine politeness (Recruiter is polite, Candidate is impolite — simple fixed rule)
-    // Or base it on alphabetical sort of some ID if available. 
-    // Here we use role: recruiter is usually the one who waits/accepts.
     isPoliteRef.current = isRecruiter
 
     switch (data.type) {
       case 'participant_joined':
-        console.log('[WebRTC] participant_joined from', data.name)
         toast.success(`${data.name} joined`)
-        // The joining peer doesn't need to do anything, 
-        // the existing peer's onnegotiationneeded will fire when they add tracks
-        // OR we can manually trigger it:
         if (!peerRef.current) createPeerConnection(streamRef.current)
         break
 
       case 'offer': {
         const pc = peerRef.current || createPeerConnection(streamRef.current)
         const offerCollision = makingOfferRef.current || pc.signalingState !== 'stable'
-        
         ignoreOfferRef.current = !isPoliteRef.current && offerCollision
-        if (ignoreOfferRef.current) {
-          console.warn('[WebRTC] Offer collision — ignoring offer (impolite)')
-          break
-        }
+        if (ignoreOfferRef.current) break;
 
-        console.log('[WebRTC] Handling offer')
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(data.offer))
           const answer = await pc.createAnswer()
           await pc.setLocalDescription(answer)
           wsRef.current.send(JSON.stringify({ type: 'answer', answer: pc.localDescription }))
-          
-          // Flush ICE queue
           for (const c of iceCandidateQueue.current) {
             await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {})
           }
           iceCandidateQueue.current = []
-        } catch (e) {
-          console.error('[WebRTC] Offer handling failed:', e)
-        }
+        } catch (e) {}
         break
       }
 
       case 'answer': {
         const pc = peerRef.current
         if (!pc) break
-        console.log('[WebRTC] Handling answer')
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer))
-          // Flush ICE queue
           for (const c of iceCandidateQueue.current) {
             await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {})
           }
           iceCandidateQueue.current = []
-        } catch (e) {
-          console.error('[WebRTC] Answer handling failed:', e)
-        }
+        } catch (e) {}
         break
       }
 
@@ -472,55 +393,33 @@ export default function InterviewRoom() {
         }
         try {
           await pc.addIceCandidate(new RTCIceCandidate(data.candidate))
-        } catch (e) {
-          if (!ignoreOfferRef.current) console.warn('[WebRTC] ICE addition failed:', e.message)
-        }
+        } catch (e) {}
         break
       }
 
       case 'interview_started':
         setInterview(prev => ({ ...prev, status: 'in_progress' }))
-        toast.success('Interview has officially started')
         break
 
       case 'interview_ended':
-        toast('Interview has ended')
         setTimeout(() => {
           if (isCandidate) navigate('/thanks', { replace: true })
           else navigate('/interviews', { replace: true })
-        }, 3000)
+        }, 2000)
         break
 
       case 'transcript':
-        setTranscript(prev => [...prev, {
-          speaker: data.speaker, text: data.text,
-          timestamp: data.timestamp || new Date().toISOString()
-        }])
-        break
-
-      case 'analysis':
-        setLiveAnalysis(data.scores || data.analysis || data)
+        setTranscript(prev => [...prev, { speaker: data.speaker, text: data.text, timestamp: data.timestamp || new Date().toISOString() }])
         break
 
       case 'chat_message':
-        setChatMessages(prev => [...prev, {
-          id: data.id || `remote-${Date.now()}`,
-          sender: data.sender || data.name || 'Participant',
-          text: data.text || data.message,
-          timestamp: data.timestamp || new Date().toISOString(),
-          isOwn: false
-        }])
+        setChatMessages(prev => [...prev, { id: data.id || `remote-${Date.now()}`, sender: data.sender || data.name || 'Participant', text: data.text || data.message, timestamp: data.timestamp || new Date().toISOString(), isOwn: false }])
         break
 
       case 'participant_left':
-        toast(`${data.name} left the interview`)
+        toast(`${data.name} left`)
         setRemoteStream(null)
-        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
         if (peerRef.current) { peerRef.current.close(); peerRef.current = null }
-        break
-
-      case 'hand_raised':
-        toast(`${data.name} raised their hand`)
         break
 
       default:
@@ -530,128 +429,25 @@ export default function InterviewRoom() {
 
   const toggleVideo = () => {
     const track = streamRef.current?.getVideoTracks()[0]
-    if (track) {
-      track.enabled = !track.enabled
-      setIsVideoOn(track.enabled)
-    }
+    if (track) { track.enabled = !track.enabled; setIsVideoOn(track.enabled) }
   }
 
   const toggleAudio = () => {
     const track = streamRef.current?.getAudioTracks()[0]
-    if (track) {
-      track.enabled = !track.enabled
-      setIsAudioOn(track.enabled)
-    }
-  }
-
-  const toggleScreenShare = async () => {
-    if (isScreenSharing) {
-      screenShareRef.current?.srcObject?.getTracks().forEach((track) => track.stop())
-      setIsScreenSharing(false)
-      return
-    }
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false })
-      if (screenShareRef.current) screenShareRef.current.srcObject = stream
-      setIsScreenSharing(true)
-      stream.getVideoTracks()[0].onended = () => setIsScreenSharing(false)
-    } catch (error) {
-      console.error('Screen share error:', error)
-      toast.error('Could not start screen sharing')
-    }
-  }
-
-  const toggleRecording = () => {
-    if (isRecording) {
-      recognitionRef.current?.stop()
-      setIsRecording(false)
-      toast.success('Transcript paused')
-    } else {
-      recognitionRef.current?.start()
-      setIsRecording(true)
-      toast.success('Transcript resumed')
-    }
-  }
-
-  const toggleFullscreen = async () => {
-    try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen()
-        setIsFullscreen(true)
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen()
-          setIsFullscreen(false)
-        }
-      }
-    } catch (e) {
-      console.error('Fullscreen error', e)
-    }
-  }
-
-  const raiseHand = () => {
-    const raised = !handRaised
-    setHandRaised(raised)
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'hand_raised', raised, name: candidateName || user?.full_name || 'Participant' }))
-    }
-  }
-
-  const sendChatMessage = (text) => {
-    const message = {
-      id: `local-${Date.now()}`,
-      sender: candidateName || user?.full_name || 'You',
-      text,
-      timestamp: new Date().toISOString(),
-      isOwn: true
-    }
-    setChatMessages((previous) => [...previous, message])
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'chat_message', sender: message.sender, text, timestamp: message.timestamp }))
-    }
-  }
-
-  const copyMeetingLink = async () => {
-    await navigator.clipboard.writeText(window.location.href)
-    toast.success('Meeting link copied')
+    if (track) { track.enabled = !track.enabled; setIsAudioOn(track.enabled) }
   }
 
   const endInterview = async () => {
-    if (!confirm('Are you sure you want to leave the interview room?')) return;
-
-    try {
-      // Exit fullscreen first
-      if (document.fullscreenElement) {
-        await document.exitFullscreen().catch(() => {});
+    if (!confirm('Leave room?')) return;
+    cleanup();
+    if (isRecruiter) {
+      try { await api.post(`/interviews/${interviewId}/end`); } catch (error) {}
+      navigate(`/interviews/${interviewId}/analysis`, { state: { transcript }, replace: true });
+    } else {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'participant_left', name: candidateName || 'Candidate' }));
       }
-
-      // Cleanup media and connections
-      cleanup();
-
-      if (isRecruiter) {
-        // Send end interview request
-        try {
-          await api.post(`/interviews/${interviewId}/end`);
-          toast.success('Interview ended. Opening report.');
-        } catch (error) {
-          console.error('Error ending interview:', error);
-          // Continue navigation even if API fails
-        }
-        navigate(`/interviews/${interviewId}/analysis`, { state: { transcript }, replace: true });
-      } else {
-        // Notify server that candidate left
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: 'participant_left',
-            name: candidateName || 'Candidate'
-          }));
-        }
-        navigate('/thanks', { replace: true });
-      }
-    } catch (error) {
-      console.error('Error in endInterview:', error);
-      cleanup();
-      navigate(isRecruiter ? '/interviews' : '/', { replace: true });
+      navigate('/thanks', { replace: true });
     }
   }
 
@@ -662,64 +458,30 @@ export default function InterviewRoom() {
   const initializeSpeechRecognition = () => {
     try {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        console.warn('Speech recognition not supported');
-        return;
-      }
-
+      if (!SpeechRecognition) return;
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-
       recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-          .map(result => result[0].transcript)
-          .join('');
-
+        const text = Array.from(event.results).map(result => result[0].transcript).join('');
         if (event.results[event.results.length - 1].isFinal) {
           const speaker = candidateName || user?.full_name || 'Participant';
-          setTranscript(prev => [...prev, {
-            speaker,
-            text: transcript,
-            timestamp: new Date().toISOString()
-          }]);
-
+          setTranscript(prev => [...prev, { speaker, text, timestamp: new Date().toISOString() }]);
           if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({
-              type: 'transcript',
-              speaker,
-              text: transcript,
-              timestamp: new Date().toISOString()
-            }));
+            wsRef.current.send(JSON.stringify({ type: 'transcript', speaker, text, timestamp: new Date().toISOString() }));
           }
         }
       };
-
-      recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        if (event.error === 'no-speech') {
-          recognition.start();
-        }
-      };
-
-      recognition.onend = () => {
-        if (isRecording) {
-          recognition.start();
-        }
-      };
-
+      recognition.onend = () => { if (isRecording) recognition.start() };
       recognitionRef.current = recognition;
       recognition.start();
       setIsRecording(true);
-    } catch (error) {
-      console.error('Failed to initialize speech recognition:', error);
-    }
+    } catch (error) {}
   };
 
   const cleanup = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop())
-    screenShareRef.current?.srcObject?.getTracks().forEach((track) => track.stop())
     wsRef.current?.close()
     recognitionRef.current?.stop()
     if (peerRef.current) peerRef.current.close()
@@ -727,143 +489,68 @@ export default function InterviewRoom() {
   }
 
   const formatTime = (seconds) => {
-    const hrs = Math.floor(seconds / 3600)
-    const mins = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-    return [hrs, mins, secs].map((value) => value.toString().padStart(2, '0')).join(':')
+    const hrs = Math.floor(seconds / 3600); const mins = Math.floor((seconds % 3600) / 60); const secs = seconds % 60;
+    return [hrs, mins, secs].map((v) => v.toString().padStart(2, '0')).join(':')
   }
-
-  const participantsData = useMemo(() => [
-    {
-      id: 'remote',
-      name: isRecruiter ? interview?.candidate?.name || 'Candidate' : 'Interviewer',
-      isHost: !isCandidate,
-      isAudioOn: true,
-      isVideoOn: true
-    },
-    {
-      id: 'local',
-      name: `${candidateName || user?.full_name || 'You'} (You)`,
-      isHost: isRecruiter,
-      isAudioOn,
-      isVideoOn
-    }
-  ], [candidateName, interview, isAudioOn, isCandidate, isRecruiter, isVideoOn, user])
-
-  const openPanel = (panel) => setActivePanel((current) => current === panel ? null : panel)
 
   if (loading || isAuthLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#070812]">
-        <div className="text-center">
-          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-violet-500 mx-auto" />
-          <p className="text-slate-400">Loading interview room...</p>
-        </div>
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary mx-auto" />
       </div>
     )
   }
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-[#070812] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(124,58,237,0.2),transparent_35%),radial-gradient(circle_at_90%_18%,rgba(76,29,149,0.18),transparent_28%)]" />
-      <header className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-7">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3">
-            <h1 className="truncate text-base font-semibold sm:text-lg">{interview?.title || 'TalentIQ Interview'}</h1>
-            <span className="hidden items-center gap-1.5 rounded-full border border-red-300/20 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-200 sm:flex">
-              <span className={`h-1.5 w-1.5 rounded-full bg-red-400 ${isRecording ? 'animate-pulse' : ''}`} />
-              {isRecording ? 'Recording' : 'Live'}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-slate-400">{isRecruiter ? 'Recruiter meeting room' : 'Interview meeting room'}</p>
+      <header className="relative z-10 flex items-center justify-between px-6 py-4">
+        <div>
+          <h1 className="truncate text-lg font-semibold">{interview?.title || 'Interview'}</h1>
+          <p className="text-xs text-slate-400">{isRecruiter ? 'Recruiter' : 'Candidate'} Room</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-slate-300 sm:flex">
-            <Signal size={14} className="text-emerald-300" /> {networkQuality}
-          </div>
-          <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-xs text-slate-200">{formatTime(elapsedTime)}</div>
-          <button type="button" onClick={copyMeetingLink} className="rounded-full border border-white/10 bg-white/[0.04] p-2.5 text-slate-300 hover:bg-white/10" aria-label="Copy meeting link"><Copy size={16} /></button>
-          <button type="button" onClick={toggleFullscreen} className="rounded-full border border-white/10 bg-white/[0.04] p-2.5 text-slate-300 hover:bg-white/10" aria-label="Fullscreen">
-            {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-          </button>
+        <div className="flex items-center gap-3">
+          <div className="bg-white/5 px-3 py-1.5 rounded-full font-mono text-xs">{formatTime(elapsedTime)}</div>
+          <button type="button" onClick={endInterview} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl text-xs font-bold">End Session</button>
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 px-3 pb-24 sm:px-6 sm:pb-28">
-        <div className="relative h-full overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
-          {isScreenSharing ? (
-            <video ref={screenShareRef} autoPlay playsInline className="h-full w-full bg-black object-contain" />
-          ) : (
-            <video ref={remoteVideoRef} playsInline className="h-full w-full bg-slate-900 object-cover" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
-          <div className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-black/45 px-4 py-2 text-sm backdrop-blur-xl">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+      <main className="relative z-10 flex-1 px-6 pb-24">
+        <div className="relative h-full overflow-hidden rounded-3xl border border-white/10 bg-slate-900">
+          <video ref={remoteVideoRef} playsInline className="h-full w-full object-cover" />
+          <div className="absolute bottom-5 left-5 bg-black/40 px-4 py-1.5 rounded-full text-sm">
             {isRecruiter ? interview?.candidate?.name || 'Candidate' : 'Interviewer'}
           </div>
 
-          <motion.div layout className="absolute bottom-5 right-4 h-28 w-40 overflow-hidden rounded-2xl border border-white/20 bg-slate-900 shadow-2xl sm:bottom-6 sm:right-6 sm:h-40 sm:w-60">
-            <video ref={localVideoRef} autoPlay playsInline muted className="mirror h-full w-full object-cover" />
-            {!isVideoOn && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-                <User className="text-violet-300" size={38} />
-              </div>
-            )}
-            
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2">
-               <MicVisualizer stream={streamRef.current} active={isAudioOn} />
-            </div>
-
-            <div className="absolute bottom-2 left-2 rounded-full bg-black/50 px-2 py-1 text-xs">You</div>
-          </motion.div>
-
-          {handRaised && isCandidate && (
-            <div className="absolute right-5 top-5 flex items-center gap-2 rounded-full bg-amber-400 px-3 py-2 text-xs font-medium text-slate-950">
-              <Hand size={15} /> Hand raised
-            </div>
-          )}
+          <div className="absolute bottom-5 right-5 h-36 w-52 overflow-hidden rounded-2xl border border-white/20 bg-slate-800 shadow-2xl">
+            <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover mirror" />
+            {!isVideoOn && <div className="absolute inset-0 flex items-center justify-center bg-slate-800"><VideoOff size={32} /></div>}
+            <div className="absolute bottom-2 left-2 bg-black/40 px-2 py-0.5 rounded text-[10px]">You</div>
+          </div>
         </div>
-
-        <AnimatePresence>
-          {showCodeEditor && isRecruiter && (
-            <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} className="absolute inset-x-6 bottom-28 top-12 z-20 rounded-3xl bg-slate-950/90 p-3 shadow-2xl backdrop-blur-xl">
-              <button type="button" onClick={() => setShowCodeEditor(false)} className="absolute right-6 top-6 z-10 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white">Close code editor</button>
-              <SharedCodeEditor interviewId={interviewId} />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </main>
 
-      <footer className="absolute inset-x-0 bottom-4 z-30 flex justify-center px-3 sm:bottom-6">
-        <div className="flex max-w-[calc(100vw-24px)] items-center gap-1.5 overflow-x-auto rounded-full border border-white/10 bg-slate-950/75 p-2 shadow-2xl backdrop-blur-2xl sm:gap-2">
-          <Control label={isAudioOn ? 'Mute microphone' : 'Unmute microphone'} active={!isAudioOn} onClick={toggleAudio}>{isAudioOn ? <Mic size={20} /> : <MicOff size={20} />}</Control>
-          <Control label={isVideoOn ? 'Turn off camera' : 'Turn on camera'} active={!isVideoOn} onClick={toggleVideo}>{isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}</Control>
-          <Control label={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen'} active={isFullscreen} onClick={toggleFullscreen}>{isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}</Control>
-          <Control label="Share screen" active={isScreenSharing} onClick={toggleScreenShare}>{isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}</Control>
-          <Control label="Chat" active={activePanel === 'chat'} onClick={() => openPanel('chat')}><MessageSquare size={20} /></Control>
-          {isCandidate && <Control label="Raise hand" active={handRaised} onClick={raiseHand}><Hand size={20} /></Control>}
-          {isRecruiter && (
-            <>
-              <Control label="Participants" active={activePanel === 'participants'} onClick={() => openPanel('participants')}><Users size={20} /></Control>
-              <Control label="Transcript" active={activePanel === 'transcript'} onClick={() => openPanel('transcript')}><FileText size={20} /></Control>
-              <Control label="AI Assistant" active={activePanel === 'ai'} onClick={() => openPanel('ai')}><Brain size={20} /></Control>
-              <Control label="Coding workspace" active={showCodeEditor} onClick={() => setShowCodeEditor((current) => !current)}><Code size={20} /></Control>
-              <Control label={isRecording ? 'Pause transcript' : 'Resume transcript'} active={isRecording} onClick={toggleRecording}><span className={`h-3 w-3 rounded-full ${isRecording ? 'bg-red-400' : 'bg-slate-300'}`} /></Control>
-            </>
-          )}
-          <Control label={isRecruiter ? 'End interview' : 'Leave interview'} danger onClick={endInterview}><Phone size={20} className="rotate-[135deg]" /></Control>
+      <footer className="absolute inset-x-0 bottom-6 z-30 flex justify-center px-4">
+        <div className="flex items-center gap-3 p-2 bg-slate-950/80 rounded-full border border-white/10 backdrop-blur-xl">
+           <Control label="Mic" active={!isAudioOn} onClick={toggleAudio}>{isAudioOn ? <Mic size={20} /> : <MicOff size={20} />}</Control>
+           <Control label="Video" active={!isVideoOn} onClick={toggleVideo}>{isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}</Control>
+           <Control label="Chat" active={activePanel === 'chat'} onClick={() => setActivePanel(activePanel === 'chat' ? null : 'chat')}><MessageSquare size={20} /></Control>
+           {isRecruiter && (
+             <>
+               <Control label="Transcript" active={activePanel === 'transcript'} onClick={() => setActivePanel(activePanel === 'transcript' ? null : 'transcript')}><FileText size={20} /></Control>
+               <Control label="AI" active={activePanel === 'ai'} onClick={() => setActivePanel(activePanel === 'ai' ? null : 'ai')}><Brain size={20} /></Control>
+             </>
+           )}
         </div>
       </footer>
 
       <AnimatePresence>
-        {activePanel === 'chat' && <MeetingChat messages={chatMessages} onSend={sendChatMessage} onClose={() => setActivePanel(null)} />}
-        {activePanel === 'participants' && isRecruiter && <ParticipantsList participants={participantsData} onClose={() => setActivePanel(null)} />}
-        {activePanel === 'transcript' && isRecruiter && <TranscriptPanel transcript={transcript} recording={isRecording} onClose={() => setActivePanel(null)} />}
-        {activePanel === 'ai' && isRecruiter && <RecruiterAIPanel analysis={liveAnalysis} interview={interview} transcript={transcript} recording={isRecording} onClose={() => setActivePanel(null)} />}
+        {activePanel === 'chat' && <MeetingChat messages={chatMessages} onSend={(t) => {
+          const m = { id: `local-${Date.now()}`, sender: 'You', text: t, timestamp: new Date().toISOString(), isOwn: true };
+          setChatMessages(p => [...p, m]);
+          wsRef.current?.send(JSON.stringify({ type: 'chat_message', sender: user?.full_name || 'Recruiter', text: t }));
+        }} onClose={() => setActivePanel(null)} />}
       </AnimatePresence>
-      <style jsx>{`
-        .mirror { transform: scaleX(-1); }
-      `}</style>
+      <style jsx>{`.mirror { transform: scaleX(-1); }`}</style>
     </div>
   )
 }
