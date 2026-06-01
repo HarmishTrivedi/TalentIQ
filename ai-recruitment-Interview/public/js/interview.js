@@ -41,9 +41,15 @@ export class InterviewRoom {
   }
 
   render() {
+    // 1. Setup signaling immediately so we don't miss offers
+    this.setupSocket();
+    this.setupWebRTC();
+
+    // 2. Render UI shell
     const loading = showLoading('Joining interview');
     document.getElementById('app').innerHTML = this.html();
 
+    // 3. Initialize room after UI is ready
     setTimeout(() => {
       this.initRoom();
       hideLoading();
@@ -285,8 +291,6 @@ export class InterviewRoom {
     this.addSelfTile();
     this.setupControls();
     this.setupPanels();
-    this.setupSocket();
-    this.setupWebRTC();
     this.startTimer();
     this.addSelfToParticipants();
 
@@ -329,7 +333,8 @@ export class InterviewRoom {
   }
 
   addVideoTile(socketId, name, role, stream, isSelf = false) {
-    console.log(`[UI] addVideoTile for ${name} (${socketId}), isSelf: ${isSelf}`);
+    const safeName = name || (role === 'recruiter' ? 'Recruiter' : 'Candidate');
+    console.log(`[UI] addVideoTile for ${safeName} (${socketId}), isSelf: ${isSelf}`);
     const tilesEl = document.getElementById('video-tiles');
     if (!tilesEl) return;
 
@@ -340,14 +345,14 @@ export class InterviewRoom {
       tile.id = `tile-${socketId}`;
       tile.innerHTML = `
         <div class="video-avatar" id="avatar-${socketId}">
-          <div class="avatar-ring">${getInitials(name)}</div>
-          <span class="avatar-name">${escapeHtml(name)}</span>
+          <div class="avatar-ring">${getInitials(safeName)}</div>
+          <span class="avatar-name">${escapeHtml(safeName)}</span>
         </div>
         <video id="video-${socketId}" autoplay playsinline ${isSelf ? 'muted' : ''} style="width:100%; height:100%; object-fit:cover; background:#000;"></video>
         <div class="tile-overlay"></div>
         <div class="tile-info">
           <div class="tile-name">
-            ${escapeHtml(name)}
+            ${escapeHtml(safeName)}
             ${role === 'recruiter' ? `<span class="role-badge recruiter">Recruiter</span>` : ''}
           </div>
         </div>
@@ -357,29 +362,29 @@ export class InterviewRoom {
 
     if (stream) {
       const videoEl = document.getElementById(`video-${socketId}`);
-      if (videoEl) {
-        if (videoEl.srcObject !== stream) {
-          console.log(`[UI] Attaching stream to video element for ${socketId}`);
-          videoEl.srcObject = stream;
-        }
+      if (videoEl && videoEl.srcObject !== stream) {
+        console.log(`[UI] Attaching stream to video element for ${socketId}`);
+        videoEl.srcObject = stream;
         
-        // Force play and ensure volume is up for remote users
-        videoEl.onloadedmetadata = () => {
-          console.log(`[UI] Video metadata loaded for ${socketId}, playing...`);
-          videoEl.play().catch(e => console.error("[UI] Auto-play failed:", e));
-          if (!isSelf) {
-            videoEl.muted = false;
-            videoEl.volume = 1.0;
+        const playVideo = async () => {
+          try {
+            await videoEl.play();
+            console.log(`[UI] Video playing for ${socketId}`);
+            if (!isSelf) {
+              videoEl.muted = false;
+              videoEl.volume = 1.0;
+            }
+            document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
+          } catch (e) {
+            console.warn(`[UI] Auto-play blocked for ${socketId}, retrying on click...`, e);
+            // Fallback: unhide avatar if video fails to play
+            document.getElementById(`avatar-${socketId}`)?.classList.remove('hidden');
+            // Try to play again if user clicks anywhere
+            window.addEventListener('click', () => videoEl.play().catch(e=>{}), { once: true });
           }
-          document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
         };
 
-        // If metadata already loaded
-        if (videoEl.readyState >= 2) {
-          videoEl.play().catch(e => {});
-          if (!isSelf) videoEl.muted = false;
-          document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
-        }
+        playVideo();
       }
     }
 
@@ -395,17 +400,31 @@ export class InterviewRoom {
   updateTileLayout() {
     const tilesEl = document.getElementById('video-tiles');
     if (!tilesEl) return;
-    const count = tilesEl.children.length;
-    tilesEl.className = `video-tiles count-${Math.min(count, 4)}`;
-    // Self preview: hide the self tile if others are present, show floating preview
+    
     const selfTile = document.getElementById('tile-self');
     const selfPreview = document.getElementById('self-preview');
-    if (count > 1) {
+    const totalCount = tilesEl.children.length;
+    
+    // UI Logic: If more than 1 person, hide self from grid and show floating preview
+    if (totalCount > 1) {
       if (selfTile) selfTile.style.display = 'none';
       if (selfPreview) selfPreview.style.display = 'block';
     } else {
       if (selfTile) selfTile.style.display = '';
       if (selfPreview) selfPreview.style.display = 'none';
+    }
+
+    // Grid Logic: Set count class based on VISIBLE tiles only
+    const visibleTiles = Array.from(tilesEl.children).filter(t => t.style.display !== 'none');
+    const visibleCount = visibleTiles.length;
+    
+    console.log(`[UI] Updating layout: total=${totalCount}, visible=${visibleCount}`);
+    tilesEl.className = `video-tiles count-${Math.min(visibleCount, 4)}`;
+    
+    // If only 1 visible (the remote peer), ensure it's centered and large
+    if (visibleCount === 1) {
+      visibleTiles[0].style.width = '100%';
+      visibleTiles[0].style.height = '100%';
     }
   }
 
