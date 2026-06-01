@@ -1,11 +1,32 @@
 // ═══════════════════════════════════════════════════════
-// TalentIQ — WebRTC Manager
+// TalentIQ — WebRTC Manager (Audited & Fixed)
 // ═══════════════════════════════════════════════════════
 
+// Metered TURN Configuration
 const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
+  {
+    urls: "stun:stun.relay.metered.ca:80"
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80",
+    username: "bcb923cd13bb66d858302a57",
+    credential: "YLri3hKFQq7CFm6q"
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+    username: "bcb923cd13bb66d858302a57",
+    credential: "YLri3hKFQq7CFm6q"
+  },
+  {
+    urls: "turn:global.relay.metered.ca:443",
+    username: "bcb923cd13bb66d858302a57",
+    credential: "YLri3hKFQq7CFm6q"
+  },
+  {
+    urls: "turns:global.relay.metered.ca:443?transport=tcp",
+    username: "bcb923cd13bb66d858302a57",
+    credential: "YLri3hKFQq7CFm6q"
+  }
 ];
 
 export class WebRTCManager {
@@ -14,31 +35,45 @@ export class WebRTCManager {
     this.localStream = localStream;
     this.onRemoteStream = onRemoteStream;
     this.onRemoveStream = onRemoveStream;
-    this.peers = new Map(); // socketId -> RTCPeerConnection
+    this.peers = new Map();       // socketId -> RTCPeerConnection
+    this.makingOffer = new Map(); // socketId -> boolean
     this.setupSocketListeners();
+
+    console.log("[WebRTC Audit] 1. Local Media Stream Verification");
+    if (localStream) {
+      console.log("Local Stream:", localStream);
+      console.log("Tracks:", localStream.getTracks().map(t => `${t.kind}: ${t.label}`));
+    } else {
+      console.error("❌ No local stream found!");
+    }
   }
 
   setupSocketListeners() {
     this.socket.on('participant-joined', async ({ socketId, userName, role }) => {
-      console.log('[WebRTC] participant-joined, creating offer for', socketId, userName, role);
+      console.log('[WebRTC Signaling] participant-joined:', socketId, userName);
       await this.createOffer(socketId, userName, role);
     });
 
     this.socket.on('offer', async ({ from, offer, userName, role }) => {
-      console.log('[WebRTC] Received offer from', from, userName, role);
+      console.log('[WebRTC Signaling] 3. Offer Received from', from);
       await this.handleOffer(from, offer, userName, role);
     });
 
     this.socket.on('answer', async ({ from, answer }) => {
-      console.log('[WebRTC] Received answer from', from);
+      console.log('[WebRTC Signaling] 3. Answer Received from', from);
       const pc = this.peers.get(from);
       if (pc) {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log('[WebRTC] Remote description set (answer) for', from);
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          console.log('[WebRTC Signaling] Answer applied for', from);
+        } catch (e) {
+          console.error('[WebRTC] setRemoteDescription failed:', e);
+        }
       }
     });
 
     this.socket.on('ice-candidate', async ({ from, candidate }) => {
+      console.log('[WebRTC Signaling] 4. ICE Candidate Received from', from);
       const pc = this.peers.get(from);
       if (pc && candidate) {
         try {
@@ -57,44 +92,43 @@ export class WebRTCManager {
   }
 
   createPeerConnection(socketId, userName, role) {
-    console.log('[WebRTC] Creating peer connection for', socketId, userName);
+    if (this.peers.has(socketId)) return this.peers.get(socketId);
+
+    console.log('[WebRTC Audit] Creating PeerConnection for', socketId);
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.peers.set(socketId, pc);
 
-    // Add local tracks
+    // ── 2. Track Attachment ──────────────────────────────────────────────────
     if (this.localStream) {
+      console.log("[WebRTC Audit] 2. Attaching local tracks for", socketId);
       this.localStream.getTracks().forEach(track => {
-        console.log('[WebRTC] Adding local track:', track.kind, track.label);
+        console.log(`[WebRTC Audit]  → Adding ${track.kind} track`);
         pc.addTrack(track, this.localStream);
       });
-    } else {
-      console.warn('[WebRTC] No localStream available when creating peer connection!');
     }
 
-    // ICE candidates
+    // ── 4. ICE Candidate Exchange ─────────────────────────────────────────────
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) {
-        console.log('[WebRTC] Sending ICE candidate to', socketId);
+        console.log('[WebRTC Audit] 4. ICE Candidate Generated for', socketId);
         this.socket.emit('ice-candidate', { to: socketId, candidate });
       }
     };
 
-    pc.oniceconnectionstatechange = () => {
-      console.log('[WebRTC] ICE connection state:', pc.iceConnectionState, 'for', socketId);
-    };
-
+    // ── 8. Connection Diagnostics ─────────────────────────────────────────────
     pc.onconnectionstatechange = () => {
-      console.log('[WebRTC] Connection state:', pc.connectionState, 'for', socketId);
-      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-        this.removePeer(socketId);
-      }
+      console.log("[WebRTC Audit] 8. Connection State:", pc.connectionState, "for", socketId);
     };
 
-    // Remote stream — delivers video+audio to the UI
+    pc.oniceconnectionstatechange = () => {
+      console.log("[WebRTC Audit] 8. ICE State:", pc.iceConnectionState, "for", socketId);
+      if (pc.iceConnectionState === 'failed') pc.restartIce();
+    };
+
+    // ── 5. Remote Stream Reception ────────────────────────────────────────────
     pc.ontrack = (event) => {
-      console.log('[WebRTC] ontrack fired — kind:', event.track.kind, 'streams:', event.streams.length);
+      console.log("[WebRTC Audit] 5. Remote Track Received", event.track.kind);
       const remoteStream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
-      console.log('[WebRTC] Remote stream id:', remoteStream.id, 'tracks:', remoteStream.getTracks().length);
       this.onRemoteStream(socketId, remoteStream, userName, role);
     };
 
@@ -102,12 +136,12 @@ export class WebRTCManager {
   }
 
   async createOffer(socketId, userName, role) {
-    console.log('[WebRTC] Creating offer for', socketId);
+    console.log('[WebRTC Signaling] 3. Creating Offer to', socketId);
     const pc = this.createPeerConnection(socketId, userName, role);
     try {
       const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
       await pc.setLocalDescription(offer);
-      console.log('[WebRTC] Offer created, sending to', socketId);
+      console.log('[WebRTC Signaling] 3. Offer Sent to', socketId);
       this.socket.emit('offer', { to: socketId, offer: pc.localDescription });
     } catch (e) {
       console.error('[WebRTC] createOffer failed:', e);
@@ -115,14 +149,13 @@ export class WebRTCManager {
   }
 
   async handleOffer(socketId, offer, userName, role) {
-    console.log('[WebRTC] Handling offer from', socketId);
+    console.log('[WebRTC Signaling] 3. Handling Offer from', socketId);
     const pc = this.createPeerConnection(socketId, userName, role);
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      console.log('[WebRTC] Remote description set (offer) for', socketId);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      console.log('[WebRTC] Answer created, sending to', socketId);
+      console.log('[WebRTC Signaling] 3. Answer Sent to', socketId);
       this.socket.emit('answer', { to: socketId, answer: pc.localDescription });
     } catch (e) {
       console.error('[WebRTC] handleOffer failed:', e);

@@ -1,13 +1,32 @@
 // ═══════════════════════════════════════════════════════
-// TalentIQ — WebRTC Manager (Fixed)
+// TalentIQ — WebRTC Manager (Audited & Fixed)
 // ═══════════════════════════════════════════════════════
 
+// Metered TURN Configuration
 const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
+  {
+    urls: "stun:stun.relay.metered.ca:80"
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80",
+    username: "bcb923cd13bb66d858302a57",
+    credential: "YLri3hKFQq7CFm6q"
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+    username: "bcb923cd13bb66d858302a57",
+    credential: "YLri3hKFQq7CFm6q"
+  },
+  {
+    urls: "turn:global.relay.metered.ca:443",
+    username: "bcb923cd13bb66d858302a57",
+    credential: "YLri3hKFQq7CFm6q"
+  },
+  {
+    urls: "turns:global.relay.metered.ca:443?transport=tcp",
+    username: "bcb923cd13bb66d858302a57",
+    credential: "YLri3hKFQq7CFm6q"
+  }
 ];
 
 export class WebRTCManager {
@@ -20,51 +39,56 @@ export class WebRTCManager {
     this.makingOffer = new Map(); // socketId -> boolean (polite peer collision)
     this.setupSocketListeners();
 
-    console.log('[WebRTC] Manager initialized. Local stream tracks:',
-      localStream ? localStream.getTracks().map(t => `${t.kind}(${t.label})`).join(', ') : 'NONE'
-    );
+    console.log("[WebRTC Audit] 1. Local Media Stream Verification");
+    if (localStream) {
+      console.log("Local Stream:", localStream);
+      console.log("Tracks:", localStream.getTracks());
+      localStream.getTracks().forEach(t => {
+        console.log(`Track: kind=${t.kind}, label=${t.label}, enabled=${t.enabled}, readyState=${t.readyState}`);
+      });
+    } else {
+      console.error("❌ No local stream found during WebRTC initialization!");
+    }
   }
 
   setupSocketListeners() {
-    // Existing peer notifies us that a new participant joined — they create the offer
     this.socket.on('participant-joined', async ({ socketId, userName, role }) => {
-      console.log('[WebRTC] participant-joined event — creating offer for', socketId, userName);
+      console.log('[WebRTC Signaling] participant-joined event from', socketId, userName);
       await this.createOffer(socketId, userName, role);
     });
 
     this.socket.on('offer', async ({ from, offer, userName, role }) => {
-      console.log('[WebRTC] Received offer from', from, userName);
+      console.log('[WebRTC Signaling] 3. Offer Received from', from, userName);
       await this.handleOffer(from, offer, userName, role);
     });
 
     this.socket.on('answer', async ({ from, answer }) => {
-      console.log('[WebRTC] Received answer from', from);
+      console.log('[WebRTC Signaling] 3. Answer Received from', from);
       const pc = this.peers.get(from);
       if (!pc) {
         console.warn('[WebRTC] No peer connection found for answer from', from);
         return;
       }
-      // Ignore answer if we are not in the right state
       if (pc.signalingState !== 'have-local-offer') {
         console.warn('[WebRTC] Ignoring answer — unexpected signaling state:', pc.signalingState);
         return;
       }
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log('[WebRTC] Remote description set (answer) for', from);
+        console.log('[WebRTC Signaling] Answer applied successfully for', from);
       } catch (e) {
         console.error('[WebRTC] setRemoteDescription (answer) failed:', e);
       }
     });
 
     this.socket.on('ice-candidate', async ({ from, candidate }) => {
+      console.log('[WebRTC Signaling] 4. ICE Candidate Received from', from);
       const pc = this.peers.get(from);
       if (pc && candidate) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          console.log('[WebRTC] ICE candidate added from', from);
+          console.log('[WebRTC] ICE candidate added successfully from', from);
         } catch (e) {
-          // Ignore benign ICE errors (e.g. candidate added after connection closed)
           if (e.name !== 'InvalidStateError') {
             console.warn('[WebRTC] Failed to add ICE candidate from', from, ':', e.message);
           }
@@ -79,174 +103,120 @@ export class WebRTCManager {
   }
 
   createPeerConnection(socketId, userName, role) {
-    // Prevent duplicate peer connections
     if (this.peers.has(socketId)) {
-      console.log('[WebRTC] Peer connection already exists for', socketId, '— reusing');
       return this.peers.get(socketId);
     }
 
-    console.log('[WebRTC] Creating NEW peer connection for', socketId, userName, role);
+    console.log('[WebRTC Audit] Creating peer connection for', socketId, userName);
 
     const pc = new RTCPeerConnection({
       iceServers: ICE_SERVERS,
       iceCandidatePoolSize: 10,
-      bundlePolicy: 'max-bundle',
-      rtcpMuxPolicy: 'require',
     });
 
     this.peers.set(socketId, pc);
     this.makingOffer.set(socketId, false);
 
-    // ── Add local tracks ──────────────────────────────────────────────────────
+    // ── 2. Track Attachment ──────────────────────────────────────────────────
     if (this.localStream) {
-      const tracks = this.localStream.getTracks();
-      console.log('[WebRTC] Adding', tracks.length, 'local tracks to peer connection for', socketId);
-      tracks.forEach(track => {
-        console.log('[WebRTC]  → Adding track:', track.kind, track.label, 'enabled:', track.enabled);
+      console.log("[WebRTC Audit] 2. Attaching local tracks for", socketId);
+      this.localStream.getTracks().forEach(track => {
+        console.log(`[WebRTC Audit]  → Adding ${track.kind} track to pc`);
         pc.addTrack(track, this.localStream);
       });
-    } else {
-      console.error('[WebRTC] ❌ No localStream when creating peer connection for', socketId, '— remote will not receive media!');
     }
 
-    // ── ICE candidates ────────────────────────────────────────────────────────
+    // ── 4. ICE Candidate Exchange ─────────────────────────────────────────────
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) {
-        console.log('[WebRTC] Sending ICE candidate to', socketId, candidate.type);
+        console.log('[WebRTC Audit] 4. ICE Candidate Generated:', candidate.type, candidate.candidate.substring(0, 50) + "...");
         this.socket.emit('ice-candidate', { to: socketId, candidate });
       } else {
-        console.log('[WebRTC] ICE gathering complete for', socketId);
+        console.log('[WebRTC Audit] ICE gathering complete for', socketId);
       }
     };
 
-    pc.onicegatheringstatechange = () => {
-      console.log('[WebRTC] ICE gathering state:', pc.iceGatheringState, 'for', socketId);
+    // ── 8. Connection Diagnostics ─────────────────────────────────────────────
+    pc.onconnectionstatechange = () => {
+      console.log("[WebRTC Audit] 8. Connection State:", pc.connectionState, "for", socketId);
+      if (pc.connectionState === 'connected') {
+        console.log('[WebRTC Audit] ✅ Connection ESTABLISHED with', socketId);
+      }
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        console.error('[WebRTC Audit] ❌ Connection', pc.connectionState, "for", socketId);
+        this.removePeer(socketId);
+      }
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log('[WebRTC] ICE connection state:', pc.iceConnectionState, 'for', socketId);
+      console.log("[WebRTC Audit] 8. ICE State:", pc.iceConnectionState, "for", socketId);
       if (pc.iceConnectionState === 'failed') {
-        console.warn('[WebRTC] ICE failed — attempting restart for', socketId);
+        console.warn('[WebRTC] ICE failed, attempting restart');
         pc.restartIce();
       }
     };
 
     pc.onsignalingstatechange = () => {
-      console.log('[WebRTC] Signaling state:', pc.signalingState, 'for', socketId);
+      console.log("[WebRTC Audit] 8. Signaling State:", pc.signalingState, "for", socketId);
     };
 
-    pc.onconnectionstatechange = () => {
-      console.log('[WebRTC] Connection state:', pc.connectionState, 'for', socketId);
-      if (pc.connectionState === 'connected') {
-        console.log('[WebRTC] ✅ Peer connection ESTABLISHED with', socketId, userName);
-      }
-      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-        this.removePeer(socketId);
-      }
-    };
-
-    // ── Remote track handler — THE most critical part ─────────────────────────
-    // ontrack fires once per track. We collect all tracks into a MediaStream.
-    const remoteStream = new MediaStream();
-    pc._remoteStream = remoteStream;
-
+    // ── 5. Remote Stream Reception ────────────────────────────────────────────
     pc.ontrack = (event) => {
-      console.log('[WebRTC] ✅ ontrack fired — kind:', event.track.kind,
-        'readyState:', event.track.readyState,
-        'streams:', event.streams.length
-      );
-
-      // Prefer event.streams[0] (contains both audio+video already bundled)
-      if (event.streams && event.streams[0]) {
-        console.log('[WebRTC] Using event.streams[0], id:', event.streams[0].id,
-          'tracks:', event.streams[0].getTracks().map(t => t.kind).join(', ')
-        );
+      console.log("[WebRTC Audit] 5. Remote Track Received", event);
+      console.log("Remote Stream exists:", !!event.streams[0]);
+      if (event.streams[0]) {
+        console.log("Remote Stream Tracks:", event.streams[0].getTracks().map(t => t.kind));
         this.onRemoteStream(socketId, event.streams[0], userName, role);
       } else {
-        // Fallback: manually build stream from individual tracks
-        remoteStream.addTrack(event.track);
-        console.log('[WebRTC] Built manual stream, tracks now:',
-          remoteStream.getTracks().map(t => t.kind).join(', ')
-        );
-        this.onRemoteStream(socketId, remoteStream, userName, role);
+        // Fallback for some browsers
+        const fallbackStream = new MediaStream([event.track]);
+        this.onRemoteStream(socketId, fallbackStream, userName, role);
       }
-
-      event.track.onunmute = () => {
-        console.log('[WebRTC] Track unmuted:', event.track.kind, 'for', socketId);
-      };
-
-      event.track.onended = () => {
-        console.log('[WebRTC] Track ended:', event.track.kind, 'for', socketId);
-      };
     };
 
     return pc;
   }
 
-  // Public — called both internally (participant-joined) and from interview.js (room-participants)
   async createOffer(socketId, userName, role) {
-    console.log('[WebRTC] createOffer → to', socketId, userName);
+    console.log('[WebRTC Signaling] 3. Creating Offer to', socketId);
     const pc = this.createPeerConnection(socketId, userName, role);
 
-    // Guard: don't create offer if already negotiating
-    if (pc.signalingState !== 'stable') {
-      console.warn('[WebRTC] Skipping createOffer — signaling state is', pc.signalingState, 'for', socketId);
-      return;
-    }
+    if (pc.signalingState !== 'stable') return;
 
     try {
       this.makingOffer.set(socketId, true);
-      const offer = await pc.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: true,
-      });
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
       await pc.setLocalDescription(offer);
-      console.log('[WebRTC] Offer created, sending to', socketId);
+      console.log('[WebRTC Signaling] 3. Offer Sent to', socketId);
       this.socket.emit('offer', { to: socketId, offer: pc.localDescription });
     } catch (e) {
-      console.error('[WebRTC] createOffer failed for', socketId, ':', e);
+      console.error('[WebRTC] createOffer failed:', e);
     } finally {
       this.makingOffer.set(socketId, false);
     }
   }
 
   async handleOffer(socketId, offer, userName, role) {
-    console.log('[WebRTC] handleOffer ← from', socketId, userName);
+    console.log('[WebRTC Signaling] 3. Handling Offer from', socketId);
 
     let pc = this.peers.get(socketId);
 
-    // Collision detection: if we already have a peer and are making an offer,
-    // use "polite peer" strategy — the one with the higher socket ID yields
     if (pc && this.makingOffer.get(socketId)) {
       const isPolite = this.socket.id > socketId;
-      console.log('[WebRTC] Offer collision detected. isPolite:', isPolite);
-      if (!isPolite) {
-        console.log('[WebRTC] Impolite peer — ignoring incoming offer');
-        return;
-      }
-      // Polite peer: rollback and accept the incoming offer
-      try {
-        await pc.setLocalDescription({ type: 'rollback' });
-        console.log('[WebRTC] Rolled back local description');
-      } catch (e) {
-        console.warn('[WebRTC] Rollback failed:', e.message);
-      }
+      if (!isPolite) return;
+      await pc.setLocalDescription({ type: 'rollback' });
     }
 
-    if (!pc) {
-      pc = this.createPeerConnection(socketId, userName, role);
-    }
+    if (!pc) pc = this.createPeerConnection(socketId, userName, role);
 
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      console.log('[WebRTC] Remote description set (offer) for', socketId);
-
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      console.log('[WebRTC] Answer created, sending to', socketId);
+      console.log('[WebRTC Signaling] 3. Answer Sent to', socketId);
       this.socket.emit('answer', { to: socketId, answer: pc.localDescription });
     } catch (e) {
-      console.error('[WebRTC] handleOffer failed for', socketId, ':', e);
+      console.error('[WebRTC] handleOffer failed:', e);
     }
   }
 
@@ -257,33 +227,22 @@ export class WebRTCManager {
       this.peers.delete(socketId);
       this.makingOffer.delete(socketId);
       this.onRemoveStream(socketId);
-      console.log('[WebRTC] Peer removed:', socketId);
     }
   }
 
   updateLocalStream(newStream) {
-    console.log('[WebRTC] Updating local stream, new tracks:',
-      newStream.getTracks().map(t => t.kind).join(', ')
-    );
     this.localStream = newStream;
-    this.peers.forEach((pc, socketId) => {
+    this.peers.forEach(pc => {
       const senders = pc.getSenders();
       newStream.getTracks().forEach(track => {
         const sender = senders.find(s => s.track && s.track.kind === track.kind);
-        if (sender) {
-          sender.replaceTrack(track);
-          console.log('[WebRTC] Replaced', track.kind, 'track for', socketId);
-        }
+        if (sender) sender.replaceTrack(track);
       });
     });
   }
 
   closeAll() {
-    console.log('[WebRTC] Closing all peer connections');
-    this.peers.forEach((pc, socketId) => {
-      pc.close();
-      console.log('[WebRTC] Closed peer:', socketId);
-    });
+    this.peers.forEach(pc => pc.close());
     this.peers.clear();
     this.makingOffer.clear();
   }

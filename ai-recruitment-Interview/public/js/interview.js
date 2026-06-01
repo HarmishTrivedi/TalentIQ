@@ -371,13 +371,17 @@ export class InterviewRoom {
     tilesEl.appendChild(tile);
 
     if (stream) {
+      console.log(`[WebRTC Audit] 6. Video Rendering for ${socketId}`);
       const videoEl = document.getElementById(`video-${socketId}`);
       if (videoEl) {
+        console.log(`[WebRTC Audit]  → Assigning srcObject to video element. Stream ID: ${stream.id}`);
         videoEl.srcObject = stream;
 
         if (!isSelf) {
-          // Remote video: must NOT be muted so audio plays through
-          // We start muted to satisfy autoplay policy, then unmute after play starts
+          console.log(`[WebRTC Audit] 7. Audio Rendering check for ${socketId}`);
+          const hasAudio = stream.getAudioTracks().length > 0;
+          console.log(`[WebRTC Audit]  → Remote stream has audio track: ${hasAudio}`);
+          
           videoEl.muted = true;
           videoEl.volume = 1.0;
         }
@@ -385,18 +389,15 @@ export class InterviewRoom {
         const tryPlay = () => {
           videoEl.play()
             .then(() => {
-              console.log(`[Video] Playing for ${socketId}, isSelf=${isSelf}`);
+              console.log(`[WebRTC Audit] ✅ Video PLAYING successfully for ${socketId}`);
               if (!isSelf) {
-                // Unmute after successful play — this is the key fix for audio
                 videoEl.muted = false;
-                console.log(`[Audio] Unmuted remote video for ${socketId}`);
+                console.log(`[WebRTC Audit] 7. Remote Audio UNMUTED for ${socketId}`);
               }
               document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
             })
             .catch(e => {
-              console.warn(`[Video] Autoplay failed for ${socketId}:`, e.name);
-              // Keep muted and retry — audio will be lost but video works
-              // User can click to unmute via the interaction handler below
+              console.error(`[WebRTC Audit] ❌ Autoplay FAILED for ${socketId}:`, e.name);
             });
         };
 

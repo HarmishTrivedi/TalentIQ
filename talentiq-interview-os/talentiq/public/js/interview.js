@@ -363,31 +363,56 @@ export class InterviewRoom {
     tilesEl.appendChild(tile);
 
     if (stream) {
+      console.log(`[WebRTC Audit] 6. Video Rendering for ${socketId}`);
       const videoEl = document.getElementById(`video-${socketId}`);
       if (videoEl) {
-        // FIX: Attach stream first, then ensure remote audio is unmuted
+        console.log(`[WebRTC Audit]  → Assigning srcObject to video element. Stream ID: ${stream.id}`);
         videoEl.srcObject = stream;
 
         if (!isSelf) {
-          // FIX: Remote video must never be muted — this enables audio playback
-          videoEl.muted = false;
+          console.log(`[WebRTC Audit] 7. Audio Rendering check for ${socketId}`);
+          const hasAudio = stream.getAudioTracks().length > 0;
+          console.log(`[WebRTC Audit]  → Remote stream has audio track: ${hasAudio}`);
+          
+          videoEl.muted = true;
           videoEl.volume = 1.0;
         }
 
+        const tryPlay = () => {
+          videoEl.play()
+            .then(() => {
+              console.log(`[WebRTC Audit] ✅ Video PLAYING successfully for ${socketId}`);
+              if (!isSelf) {
+                videoEl.muted = false;
+                console.log(`[WebRTC Audit] 7. Remote Audio UNMUTED for ${socketId}`);
+              }
+              document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
+            })
+            .catch(e => {
+              console.error(`[WebRTC Audit] ❌ Autoplay FAILED for ${socketId}:`, e.name);
+            });
+        };
+
         videoEl.onloadedmetadata = () => {
           console.log(`[Video] Metadata loaded for ${socketId}, tracks:`, stream.getTracks().map(t => t.kind));
-          videoEl.play().catch(e => {
-            console.error('[Video] Autoplay blocked:', e);
-            videoEl.muted = true;
-            videoEl.play().catch(e2 => console.error('[Video] Muted autoplay also failed:', e2));
-          });
-          document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
+          tryPlay();
         };
 
         // Handle already-loaded streams
         if (videoEl.readyState >= 2) {
-          videoEl.play().catch(e => console.warn('[Video] Late-play failed:', e));
-          document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
+          tryPlay();
+        }
+
+        // Fallback on user interaction
+        if (!isSelf) {
+          const unmuteOnInteraction = () => {
+            if (videoEl.muted) {
+              videoEl.muted = false;
+              videoEl.play().catch(() => {});
+              console.log(`[Audio] Unmuted via interaction for ${socketId}`);
+            }
+          };
+          document.addEventListener('click', unmuteOnInteraction, { once: true });
         }
       }
     }
@@ -468,9 +493,13 @@ export class InterviewRoom {
     });
 
     this.socket.on('room-participants', (participants) => {
+      console.log(`[WebRTC Signaling] Received ${participants.length} existing participants`);
       participants.forEach(p => {
         if (p.socketId !== this.socket.id) {
+          console.log('[WebRTC Signaling] Existing participant found, creating offer to:', p.socketId, p.userName);
           this.addParticipantToList(p.socketId, p.userName, p.role, false);
+          // CRITICAL FIX: Initiate connection to existing peers
+          this.webrtc.createOffer(p.socketId, p.userName, p.role);
         }
       });
     });

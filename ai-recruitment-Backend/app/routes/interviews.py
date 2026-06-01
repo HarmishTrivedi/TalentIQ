@@ -72,6 +72,44 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+# ─── TURN Credentials ────────────────────────────────────────────────────────
+
+@router.get("/turn-credentials")
+async def get_turn_credentials():
+    """
+    Returns ICE server config including TURN credentials.
+    TURN is required for WebRTC to work across different networks (NAT traversal).
+    Set METERED_API_KEY in .env to enable TURN servers via metered.ca (free tier).
+    Without TURN, WebRTC only works on the same network.
+    """
+    ice_servers = [
+        {"urls": "stun:stun.l.google.com:19302"},
+        {"urls": "stun:stun1.l.google.com:19302"},
+    ]
+
+    metered_api_key = os.getenv("METERED_API_KEY", "")
+
+    if metered_api_key:
+        try:
+            async with httpx.AsyncClient() as client:
+                res = await client.get(
+                    f"https://talentiq.metered.live/api/v1/turn/credentials?apiKey={metered_api_key}",
+                    timeout=5.0
+                )
+                if res.status_code == 200:
+                    turn_servers = res.json()
+                    ice_servers.extend(turn_servers)
+                    print(f"[TURN] Got {len(turn_servers)} TURN servers from Metered")
+                else:
+                    print(f"[TURN] Metered API returned {res.status_code}")
+        except Exception as e:
+            print(f"[TURN] Failed to fetch Metered credentials: {e}")
+    else:
+        print("[TURN] No METERED_API_KEY set — using STUN only (WebRTC may fail across networks)")
+
+    return {"iceServers": ice_servers}
+
+
 # ─── Interview CRUD ───────────────────────────────────────────────────────────
 
 @router.post("", status_code=status.HTTP_201_CREATED)

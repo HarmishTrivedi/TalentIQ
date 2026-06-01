@@ -126,30 +126,26 @@ export default function InterviewRoom() {
   const recognitionRef = useRef(null)
   const timerRef = useRef(null)
 
-  const ICE_SERVERS = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      // Free TURN servers from Open Relay Project — required for NAT traversal
-      // on cloud/production deployments where STUN alone fails
-      {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-    ],
-    iceCandidatePoolSize: 10,
-  }
+  const [iceServers, setIceServers] = useState([
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ])
+
+  const ICE_SERVERS = { iceServers, iceCandidatePoolSize: 10 }
+
+  // Fetch TURN credentials from backend on mount
+  useEffect(() => {
+    api.get('/interviews/turn-credentials')
+      .then(res => {
+        if (res.data?.iceServers?.length) {
+          console.log('[ICE] Got TURN credentials from backend:', res.data.iceServers.length, 'servers')
+          setIceServers(res.data.iceServers)
+        }
+      })
+      .catch(() => {
+        console.warn('[ICE] Could not fetch TURN credentials, using STUN only')
+      })
+  }, [])
 
   // Attach remote stream to video element when it arrives
   useEffect(() => {
