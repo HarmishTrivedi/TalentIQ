@@ -115,6 +115,8 @@ export default function InterviewRoom() {
   const [chatMessages, setChatMessages] = useState([])
   const [liveAnalysis, setLiveAnalysis] = useState({ insights: [] })
 
+  const [remoteStream, setRemoteStream] = useState(null)
+
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
   const screenShareRef = useRef(null)
@@ -128,9 +130,50 @@ export default function InterviewRoom() {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
-    ]
+      // Free TURN servers from Open Relay Project — required for NAT traversal
+      // on cloud/production deployments where STUN alone fails
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+    ],
+    iceCandidatePoolSize: 10,
   }
+
+  // Attach remote stream to video element when it arrives
+  useEffect(() => {
+    if (!remoteStream || !remoteVideoRef.current) return
+    console.log('[Video] Attaching remote stream to video element')
+    const video = remoteVideoRef.current
+    video.srcObject = remoteStream
+    video.muted = true  // start muted for autoplay policy
+    video.play()
+      .then(() => {
+        video.muted = false  // unmute after play succeeds
+        console.log('[Video] ✅ Remote video playing with audio')
+      })
+      .catch(err => {
+        console.warn('[Video] Autoplay blocked:', err.name, '- will unmute on click')
+        // Unmute on first user interaction
+        const unmute = () => {
+          video.muted = false
+          video.play().catch(() => {})
+          console.log('[Video] Unmuted via user interaction')
+        }
+        document.addEventListener('click', unmute, { once: true })
+      })
+  }, [remoteStream])
 
   // Auth/User Loading
   useEffect(() => {
@@ -252,8 +295,14 @@ export default function InterviewRoom() {
   }
 
   const initializeWebSocket = (stream) => {
-    const wsUrl = `${import.meta.env.VITE_WS_URL || (window.location.protocol === 'https:' ? 'wss' : 'ws') + '://' + window.location.host + '/api/v1'}/interviews/${interviewId}/live`
-    console.log('[WS] Connecting to:', wsUrl);
+    // Build correct WebSocket URL
+    const wsBase = import.meta.env.VITE_WS_URL
+      || (window.location.protocol === 'https:' ? 'wss' : 'ws') + '://' + window.location.host
+    // Strip trailing slash, ensure no double /api/v1
+    const cleanBase = wsBase.replace(/\/$/, '')
+    const wsUrl = `${cleanBase}/api/v1/interviews/${interviewId}/live`
+
+    console.log('[WS] Connecting to:', wsUrl)
     wsRef.current = new WebSocket(wsUrl)
 
     wsRef.current.onopen = () => {
@@ -306,31 +355,12 @@ export default function InterviewRoom() {
     };
 
     pc.ontrack = (event) => {
-      console.log('[WebRTC] ✅ ontrack fired — kind:', event.track.kind, 'streams:', event.streams?.length);
-      const remoteStream = event.streams?.[0] || new MediaStream([event.track]);
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStream;
-        // Start muted to satisfy autoplay policy, then unmute
-        remoteVideoRef.current.muted = true;
-        remoteVideoRef.current.play()
-          .then(() => {
-            remoteVideoRef.current.muted = false;
-            console.log('[WebRTC] Remote video playing and unmuted');
-          })
-          .catch(e => {
-            console.warn('[WebRTC] Autoplay blocked, keeping muted:', e.name);
-            // Unmute on first user interaction
-            const unmute = () => {
-              if (remoteVideoRef.current) {
-                remoteVideoRef.current.muted = false;
-                remoteVideoRef.current.play().catch(() => {});
-              }
-              document.removeEventListener('click', unmute);
-            };
-            document.addEventListener('click', unmute, { once: true });
-          });
-      }
-    };
+      console.log('[WebRTC] ✅ ontrack fired — kind:', event.track.kind, 'streams:', event.streams?.length)
+      const stream = event.streams?.[0] || new MediaStream([event.track])
+      console.log('[WebRTC] Remote stream tracks:', stream.getTracks().map(t => `${t.kind}(enabled:${t.enabled})`).join(', '))
+      // Use React state so the video element is guaranteed to be mounted
+      setRemoteStream(stream)
+    }
 
     pc.onconnectionstatechange = () => {
       console.log('[WebRTC] Connection state:', pc.connectionState);
@@ -459,10 +489,11 @@ export default function InterviewRoom() {
         break;
 
       case 'participant_left':
-        toast(`${data.name} left the interview`);
-        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-        if (peerRef.current) { peerRef.current.close(); peerRef.current = null; }
-        break;
+        toast(`${data.name} left the interview`)
+        setRemoteStream(null)
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
+        if (peerRef.current) { peerRef.current.close(); peerRef.current = null }
+        break
 
       case 'hand_raised':
         toast(`${data.name} raised their hand`);
@@ -739,7 +770,7 @@ export default function InterviewRoom() {
           {isScreenSharing ? (
             <video ref={screenShareRef} autoPlay playsInline className="h-full w-full bg-black object-contain" />
           ) : (
-            <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full bg-slate-900 object-cover" />
+            <video ref={remoteVideoRef} playsInline className="h-full w-full bg-slate-900 object-cover" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
           <div className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-black/45 px-4 py-2 text-sm backdrop-blur-xl">
