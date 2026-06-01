@@ -181,6 +181,11 @@ export default function InterviewRoom() {
   const analysisBuffer = useRef([])
   const lastProcessedIndex = useRef(0)
 
+  const makingOfferRef = useRef(false)
+  const ignoreOfferRef = useRef(false)
+  const isPoliteRef = useRef(false)
+  const iceCandidateQueue = useRef([])
+
   // ── ICE Servers ──
   const iceServersRef = useRef([
     { urls: 'stun:stun.l.google.com:19302' },

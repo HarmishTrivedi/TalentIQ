@@ -214,7 +214,7 @@ export default function Interviews() {
                 {/* Body — clickable */}
                 <div className="flex-1 cursor-pointer" onClick={() => {
                   if (interview.status === 'completed') navigate(`/interviews/${interview.id}/analysis`);
-                  else navigate(`/interviews/${interview.id}`);
+                  else navigate(`/interview-room/${interview.id}`);
                 }}>
                   <h3 className="text-lg font-bold text-on-surface group-hover:text-primary transition-colors leading-tight mb-4">
                     {interview.title}
