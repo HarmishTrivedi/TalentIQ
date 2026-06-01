@@ -458,6 +458,8 @@ export class InterviewRoom {
       participants.forEach(p => {
         if (p.socketId !== this.socket.id) {
           this.addParticipantToList(p.socketId, p.userName, p.role, false);
+          // Capture candidate name for recording filename
+          if (p.role === 'candidate') this.candidateName = p.userName;
         }
       });
     });

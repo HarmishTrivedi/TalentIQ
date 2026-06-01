@@ -336,71 +336,13 @@
 .interview-layout-v2 ::-webkit-scrollbar { width: 3px; }
 .interview-layout-v2 ::-webkit-scrollbar-thumb { background: var(--border-bright); }
 
-/* ─── Old Compatibility Styles ─── */
+/* ─── Compatibility additions (no override of root) ─── */
 :root {
-  /* Core Palette */
-  --bg-void: #0a0a0f;
-  --bg-deep: #0f0f18;
-  --bg-base: #13131f;
-  --bg-surface: #1a1a2e;
-  --bg-elevated: #1f1f35;
-  --bg-overlay: #252540;
-  --bg-card: rgba(255,255,255,0.04);
-  --bg-card-hover: rgba(255,255,255,0.07);
-
-  /* Glass */
-  --glass-bg: rgba(255,255,255,0.05);
-  --glass-border: rgba(255,255,255,0.08);
-  --glass-blur: blur(20px);
-  --glass-strong: rgba(255,255,255,0.08);
-
-  /* Brand */
-  --brand: #4f6ef7;
-  --brand-light: #6b85ff;
-  --brand-dark: #3d56d4;
-  --brand-glow: rgba(79,110,247,0.3);
-  --accent-green: #22c55e;
-  --accent-red: #ef4444;
-  --accent-amber: #f59e0b;
-  --accent-cyan: #06b6d4;
-  --accent-purple: #a855f7;
-
-  /* Text */
-  --text-primary: #f0f0ff;
-  --text-secondary: rgba(240,240,255,0.7);
-  --text-muted: rgba(240,240,255,0.4);
-  --text-hint: rgba(240,240,255,0.25);
-
-  /* Borders */
-  --border: rgba(255,255,255,0.07);
-  --border-bright: rgba(255,255,255,0.15);
-  --border-focus: rgba(79,110,247,0.5);
-
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
-  --shadow-md: 0 4px 20px rgba(0,0,0,0.5);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
-  --shadow-xl: 0 20px 60px rgba(0,0,0,0.7);
-  --shadow-brand: 0 0 30px rgba(79,110,247,0.25);
-
-  /* Radius */
-  --r-sm: 6px;
-  --r-md: 10px;
-  --r-lg: 16px;
-  --r-xl: 20px;
-  --r-2xl: 28px;
-  --r-full: 9999px;
-
-  /* Typography */
-  --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-
   /* Transitions */
   --t-fast: 120ms ease;
   --t-base: 200ms ease;
   --t-slow: 350ms cubic-bezier(0.4,0,0.2,1);
   --t-spring: 400ms cubic-bezier(0.34,1.56,0.64,1);
-
   /* Z-layers */
   --z-video: 1;
   --z-overlay: 10;
@@ -408,6 +350,12 @@
   --z-panel: 200;
   --z-modal: 300;
   --z-toast: 400;
+  /* Extra aliases */
+  --shadow-xl: 0 20px 60px rgba(0,0,0,0.7);
+  --r-2xl: 28px;
+  --brand-light: var(--ai-accent);
+  --brand-dark: var(--brand-dark, #0088cc);
+  --accent-cyan: var(--ai-accent);
 }
 
 /* ─── Reset ─── */
@@ -798,9 +746,8 @@ input, textarea {
   position: fixed;
   inset: 0;
   background: var(--bg-void);
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
+  /* grid layout handled by .interview-layout-v2 */
 }
 
 /* Header Bar */

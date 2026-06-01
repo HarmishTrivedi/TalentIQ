@@ -141,15 +141,37 @@ app.post('/api/rooms/:roomId/recording', express.raw({ type: 'video/webm', limit
   const filename = `${candidateName}_${date}_${req.params.roomId.slice(0, 8)}.webm`;
   const filepath = path.join(recordingsDir, filename);
 
-  fs.writeFile(filepath, req.body, (err) => {
+  fs.writeFile(filepath, req.body, async (err) => {
     if (err) {
       console.error('Recording save error:', err);
       return res.status(500).json({ error: 'Failed to save recording' });
     }
-    const recordingUrl = `/recordings/${filename}`;
+
+    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+    const recordingUrl = `${baseUrl}/recordings/${filename}`;
     room.recordingUrl = recordingUrl;
     room.recordingFilename = filename;
     console.log(`[Recording] Saved: ${filename}`);
+
+    // ── Notify FastAPI backend to update interview.recording_url ──
+    const fastapiUrl = process.env.FASTAPI_URL || 'http://localhost:8000';
+    const apiKey = process.env.TALENTIQ_API_KEY || '';
+    try {
+      const fetch = (await import('node-fetch')).default;
+      await fetch(`${fastapiUrl}/api/v1/interviews/${req.params.roomId}/recording`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+        body: JSON.stringify({
+          recording_url: recordingUrl,
+          candidate_name: room.candidateName || 'candidate',
+          filename
+        })
+      });
+      console.log(`[Recording] FastAPI notified for interview ${req.params.roomId}`);
+    } catch (e) {
+      console.warn('[Recording] FastAPI notify failed (non-critical):', e.message);
+    }
+
     res.json({ success: true, recordingUrl, filename });
   });
 });

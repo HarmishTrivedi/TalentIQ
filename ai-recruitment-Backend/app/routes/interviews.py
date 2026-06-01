@@ -479,6 +479,27 @@ async def delete_interview(
     return {"message": "Interview deleted successfully", "id": interview_id}
 
 
+@router.post("/{interview_id}/recording")
+async def save_recording_url(
+    interview_id: str,
+    data: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Called by Interview OS after recording is saved — updates recording_url on the interview"""
+    interview = await db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    interview.recording_url = data.get("recording_url")
+    if interview.status != InterviewStatus.completed:
+        interview.status = InterviewStatus.completed
+        interview.ended_at = interview.ended_at or datetime.utcnow()
+
+    await db.commit()
+    print(f"✅ Recording URL saved for interview {interview_id}: {interview.recording_url}")
+    return {"message": "Recording URL saved", "recording_url": interview.recording_url}
+
+
 @router.post("/{interview_id}/start")
 async def start_interview(
     interview_id: str,
