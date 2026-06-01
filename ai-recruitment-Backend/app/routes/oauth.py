@@ -96,15 +96,22 @@ async def google_callback(code: str = None, error: str = None, db: AsyncSession 
                 
             print(f"✅ New Google user created: {email}")
         
-        # Check if welcome email needs to be sent (if it failed during initial creation)
+        # Check if welcome email needs to be sent (only for brand new accounts
+        # where the initial send failed — never for returning users)
         if not user.welcome_email_sent:
-            try:
-                email_service = get_new_email_service()
-                await email_service.send_welcome_email(user.email, user.full_name, related_id=user.id)
-                user.welcome_email_sent = True
-                await db.commit()
-            except Exception as e:
-                print(f"⚠️ Failed to send welcome email during OAuth login: {e}")
+            from datetime import datetime, timezone, timedelta
+            just_created = (
+                user.created_at is not None and
+                datetime.now(timezone.utc) - user.created_at.replace(tzinfo=timezone.utc) < timedelta(minutes=10)
+            )
+            if just_created:
+                try:
+                    email_service = get_new_email_service()
+                    await email_service.send_welcome_email(user.email, user.full_name, related_id=user.id)
+                    user.welcome_email_sent = True
+                    await db.commit()
+                except Exception as e:
+                    print(f"⚠️ Failed to send welcome email during OAuth login: {e}")
 
         # Generate tokens and redirect immediately
         access_token = create_access_token({"sub": user.id})
