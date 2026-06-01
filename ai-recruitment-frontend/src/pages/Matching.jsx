@@ -15,15 +15,15 @@ function ScoreRing({ score, size = 96 }) {
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="currentColor" strokeWidth={6} className="text-surface-container-high" />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={6} />
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={6}
           strokeDasharray={circ} strokeDashoffset={fill} strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1)' }}
+          style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.16,1,0.3,1)' }}
         />
       </svg>
       <div className="absolute text-center">
-        <div className="text-2xl font-bold" style={{ color }}>{score}</div>
-        <div className="text-[9px] uppercase tracking-wider text-outline">score</div>
+        <div className="text-3xl font-bold font-display" style={{ color }}>{score}</div>
+        <div className="text-[8px] font-black uppercase tracking-[0.2em] text-white/20">score</div>
       </div>
     </div>
   )
@@ -34,41 +34,40 @@ function AnimatedBar({ score, label, icon: Icon, delay = 0 }) {
   const color = getScoreColor(score)
   useEffect(() => { const t = setTimeout(() => setWidth(score), delay + 100); return () => clearTimeout(t) }, [score, delay])
   return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-1.5">
-          {Icon && <Icon size={11} className="text-outline" />}
-          <span className="text-xs text-on-surface-variant">{label}</span>
+    <div className="space-y-2">
+      <div className="flex justify-between items-center px-0.5">
+        <div className="flex items-center gap-2">
+          {Icon && <Icon size={12} className="text-blue-500 opacity-60" />}
+          <span className="text-[11px] font-bold text-white/40 uppercase tracking-widest">{label}</span>
         </div>
-        <span className="text-xs font-bold" style={{ color }}>{Math.round(score)}%</span>
+        <span className="text-xs font-black font-mono" style={{ color }}>{Math.round(score)}%</span>
       </div>
-      <div className="h-2 rounded-full overflow-hidden bg-surface-container-high">
-        <div className="h-full rounded-full" style={{ width: `${width}%`, background: `linear-gradient(90deg, ${color}80, ${color})`, transition: 'width 1s cubic-bezier(0.16,1,0.3,1)' }} />
+      <div className="h-1.5 rounded-full overflow-hidden bg-white/5 border border-white/5 shadow-inner">
+        <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${width}%`, background: `linear-gradient(90deg, ${color}60, ${color})`, boxShadow: `0 0 10px ${color}40` }} />
       </div>
     </div>
   )
 }
 
 function AILoader() {
-  const steps = ['Parsing job requirements...', 'Vectorizing candidate profiles...', 'Running semantic analysis...', 'Scoring with LLM...', 'Ranking results...']
+  const steps = ['Synthesizing job requirements...', 'Mapping candidate vectors...', 'Neural semantic analysis...', 'Cross-referencing experience...', 'LLM evaluation cycle...']
   const [step, setStep] = useState(0)
   useEffect(() => { const t = setInterval(() => setStep(s => (s + 1) % steps.length), 1800); return () => clearInterval(t) }, [])
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-5 p-8">
-      <div className="relative w-16 h-16">
-        <div className="absolute inset-0 rounded-full border-2 border-primary animate-ping opacity-30" />
-        <div className="absolute inset-0 rounded-full flex items-center justify-center bg-primary/10 border border-primary/20">
-          <Brain size={24} className="text-primary animate-pulse" />
+    <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
+      <div className="relative w-20 h-20">
+        <div className="absolute inset-0 rounded-[24px] bg-blue-500/10 border border-blue-500/20 animate-ping opacity-20" />
+        <div className="absolute inset-0 rounded-[28px] flex items-center justify-center bg-white/[0.03] border border-white/5 backdrop-blur-xl shadow-2xl">
+          <Brain size={32} className="text-blue-400 animate-pulse" />
         </div>
       </div>
-      <div className="text-center space-y-1">
-        <p className="text-sm font-semibold text-on-surface">AI Matching in Progress</p>
-        <p className="text-xs animate-pulse text-primary">{steps[step]}</p>
-        <p className="text-xs text-outline">This may take 30–60 seconds</p>
+      <div className="text-center space-y-2">
+        <p className="text-sm font-bold text-white font-display tracking-wide">AI Ranking Engine Active</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] animate-pulse text-blue-400">{steps[step]}</p>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-2">
         {[0,1,2,3,4].map(i => (
-          <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary"
+          <div key={i} className="w-1 h-1 rounded-full bg-blue-500/40"
             style={{ animation: `bounce 1.2s ease-in-out ${i * 0.15}s infinite` }} />
         ))}
       </div>
@@ -77,10 +76,10 @@ function AILoader() {
 }
 
 function RankBadge({ rank }) {
-  if (rank === 1) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-200">🥇 #1</span>
-  if (rank === 2) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-surface-container text-on-surface-variant border border-outline-variant">🥈 #2</span>
-  if (rank === 3) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-600 border border-orange-200">🥉 #3</span>
-  return <span className="text-[10px] font-bold w-5 text-outline">#{rank}</span>
+  if (rank === 1) return <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]">#1 APEX</span>
+  if (rank === 2) return <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-white/5 text-white/40 border border-white/10">#2 LEAD</span>
+  if (rank === 3) return <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-orange-500/10 text-orange-400 border border-orange-500/20">#3 CORE</span>
+  return <span className="text-[10px] font-black w-6 text-white/10">#{rank}</span>
 }
 
 export default function Matching() {
@@ -123,10 +122,10 @@ export default function Matching() {
   }
 
   if (jobsLoading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="flex flex-col items-center gap-3">
-        <Spinner size={32} />
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading jobs...</p>
+    <div className="flex items-center justify-center h-full bg-[#030303]">
+      <div className="flex flex-col items-center gap-4">
+        <Spinner size={32} className="text-blue-500" />
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-white/20">Initializing Neural Mesh...</p>
       </div>
     </div>
   )
@@ -134,42 +133,42 @@ export default function Matching() {
   const rec = activeResult ? getRecommendationLabel(activeResult.recommendation) : null
 
   return (
-    <div className="flex h-full overflow-hidden page-enter bg-surface">
+    <div className="flex h-full overflow-hidden page-enter bg-[#030303]">
 
       {/* Jobs Sidebar */}
-      <div className="w-64 flex-shrink-0 border-r border-outline-variant flex flex-col overflow-hidden bg-surface-container-lowest">
-        <div className="p-4 border-b border-outline-variant flex-shrink-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Briefcase size={16} className="text-primary" />
-            <p className="text-xs font-bold uppercase tracking-wider text-on-surface">Available Roles</p>
+      <div className="w-72 flex-shrink-0 border-r border-white/5 flex flex-col overflow-hidden bg-black/20 backdrop-blur-3xl">
+        <div className="p-6 border-b border-white/5 flex-shrink-0">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-2 h-5 bg-blue-600 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.4)]" />
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40">Open Roles</p>
           </div>
-          <p className="text-[11px] text-outline font-medium">{jobs.length} positions ready for matching</p>
+          <p className="text-sm font-bold text-white">{jobs.length} MANAGED PIPELINES</p>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
           {jobs.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-xs text-outline mb-3">No active jobs found.</p>
-              <Link to="/jobs" className="btn-primary text-xs py-2 w-full">Post a Job</Link>
+            <div className="p-10 text-center space-y-4">
+              <p className="text-xs text-white/20 font-medium">No active roles.</p>
+              <Link to="/jobs" className="h-10 px-6 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-xs flex items-center justify-center hover:bg-white/10 transition-all">Post Role</Link>
             </div>
           ) : jobs.map(job => {
             const isActive = selectedJob?.id === job.id
             return (
               <button key={job.id} onClick={() => loadExisting(job)}
                 className={cn(
-                  "w-full text-left p-3 rounded-xl transition-all border border-transparent",
-                  isActive ? "bg-surface-container border-primary shadow-sm" : "hover:bg-surface-container-low"
+                  "w-full text-left p-4 rounded-[24px] transition-all duration-500 border group",
+                  isActive ? "bg-blue-600/10 border-blue-500/30 shadow-2xl" : "bg-transparent border-transparent hover:bg-white/[0.03] hover:border-white/5"
                 )}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-4">
                   <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm",
-                    isActive ? "bg-primary text-on-primary" : "bg-surface-container-high text-outline"
+                    "w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-500",
+                    isActive ? "bg-blue-600 text-white shadow-blue-500/20 scale-110" : "bg-white/[0.05] text-white/20 border border-white/5"
                   )}>
-                    <Briefcase size={14} />
+                    <Briefcase size={18} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className={cn("text-xs font-bold truncate", isActive ? "text-primary" : "text-on-surface")}>{job.title}</div>
-                    {job.company && <div className="text-[10px] text-outline font-medium truncate mt-0.5">{job.company}</div>}
+                    <div className={cn("text-[13px] font-bold truncate", isActive ? "text-white" : "text-white/40 group-hover:text-white/60 transition-colors")}>{job.title}</div>
+                    {job.company && <div className="text-[10px] font-black text-white/20 uppercase tracking-widest mt-1.5 truncate">{job.company}</div>}
                   </div>
                 </div>
               </button>
@@ -179,39 +178,43 @@ export default function Matching() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Background Decorative Blur */}
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[40%] bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[40%] bg-violet-600/5 blur-[120px] rounded-full pointer-events-none" />
 
         {/* Action Bar */}
-        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-10">
-          <div className="flex items-center gap-4">
+        <div className="flex-shrink-0 flex items-center justify-between px-8 py-5 bg-white/[0.01] border-b border-white/5 backdrop-blur-md z-10">
+          <div className="flex items-center gap-6">
             {selectedJob ? (
               <>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center shadow-md">
-                  <Target size={20} className="text-white" />
+                <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-blue-600 to-violet-700 flex items-center justify-center shadow-lg border border-white/10 group">
+                  <Target size={22} className="text-white group-hover:scale-110 transition-transform" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-on-surface leading-tight">{selectedJob.title}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-outline font-medium">{selectedJob.company || 'Direct Hire'}</span>
+                  <h3 className="font-bold text-lg text-white font-display leading-tight">{selectedJob.title}</h3>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">{selectedJob.company || 'INTERNAL UNIT'}</span>
                     {results.length > 0 && (
-                      <span className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10 uppercase tracking-tighter ml-1">
-                        {results.length} ranked
+                      <span className="flex items-center gap-2 text-[9px] font-black text-cyan-400 bg-cyan-500/5 px-2.5 py-1 rounded-full border border-cyan-500/10 uppercase tracking-[0.15em]">
+                        <div className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
+                        {results.length} VECTORS RANKED
                       </span>
                     )}
                   </div>
                 </div>
               </>
-            ) : <p className="text-sm font-medium text-outline">Select a position from the left to start ranking</p>}
+            ) : <p className="text-sm font-black uppercase tracking-widest text-white/20">Select a neural source on the left</p>}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {processingTime && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-tertiary/10 border border-tertiary/20">
-                <Clock size={14} className="text-tertiary" />
-                <span className="text-xs font-bold font-mono text-tertiary">{(processingTime / 1000).toFixed(1)}s</span>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
+                <Clock size={14} className="text-blue-500" />
+                <span className="text-[11px] font-black font-mono text-white/40 tracking-wider">{(processingTime / 1000).toFixed(2)}S CYCLE</span>
               </div>
             )}
-            <button onClick={runMatch} disabled={!selectedJob || loading} className="btn-ai disabled:opacity-40">
-              {loading ? <><Spinner size={16} /><span>Analyzing...</span></> : <><Sparkles size={16} /><span>Run AI Analysis</span></>}
+            <button onClick={runMatch} disabled={!selectedJob || loading} className="h-12 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs flex items-center gap-3 shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 disabled:opacity-30 transition-all group">
+              {loading ? <><Spinner size={16} /><span>PROCESSING...</span></> : <><Sparkles size={18} className="group-hover:rotate-12 transition-transform" /><span>EXECUTE AI RANKING</span></>}
             </button>
           </div>
         </div>
@@ -220,19 +223,20 @@ export default function Matching() {
         <div className="flex-1 flex overflow-hidden">
 
           {/* Candidates List Column */}
-          <div className="w-72 flex-shrink-0 border-r border-outline-variant overflow-y-auto bg-surface-container-low custom-scrollbar shadow-inner">
+          <div className="w-80 flex-shrink-0 border-r border-white/5 overflow-y-auto bg-black/10 custom-scrollbar relative z-10">
             {loading ? <AILoader /> : results.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <div className="w-16 h-16 rounded-3xl bg-surface-container-lowest border border-outline-variant flex items-center justify-center mb-5 shadow-sm">
-                  <Brain size={28} className="text-primary opacity-30" />
+              <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                <div className="w-20 h-20 rounded-[32px] bg-white/[0.02] border border-white/5 flex items-center justify-center mb-6 shadow-2xl">
+                  <Brain size={32} className="text-white/10" />
                 </div>
-                <p className="text-sm font-bold text-on-surface mb-2">Ready for Intelligence</p>
-                <p className="text-xs text-outline leading-relaxed max-w-[200px]">Click the AI button to rank all candidates against this role.</p>
+                <p className="text-sm font-bold text-white mb-2 font-display">Awaiting Inference</p>
+                <p className="text-[11px] font-medium text-white/20 leading-relaxed max-w-[200px] uppercase tracking-widest">Select a role and execute neural match</p>
               </div>
             ) : (
-              <div className="p-3 space-y-1.5">
-                <div className="px-2 pb-2 flex items-center justify-between">
-                   <span className="text-[10px] font-black uppercase tracking-[0.1em] text-outline opacity-70">Ranked Results</span>
+              <div className="p-4 space-y-2">
+                <div className="px-3 pb-3 flex items-center justify-between border-b border-white/5 mb-4">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Ranked Results</span>
+                   <span className="text-[10px] font-black text-blue-500/40">TOP {results.length}</span>
                 </div>
                 {results.map((r, i) => {
                   const scoreColor = getScoreColor(r.overall_score)
@@ -240,29 +244,29 @@ export default function Matching() {
                   return (
                     <button key={r.id} onClick={() => setActiveResult(r)}
                       className={cn(
-                        "w-full text-left p-3 rounded-2xl transition-all border",
+                        "w-full text-left p-4 rounded-[28px] transition-all duration-500 border group",
                         isActive 
-                          ? "bg-surface-container-lowest border-primary shadow-md" 
-                          : "bg-transparent border-transparent hover:bg-surface-container-lowest hover:border-outline-variant"
+                          ? "bg-white/[0.04] border-white/10 shadow-2xl translate-x-1" 
+                          : "bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5"
                       )}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-4">
                         <RankBadge rank={i + 1} />
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-sm" style={{ background: `linear-gradient(135deg, ${scoreColor}, ${scoreColor}dd)` }}>
+                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black text-white flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-500" style={{ background: `linear-gradient(135deg, ${scoreColor}, ${scoreColor}cc)`, border: '1px solid rgba(255,255,255,0.1)' }}>
                           {getInitials(r.candidate?.name || '?')}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className={cn("text-[13px] font-bold truncate mb-1", isActive ? "text-primary" : "text-on-surface")}>{r.candidate?.name}</div>
-                          <div className="h-1.5 rounded-full bg-surface-container-high overflow-hidden shadow-inner">
+                          <div className={cn("text-[14px] font-bold truncate mb-2 font-display transition-colors", isActive ? "text-blue-400" : "text-white")}>{r.candidate?.name}</div>
+                          <div className="h-1 rounded-full bg-white/5 overflow-hidden">
                             <motion.div 
                                initial={{ width: 0 }}
                                animate={{ width: `${r.overall_score}%` }}
-                               transition={{ duration: 1, delay: i * 0.05 }}
-                               style={{ height: '100%', borderRadius: 9999, background: `linear-gradient(90deg, ${scoreColor}cc, ${scoreColor})` }} 
+                               transition={{ duration: 1.2, delay: i * 0.05 }}
+                               style={{ height: '100%', borderRadius: 9999, background: scoreColor, boxShadow: `0 0 8px ${scoreColor}60` }} 
                             />
                           </div>
                         </div>
-                        <div className="text-sm font-black font-display" style={{ color: scoreColor }}>{Math.round(r.overall_score)}</div>
+                        <div className="text-[15px] font-black font-mono tracking-tighter" style={{ color: scoreColor }}>{Math.round(r.overall_score)}</div>
                       </div>
                     </button>
                   )
@@ -272,105 +276,114 @@ export default function Matching() {
           </div>
 
           {/* Deep Analysis View Area */}
-          <div className="flex-1 overflow-y-auto bg-surface relative custom-scrollbar">
+          <div className="flex-1 overflow-y-auto bg-black/20 relative custom-scrollbar z-10 backdrop-blur-sm">
             {!activeResult ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-12">
-                <div className="w-20 h-20 rounded-[40px] bg-surface-container-lowest border border-outline-variant flex items-center justify-center mb-6 shadow-xl">
-                  <BarChart3 size={32} className="text-primary opacity-20" />
+                <div className="relative">
+                  <div className="absolute inset-0 bg-blue-500/10 blur-[60px] rounded-full" />
+                  <div className="relative w-24 h-24 rounded-[44px] bg-white/[0.01] border border-white/5 flex items-center justify-center mb-8 shadow-2xl backdrop-blur-2xl">
+                    <BarChart3 size={40} className="text-white/5" />
+                  </div>
                 </div>
-                <p className="text-lg font-bold text-on-surface mb-2">Detailed AI Scorecard</p>
-                <p className="text-sm text-outline max-w-sm">Select a ranked candidate from the list to view their deep analysis, strengths, and qualification gaps.</p>
+                <p className="text-xl font-bold text-white mb-3 font-display tracking-tight">Intelligence Scorecard</p>
+                <p className="text-sm font-medium text-white/20 max-w-sm uppercase tracking-[0.15em]">Select a mapped entity to view high-fidelity analysis</p>
               </div>
             ) : (
-              <div className="p-8 max-w-4xl mx-auto space-y-6 animate-enter">
+              <div className="p-10 max-w-5xl mx-auto space-y-8 animate-fadeIn">
 
                 {/* Candidate Overview Card */}
-                <div className="portal-card overflow-hidden group shadow-lg">
-                  <div className="h-2 w-full" style={{ background: `linear-gradient(90deg, ${getScoreColor(activeResult.overall_score)}, ${getScoreColor(activeResult.overall_score)}40)` }} />
-                  <div className="p-6 flex items-start gap-6">
-                    <div className="w-16 h-16 rounded-[22px] flex items-center justify-center text-xl font-bold text-white flex-shrink-0 shadow-2xl transition-transform group-hover:scale-105" style={{ background: `linear-gradient(135deg, ${getScoreColor(activeResult.overall_score)}, ${getScoreColor(activeResult.overall_score)}dd)` }}>
+                <div className="relative rounded-[40px] border border-white/5 p-8 group transition-all duration-500 overflow-hidden">
+                  <div className="absolute inset-0 bg-white/[0.02] group-hover:bg-white/[0.04] transition-colors" />
+                  <div className="absolute top-0 left-0 h-1 transition-all duration-1000 ease-out" style={{ width: `${activeResult.overall_score}%`, background: `linear-gradient(90deg, transparent, ${getScoreColor(activeResult.overall_score)}, transparent)` }} />
+                  
+                  <div className="relative z-10 flex items-start gap-8">
+                    <div className="w-20 h-20 rounded-[28px] flex items-center justify-center text-2xl font-black text-white flex-shrink-0 shadow-2xl transition-all duration-700 group-hover:scale-105 group-hover:rotate-3 border border-white/10" style={{ background: `linear-gradient(135deg, ${getScoreColor(activeResult.overall_score)}, ${getScoreColor(activeResult.overall_score)}dd)` }}>
                       {getInitials(activeResult.candidate?.name || '?')}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 flex-wrap mb-2">
-                        <h2 className="text-2xl font-bold text-on-surface leading-none">{activeResult.candidate?.name}</h2>
-                        {rec && <span className={cn("text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border", 
-                          rec.cls === 'badge-green' ? "bg-tertiary/10 text-tertiary border-tertiary/20" : 
+                      <div className="flex items-center gap-4 flex-wrap mb-3">
+                        <h2 className="text-3xl font-bold text-white leading-none font-display tracking-tight">{activeResult.candidate?.name}</h2>
+                        {rec && <span className={cn("text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full border shadow-lg", 
+                          rec.cls === 'badge-green' ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" : 
                           rec.cls === 'badge-yellow' ? "bg-amber-400/10 text-amber-500 border-amber-400/20" : 
-                          "bg-primary/10 text-primary border-primary/20"
+                          "bg-blue-500/10 text-blue-400 border-blue-500/20"
                         )}>{rec.label}</span>}
                       </div>
-                      <div className="flex items-center gap-4 text-sm font-medium text-outline">
-                        <span className="flex items-center gap-1.5"><TrendingUp size={16} /> {formatExperience(activeResult.candidate?.experience_years) || 'No data'} Experience</span>
-                        <span className="opacity-20">|</span>
-                        <span>{activeResult.candidate?.email}</span>
+                      <div className="flex items-center gap-6 text-sm font-medium text-white/40">
+                        <span className="flex items-center gap-2.5"><TrendingUp size={16} className="text-blue-500" /> <span className="text-white/60">{formatExperience(activeResult.candidate?.experience_years) || '0'} YEARS XP</span></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-white/5" />
+                        <span className="flex items-center gap-2.5 font-mono text-xs">{activeResult.candidate?.email}</span>
                       </div>
                     </div>
-                    <Link to={`/candidates/${activeResult.candidate_id}`} className="btn-secondary py-2 flex items-center gap-2 group/btn">
-                      <span>Full Profile</span>
-                      <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                    <Link to={`/candidates/${activeResult.candidate_id}`} className="h-12 px-6 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-xs flex items-center gap-3 hover:bg-white/10 group/btn transition-all">
+                      <span>OPEN PROFILE</span>
+                      <ArrowRight size={16} className="group-hover/btn:translate-x-1 transition-transform text-blue-500" />
                     </Link>
                   </div>
                 </div>
 
                 {/* Main Analysis Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                    {/* Score Breakdown */}
-                   <div className="portal-card p-6 shadow-md flex flex-col">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-primary shadow-inner">
-                          <Award size={18} />
+                   <div className="rounded-[40px] border border-white/5 p-8 bg-white/[0.01] flex flex-col relative overflow-hidden">
+                      <div className="flex items-center gap-3 mb-10">
+                        <div className="w-10 h-10 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-blue-500 shadow-inner">
+                          <Award size={20} />
                         </div>
-                        <h4 className="text-base font-bold text-on-surface uppercase tracking-tight">Intelligence Metrics</h4>
+                        <h4 className="text-[11px] font-black text-white/30 uppercase tracking-[0.2em]">Intelligence Breakdown</h4>
                       </div>
                       
-                      <div className="flex flex-col sm:flex-row items-center gap-10">
-                        <ScoreRing score={Math.round(activeResult.overall_score)} size={110} />
-                        <div className="flex-1 w-full space-y-4">
-                          <AnimatedBar score={activeResult.skill_match_score}         label="Skill Overlap" icon={Target} delay={0} />
-                          <AnimatedBar score={activeResult.experience_match_score}    label="Experience Fit" icon={TrendingUp} delay={100} />
-                          <AnimatedBar score={activeResult.semantic_similarity_score} label="Role Alignment" icon={Brain} delay={200} />
-                          <AnimatedBar score={activeResult.llm_evaluation_score}      label="AI Confidence" icon={Sparkles} delay={300} />
+                      <div className="flex flex-col sm:flex-row items-center gap-12 mb-10">
+                        <ScoreRing score={Math.round(activeResult.overall_score)} size={130} />
+                        <div className="flex-1 w-full space-y-6">
+                          <AnimatedBar score={activeResult.skill_match_score}         label="Neural Overlap" icon={Target} delay={0} />
+                          <AnimatedBar score={activeResult.experience_match_score}    label="Experience Mesh" icon={TrendingUp} delay={100} />
+                          <AnimatedBar score={activeResult.semantic_similarity_score} label="Semantic Align" icon={Brain} delay={200} />
+                          <AnimatedBar score={activeResult.llm_evaluation_score}      label="Model Confidence" icon={Sparkles} delay={300} />
                         </div>
                       </div>
 
                       {activeResult.explanation && (
-                        <div className="mt-8 p-4 rounded-2xl bg-surface-container border border-outline-variant/40 relative overflow-hidden group">
-                          <div className="flex items-start gap-3 relative z-10">
-                            <Brain size={16} className="text-primary mt-0.5 flex-shrink-0" />
-                            <p className="text-xs leading-relaxed text-on-surface-variant font-medium italic">"{activeResult.explanation}"</p>
+                        <div className="mt-auto p-6 rounded-[32px] bg-blue-500/[0.03] border border-blue-500/10 relative overflow-hidden group/explain">
+                          <div className="flex items-start gap-4 relative z-10">
+                            <Brain size={20} className="text-blue-500 mt-1 flex-shrink-0" />
+                            <p className="text-[13px] leading-relaxed text-white/60 font-medium italic">"{activeResult.explanation}"</p>
                           </div>
-                          <Sparkles className="absolute -right-2 -bottom-2 text-primary/5 group-hover:scale-110 transition-transform duration-700" size={64} />
+                          <Sparkles className="absolute -right-4 -bottom-4 text-blue-500/5 group-hover/explain:scale-125 group-hover/explain:rotate-12 transition-transform duration-1000" size={96} />
                         </div>
                       )}
                    </div>
 
                    {/* Strengths & Weaknesses */}
-                   <div className="space-y-6 flex flex-col">
-                      <div className="portal-card p-5 bg-tertiary/5 border-tertiary/20 flex-1">
-                        <div className="flex items-center gap-2 mb-4 border-b border-tertiary/10 pb-2">
-                          <CheckCircle size={14} className="text-tertiary" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-tertiary">Key Strengths</span>
+                   <div className="space-y-8 flex flex-col">
+                      <div className="rounded-[40px] border border-cyan-500/10 p-7 bg-cyan-500/[0.02] flex-1 group">
+                        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/5">
+                          <div className="w-8 h-8 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                            <CheckCircle size={16} className="text-cyan-400" />
+                          </div>
+                          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400/60">Core Strengths</span>
                         </div>
-                        <ul className="space-y-3">
+                        <ul className="space-y-4">
                           {(activeResult.strengths || []).map((s, i) => (
-                            <li key={i} className="text-xs flex items-start gap-3 text-on-surface font-medium">
-                              <div className="w-1.5 h-1.5 rounded-full bg-tertiary mt-1 shadow-glow" />
+                            <li key={i} className="text-[13px] flex items-start gap-4 text-white/70 font-medium leading-relaxed group-hover:text-white transition-colors">
+                              <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-2 shadow-[0_0_8px_rgba(34,211,238,0.5)] shrink-0" />
                               {s}
                             </li>
                           ))}
                         </ul>
                       </div>
                       
-                      <div className="portal-card p-5 bg-error/5 border-error/20 flex-1">
-                        <div className="flex items-center gap-2 mb-4 border-b border-error/10 pb-2">
-                          <XCircle size={14} className="text-error" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-error">Potential Gaps</span>
+                      <div className="rounded-[40px] border border-red-500/10 p-7 bg-red-500/[0.02] flex-1 group">
+                        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/5">
+                           <div className="w-8 h-8 rounded-xl bg-red-500/10 flex items-center justify-center">
+                            <XCircle size={16} className="text-red-400" />
+                          </div>
+                          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-red-400/60">Intelligence Gaps</span>
                         </div>
-                        <ul className="space-y-3">
+                        <ul className="space-y-4">
                           {(activeResult.weaknesses || []).map((w, i) => (
-                            <li key={i} className="text-xs flex items-start gap-3 text-on-surface font-medium">
-                              <div className="w-1.5 h-1.5 rounded-full bg-error mt-1 shadow-sm" />
+                            <li key={i} className="text-[13px] flex items-start gap-4 text-white/50 font-medium leading-relaxed group-hover:text-white/70 transition-colors">
+                              <div className="w-1.5 h-1.5 rounded-full bg-red-400/40 mt-2 shrink-0" />
                               {w}
                             </li>
                           ))}
@@ -381,30 +394,35 @@ export default function Matching() {
 
                 {/* Skill Matrix Detail */}
                 {(activeResult.matched_skills?.length > 0 || activeResult.missing_skills?.length > 0) && (
-                  <div className="portal-card p-6 shadow-md bg-surface-container-low border-dashed">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
-                        <Users size={18} />
+                  <div className="rounded-[40px] border border-white/5 p-10 bg-white/[0.01] relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/[0.02] to-transparent" />
+                    
+                    <div className="flex items-center gap-4 mb-10 relative z-10">
+                      <div className="w-12 h-12 rounded-[18px] bg-white/[0.03] border border-white/10 flex items-center justify-center text-blue-500">
+                        <Users size={22} />
                       </div>
-                      <h4 className="text-base font-bold text-on-surface uppercase tracking-tight">Qualification Matrix</h4>
+                      <div>
+                        <h4 className="text-lg font-bold text-white font-display tracking-tight uppercase">Neural Matrix Mapping</h4>
+                        <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mt-1">Cross-referencing vector capabilities</p>
+                      </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                         <p className="text-[10px] font-black text-outline uppercase tracking-wider pl-1">Matched Capabilities</p>
-                         <div className="flex flex-wrap gap-1.5">
-                            {activeResult.matched_skills.map((sk, j) => (
-                              <span key={j} className="text-[10px] font-bold px-2 py-1 rounded bg-tertiary/10 text-tertiary border border-tertiary/10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 relative z-10">
+                      <div className="space-y-5">
+                         <p className="text-[10px] font-black text-cyan-400/40 uppercase tracking-[0.2em] pl-1">Matched Nodes</p>
+                         <div className="flex flex-wrap gap-2.5">
+                            {(activeResult.matched_skills || []).map((sk, j) => (
+                              <span key={j} className="text-[11px] font-bold px-3 py-1.5 rounded-xl bg-cyan-500/5 text-cyan-400 border border-cyan-500/10 shadow-sm transition-all hover:border-cyan-400/40 hover:scale-105">
                                 {sk}
                               </span>
                             ))}
                          </div>
                       </div>
-                      <div className="space-y-3 opacity-80">
-                         <p className="text-[10px] font-black text-outline uppercase tracking-wider pl-1">Missing / Unverified</p>
-                         <div className="flex flex-wrap gap-1.5">
-                            {activeResult.missing_skills.map((sk, j) => (
-                              <span key={j} className="text-[10px] font-bold px-2 py-1 rounded bg-error/5 text-outline border border-error/5">
+                      <div className="space-y-5">
+                         <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.2em] pl-1">Missing / Unmapped</p>
+                         <div className="flex flex-wrap gap-2.5">
+                            {(activeResult.missing_skills || []).map((sk, j) => (
+                              <span key={j} className="text-[11px] font-bold px-3 py-1.5 rounded-xl bg-white/[0.02] text-white/20 border border-white/5 transition-all hover:bg-white/[0.05] hover:text-white/40">
                                 {sk}
                               </span>
                             ))}
@@ -421,3 +439,4 @@ export default function Matching() {
     </div>
   )
 }
+
