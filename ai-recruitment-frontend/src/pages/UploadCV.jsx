@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useNavigate, Link } from 'react-router-dom'
-import { 
-  Upload, FileText, CheckCircle, AlertCircle, X, Sparkles, 
-  ChevronRight, Trash2, Loader, Brain, RefreshCw, UploadCloud,
-  CheckCircle2, User, Mail, Briefcase, MapPin
+import {
+  FileText, AlertCircle, X, Sparkles,
+  ChevronRight, Trash2, RefreshCw, UploadCloud,
+  CheckCircle2, User, Mail, Briefcase, MapPin, Brain
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { candidatesApi } from '../services/api'
@@ -15,21 +15,11 @@ import toast from 'react-hot-toast'
 export default function UploadCV() {
   const navigate = useNavigate()
   const [files, setFiles] = useState([])
-  const [uploading, setUploading] = useState(false)
 
   const onDrop = useCallback((accepted, rejected) => {
-    if (rejected.length > 0) {
-      toast.error(`${rejected.length} file(s) rejected. Only PDF, DOCX, TXT allowed.`)
-    }
+    if (rejected.length > 0) toast.error(`${rejected.length} file(s) rejected. Only PDF, DOCX, TXT allowed.`)
     if (accepted.length > 0) {
-      const newFiles = accepted.map(f => ({
-        file: f,
-        status: 'pending',
-        progress: 0,
-        result: null,
-        error: null
-      }))
-      setFiles(prev => [...prev, ...newFiles])
+      setFiles(prev => [...prev, ...accepted.map(f => ({ file: f, status: 'pending', progress: 0, result: null, error: null }))])
       toast.success(`${accepted.length} file(s) added`)
     }
   }, [])
@@ -44,190 +34,161 @@ export default function UploadCV() {
     maxSize: 10 * 1024 * 1024,
   })
 
-  const removeFile = (index) => {
-    setFiles(prev => prev.filter((_, i) => i !== index))
-  }
+  const removeFile = (index) => setFiles(prev => prev.filter((_, i) => i !== index))
 
-  const handleSingleUpload = async (index) => {
+  const handleUpload = async (index) => {
     const item = files[index]
     if (!item || item.status === 'uploading' || item.status === 'success') return
-
     setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'uploading', progress: 0 } : f))
-
     const formData = new FormData()
     formData.append('file', item.file)
-
     try {
-      const res = await candidatesApi.upload(formData, pct => {
+      const res = await candidatesApi.upload(formData, pct =>
         setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: pct } : f))
-      })
+      )
       setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'success', result: res.data } : f))
-      toast.success(`${res.data.name}'s profile analyzed successfully!`)
+      toast.success(`${res.data.name}'s profile analyzed!`)
     } catch (err) {
-      setFiles(prev => prev.map((f, i) => i === index ? {
-        ...f,
-        status: 'error',
-        error: err.response?.data?.detail || 'Upload failed'
-      } : f))
+      setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'error', error: err.response?.data?.detail || 'Upload failed' } : f))
       toast.error('Failed to analyze CV')
     }
   }
 
-  const reset = () => {
-    setFiles([])
-  }
-
   return (
     <div className="max-w-4xl mx-auto page-enter pb-20">
-      <div className="mb-10">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-2 h-8 bg-blue-600 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.4)]" />
-          <h2 className="text-4xl font-bold text-white font-display tracking-tight">Source Talent</h2>
-        </div>
-        <p className="text-white/40 text-sm font-medium ml-5">
-          Upload resumes to instantly vectorize and analyze them with <span className="text-blue-400 font-bold">Llama-3 Intelligence</span>.
+      {/* Header */}
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold text-on-surface mb-1">Upload Candidates</h2>
+        <p className="text-sm text-on-surface-variant">
+          Upload resumes to instantly analyze them with <span className="text-primary font-semibold">AI Intelligence</span>.
         </p>
       </div>
 
-      {/* Drop zone */}
+      {/* Drop Zone */}
       <div
         {...getRootProps()}
         className={cn(
-          "relative rounded-[40px] p-20 text-center cursor-pointer transition-all mb-12 border-2 border-dashed group overflow-hidden backdrop-blur-sm",
-          isDragActive 
-            ? "border-blue-500 bg-blue-500/5 shadow-[0_0_50px_rgba(59,130,246,0.1)]" 
-            : "border-white/10 bg-white/[0.02] hover:border-blue-500/30 hover:bg-white/[0.04] shadow-2xl"
+          'relative rounded-xl p-16 text-center cursor-pointer transition-all mb-8 border-2 border-dashed',
+          isDragActive
+            ? 'border-primary bg-primary/5'
+            : 'border-outline-variant bg-surface-container-lowest hover:border-primary hover:bg-surface-container-low'
         )}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-violet-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
         <input {...getInputProps()} />
-        <div className="flex flex-col items-center gap-8 relative z-10">
-          <div
-            className={cn(
-              "w-28 h-28 rounded-[36px] flex items-center justify-center transition-all duration-500 shadow-xl border border-white/5",
-              isDragActive ? "bg-blue-600 text-white scale-110 shadow-blue-500/20" : "bg-white/[0.05] text-blue-500 group-hover:scale-110"
-            )}
-          >
-            {isDragActive
-              ? <Sparkles size={54} className="animate-pulse" />
-              : <UploadCloud size={54} className="opacity-80" />
-            }
+        <div className="flex flex-col items-center gap-6">
+          <div className={cn(
+            'w-20 h-20 rounded-xl flex items-center justify-center transition-all duration-300',
+            isDragActive ? 'bg-primary text-white scale-110' : 'bg-primary/10 text-primary border border-primary/20'
+          )}>
+            {isDragActive ? <Sparkles size={40} className="animate-pulse" /> : <UploadCloud size={40} />}
           </div>
-          <div className="space-y-3">
-            <p className="text-2xl font-bold text-white font-display">
-              {isDragActive ? 'Release to Ignite Ingestion' : 'Drop candidate resumes here'}
+          <div className="space-y-2">
+            <p className="text-xl font-bold text-on-surface">
+              {isDragActive ? 'Drop to upload' : 'Drop candidate resumes here'}
             </p>
-            <p className="text-sm text-white/40 font-medium">
-              Supports <span className="text-blue-400 font-bold">PDF, DOCX, and TXT</span> formats up to 10MB
+            <p className="text-sm text-on-surface-variant">
+              Supports <span className="text-primary font-semibold">PDF, DOCX, and TXT</span> — up to 10MB each
             </p>
           </div>
-          <div className="flex gap-3">
-             <span className="text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full bg-white/5 text-white/40 border border-white/10">Batch Processing</span>
-             <span className="text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">Neural Ready</span>
+          <div className="flex gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-surface-container border border-outline-variant text-outline">Batch Processing</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">AI Ready</span>
           </div>
         </div>
       </div>
 
-      {/* File list */}
+      {/* File List */}
       {files.length > 0 && (
-        <div className="space-y-8 animate-slideUp">
-          <div className="flex items-center justify-between border-b border-white/5 pb-6">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b border-outline-variant pb-4">
             <div>
-              <h3 className="text-xl font-bold text-white font-display">
-                Neural Queue ({files.length})
-              </h3>
-              <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mt-1">
-                Awaiting vector extraction
-              </p>
+              <h3 className="text-lg font-bold text-on-surface">Upload Queue ({files.length})</h3>
+              <p className="text-xs text-on-surface-variant mt-0.5">Ready for AI analysis</p>
             </div>
-            <button onClick={reset} className="h-10 px-5 rounded-xl bg-white/5 text-white/60 font-bold text-xs flex items-center gap-2 hover:bg-white/10 border border-white/10 transition-all">
-              <X size={14} /> Clear Workspace
+            <button onClick={() => setFiles([])}
+              className="h-9 px-4 rounded-lg border border-outline-variant text-on-surface-variant font-semibold text-xs flex items-center gap-2 hover:bg-surface-container transition-all">
+              <X size={14} /> Clear All
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-5">
+          <div className="space-y-4">
             {files.map((item, i) => (
-              <div
-                key={i}
-                className={cn(
-                   "relative rounded-3xl border border-white/5 p-6 group transition-all duration-500 overflow-hidden",
-                   item.status === 'success' ? "bg-cyan-500/[0.02] border-cyan-500/20" : 
-                   item.status === 'error' ? "bg-red-500/[0.02] border-red-500/20" : 
-                   "bg-white/[0.02] hover:bg-white/[0.04]"
-                )}
-              >
-                <div className="flex items-center gap-6 relative z-10">
-                  <div
-                    className={cn(
-                      "w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg transition-all duration-500",
-                      item.status === 'success' ? "bg-cyan-500 text-white shadow-cyan-500/20" : 
-                      item.status === 'error' ? "bg-red-500 text-white shadow-red-500/20" : 
-                      "bg-white/[0.05] text-blue-500 border border-white/10"
-                    )}
-                  >
-                    {item.status === 'success' ? (
-                      <CheckCircle2 size={28} />
-                    ) : item.status === 'error' ? (
-                      <AlertCircle size={28} />
-                    ) : item.status === 'uploading' ? (
-                      <RefreshCw size={28} className="animate-spin" />
-                    ) : (
-                      <FileText size={28} />
-                    )}
+              <div key={i} className={cn(
+                'portal-card p-5 transition-all',
+                item.status === 'success' ? 'border-tertiary/30 bg-tertiary/5' :
+                item.status === 'error'   ? 'border-error/30 bg-error/5' : ''
+              )}>
+                <div className="flex items-center gap-4">
+                  {/* Icon */}
+                  <div className={cn(
+                    'w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all',
+                    item.status === 'success' ? 'bg-tertiary text-white' :
+                    item.status === 'error'   ? 'bg-error text-white' :
+                    item.status === 'uploading' ? 'bg-primary/10 text-primary border border-primary/20' :
+                    'bg-surface-container border border-outline-variant text-outline'
+                  )}>
+                    {item.status === 'success'   ? <CheckCircle2 size={24} /> :
+                     item.status === 'error'     ? <AlertCircle size={24} /> :
+                     item.status === 'uploading' ? <RefreshCw size={24} className="animate-spin" /> :
+                     <FileText size={24} />}
                   </div>
+
+                  {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-bold text-white truncate group-hover:text-blue-400 transition-colors">
-                      {item.file.name}
-                    </p>
-                    <div className="flex items-center gap-4 mt-1.5">
-                       <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{formatFileSize(item.file.size)}</span>
-                       {item.status === 'error' && (
-                         <span className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-1.5">
-                           <AlertCircle size={12} /> {item.error}
-                         </span>
-                       )}
-                       {item.status === 'pending' && (
-                         <span className="text-[10px] font-black text-blue-400/60 uppercase tracking-widest">Awaiting Analysis</span>
-                       )}
+                    <p className="text-sm font-bold text-on-surface truncate">{item.file.name}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-[11px] text-outline font-medium">{formatFileSize(item.file.size)}</span>
+                      {item.status === 'error' && (
+                        <span className="text-[11px] font-bold text-error flex items-center gap-1">
+                          <AlertCircle size={11} /> {item.error}
+                        </span>
+                      )}
+                      {item.status === 'pending' && (
+                        <span className="text-[11px] font-semibold text-on-surface-variant">Awaiting analysis</span>
+                      )}
                     </div>
                     {item.status === 'uploading' && (
-                      <div className="mt-4">
-                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                          <motion.div 
-                             initial={{ width: 0 }}
-                             animate={{ width: `${item.progress}%` }}
-                             className="h-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" 
+                      <div className="mt-3">
+                        <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${item.progress}%` }}
+                            className="h-full bg-primary rounded-full"
                           />
                         </div>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-3">
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {item.status === 'pending' && (
                       <>
-                        <button
-                          onClick={() => handleSingleUpload(i)}
-                          className="h-11 px-6 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center gap-2 hover:bg-blue-500 shadow-lg shadow-blue-500/20 transition-all"
-                        >
-                          <Brain size={16} /> <span>Vectorize</span>
+                        <button onClick={() => handleUpload(i)}
+                          className="h-10 px-5 rounded-xl bg-primary text-white font-bold text-xs flex items-center gap-2 hover:bg-primary-container shadow-sm transition-all">
+                          <Brain size={15} /> Analyze
                         </button>
-                        <button
-                          onClick={() => removeFile(i)}
-                          className="w-11 h-11 flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-400/5 rounded-xl transition-all"
-                        >
-                          <Trash2 size={20} />
+                        <button onClick={() => removeFile(i)}
+                          className="w-10 h-10 flex items-center justify-center text-outline hover:text-error hover:bg-error/5 rounded-xl transition-all">
+                          <Trash2 size={18} />
                         </button>
                       </>
                     )}
                     {item.status === 'error' && (
-                      <button onClick={() => handleSingleUpload(i)} className="h-11 px-6 rounded-xl bg-white/5 text-white/60 font-bold text-xs border border-white/10 hover:bg-white/10 transition-all">Retry</button>
+                      <button onClick={() => handleUpload(i)}
+                        className="h-10 px-5 rounded-xl border border-outline-variant text-on-surface-variant font-bold text-xs hover:bg-surface-container transition-all">
+                        Retry
+                      </button>
                     )}
                     {item.status === 'success' && (
-                      <div className="flex items-center gap-3">
-                         <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-3 py-1.5 rounded-full">Analyzed</span>
-                         <Link to={`/candidates/${item.result?.id}`} className="w-11 h-11 flex items-center justify-center text-white/20 hover:text-white hover:bg-white/5 rounded-xl transition-all border border-white/5">
-                           <ChevronRight size={24} />
-                         </Link>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-tertiary bg-tertiary/10 border border-tertiary/20 px-3 py-1 rounded-full">
+                          Analyzed
+                        </span>
+                        <Link to={`/candidates/${item.result?.id}`}
+                          className="w-10 h-10 flex items-center justify-center text-outline hover:text-on-surface hover:bg-surface-container rounded-xl border border-outline-variant transition-all">
+                          <ChevronRight size={20} />
+                        </Link>
                       </div>
                     )}
                   </div>
@@ -235,38 +196,35 @@ export default function UploadCV() {
 
                 {/* AI Extraction Preview */}
                 {item.status === 'success' && item.result && (
-                  <div className="mt-6 pt-6 border-t border-white/5 animate-slideUp relative z-10">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <div className="mt-5 pt-5 border-t border-outline-variant">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
                       {[
-                        { label: 'Full Name', value: item.result.name, icon: User },
-                        { label: 'Intelligence Email', value: item.result.email || 'Not detected', icon: Mail },
-                        { label: 'Work Experience', value: item.result.experience_years ? formatExperience(item.result.experience_years) : 'Entry Level', icon: Briefcase },
-                        { label: 'Location Mapping', value: item.result.location || 'Remote/Unknown', icon: MapPin },
+                        { label: 'Full Name',   value: item.result.name,                                                    icon: User },
+                        { label: 'Email',       value: item.result.email || 'Not detected',                                 icon: Mail },
+                        { label: 'Experience',  value: item.result.experience_years ? formatExperience(item.result.experience_years) : 'Entry Level', icon: Briefcase },
+                        { label: 'Location',    value: item.result.location || 'Remote / Unknown',                          icon: MapPin },
                       ].map(({ label, value, icon: Icon }) => (
                         <div key={label}>
-                          <div className="flex items-center gap-2 mb-1.5 opacity-30">
-                            <Icon size={12} className="text-blue-500" />
-                            <span className="text-[9px] font-black text-white uppercase tracking-[0.15em]">{label}</span>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Icon size={11} className="text-outline" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{label}</span>
                           </div>
-                          <p className="text-sm font-bold text-white truncate">{value}</p>
+                          <p className="text-sm font-semibold text-on-surface truncate">{value}</p>
                         </div>
                       ))}
                     </div>
-                    
-                    <div className="mt-7 flex items-center justify-between gap-6">
-                       <div className="flex flex-wrap gap-2 flex-1 overflow-hidden">
-                          {(item.result.skills?.technical || []).slice(0, 8).map((s, idx) => (
-                            <span key={idx} className="text-[10px] font-black px-2.5 py-1 rounded-lg bg-white/5 text-blue-400 border border-white/5 uppercase tracking-widest">
-                               {s}
-                            </span>
-                          ))}
-                       </div>
-                       <Link
-                          to={`/candidates/${item.result.id}`}
-                          className="h-11 px-8 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-blue-500/20"
-                        >
-                          Open Intelligence Profile
-                        </Link>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex flex-wrap gap-1.5 flex-1 overflow-hidden">
+                        {(item.result.skills?.technical || []).slice(0, 8).map((s, idx) => (
+                          <span key={idx} className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/20 uppercase tracking-wide">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                      <Link to={`/candidates/${item.result.id}`}
+                        className="h-10 px-5 rounded-xl bg-primary text-white font-bold text-xs flex items-center gap-2 hover:bg-primary-container shadow-sm transition-all flex-shrink-0">
+                        View Profile <ChevronRight size={14} />
+                      </Link>
                     </div>
                   </div>
                 )}
@@ -275,12 +233,10 @@ export default function UploadCV() {
           </div>
 
           {files.some(f => f.status === 'success') && (
-            <button
-              onClick={() => navigate('/candidates')}
-              className="w-full h-16 rounded-3xl bg-white/5 border border-white/10 text-white font-bold text-sm hover:bg-white/10 hover:border-blue-500/30 transition-all flex items-center justify-center gap-3 group"
-            >
-              <span>Finish and Proceed to Neural Pool</span>
-              <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform text-blue-500" />
+            <button onClick={() => navigate('/candidates')}
+              className="w-full h-14 rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface font-bold text-sm hover:bg-surface-container hover:border-primary transition-all flex items-center justify-center gap-2 group">
+              <span>Go to Talent Pool</span>
+              <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform text-primary" />
             </button>
           )}
         </div>
@@ -288,4 +244,3 @@ export default function UploadCV() {
     </div>
   )
 }
-
