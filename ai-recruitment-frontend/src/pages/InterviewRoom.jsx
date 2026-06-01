@@ -271,8 +271,26 @@ export default function InterviewRoom() {
   }
 
   const initializeWebSocket = (stream) => {
-    let base = API_BASE.replace('-frontend-', '-backend-').replace(/^http/, 'ws')
-    const wsUrl = `${base}/interviews/${interviewId}/live`
+    let wsUrl = import.meta.env.VITE_WS_URL;
+    if (!wsUrl) {
+      let host = window.location.host;
+      if (host.includes('-frontend-')) host = host.replace('-frontend-', '-backend-');
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      let apiPath = import.meta.env.VITE_API_URL || '/api/v1';
+      if (apiPath.startsWith('http')) {
+        apiPath = apiPath.replace(/^http/, 'ws');
+        if (apiPath.includes('-frontend-')) apiPath = apiPath.replace('-frontend-', '-backend-');
+        wsUrl = apiPath.replace(/\/$/, '') + `/interviews/${interviewId}/live`;
+      } else {
+        wsUrl = `${protocol}//${host}${apiPath}/interviews/${interviewId}/live`;
+      }
+    } else {
+      if (!wsUrl.includes('/interviews/')) {
+        wsUrl = wsUrl.replace(/\/$/, '') + `/interviews/${interviewId}/live`;
+      }
+    }
+
+    console.log('[WS] Connecting to:', wsUrl)
 
     wsRef.current = new WebSocket(wsUrl)
     wsRef.current.onopen = () => {
@@ -306,20 +324,30 @@ export default function InterviewRoom() {
 
     pc.ontrack = (e) => {
       setIsRemoteConnected(true)
-      setRemoteStream(e.streams[0] || new MediaStream([e.track]))
+      setRemoteStream(prev => {
+        if (!prev) return new MediaStream([e.track])
+        if (prev.getTracks().find(t => t.id === e.track.id)) return prev
+        const newStream = new MediaStream(prev.getTracks())
+        newStream.addTrack(e.track)
+        return newStream
+      })
     }
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected') setIsRemoteConnected(true)
+      if (pc.connectionState === 'connected') toast.success('Video connected')
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') setIsRemoteConnected(false)
     }
 
     pc.onnegotiationneeded = async () => {
+      if (makingOfferRef.current) return;
       try {
+        makingOfferRef.current = true
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
         wsRef.current?.send(JSON.stringify({ type: 'offer', offer: pc.localDescription }))
-      } catch (err) {}
+      } catch (err) {} finally {
+        makingOfferRef.current = false
+      }
     }
 
     return pc
@@ -496,11 +524,11 @@ export default function InterviewRoom() {
         </div>
       </header>
 
-      {/* ── 3-Panel Layout ── */}
+      {/* ── Main Layout ── */}
       <main className="flex-1 flex overflow-hidden p-4 gap-4">
         
-        {/* Panel 1 (LEFT - 40%): Video */}
-        <section className="w-[40%] flex flex-col gap-4">
+        {/* Panel 1: Video (40% for recruiter, 100% for candidate) */}
+        <section className={cn("flex flex-col gap-4 transition-all duration-500", isRecruiter ? "w-[40%]" : "w-full")}>
           <div className="flex-1 relative rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl shadow-black/50 group">
              <video ref={remoteVideoRef} playsInline autoPlay className="w-full h-full object-cover" />
              
@@ -530,107 +558,111 @@ export default function InterviewRoom() {
           </div>
         </section>
 
-        {/* Panel 2 (CENTER - 30%): Notes/Transcript */}
-        <section className="w-[30%] flex flex-col rounded-3xl border border-slate-800 bg-slate-900/30 backdrop-blur-sm overflow-hidden shadow-xl">
-           <div className="p-5 border-b border-slate-800 bg-slate-800/20 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                 <div className="p-2 bg-slate-800 rounded-lg text-slate-400"><FileText size={18} /></div>
-                 <h3 className="text-xs font-black uppercase tracking-[0.2em]">Mission Journal</h3>
-              </div>
-              <span className="text-[10px] font-bold text-slate-600 bg-slate-800 px-2 py-0.5 rounded-full">{transcript.length} Logs</span>
-           </div>
-           
-           <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-              {transcript.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-30 px-10">
-                   <MessageSquare size={32} className="mb-4" />
-                   <p className="text-xs font-bold uppercase tracking-widest leading-loose">Awaiting neural voice input synchronization...</p>
-                </div>
-              ) : (
-                <div className="stagger">
-                   {/* Interleave AI Notes and Transcript */}
-                   {[...transcript, ...aiNotes].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).map((entry, i) => (
-                     <TranscriptBlock key={i} entry={entry} isAiNote={entry.speaker === 'AI Notes'} />
-                   ))}
-                </div>
-              )}
-           </div>
-        </section>
-
-        {/* Panel 3 (RIGHT - 30%): AI Analysis */}
-        <section className="w-[30%] flex flex-col rounded-3xl border border-slate-800 bg-slate-900/50 overflow-hidden shadow-xl">
-           <div className="p-5 border-b border-slate-800 bg-slate-800/40 flex items-center gap-3">
-              <div className="p-2 bg-teal-500/10 rounded-lg text-teal-400"><Brain size={18} className="animate-pulse" /></div>
-              <h3 className="text-xs font-black uppercase tracking-[0.2em]">Neural Evaluation</h3>
-           </div>
-
-           <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-              
-              {/* Overall Confidence Radar Placeholder */}
-              <div className="grid grid-cols-2 gap-6">
-                 <ScoreCircle score={analysis.commScore} label="Clarity" color="teal" />
-                 <ScoreCircle score={analysis.confidenceScore} label="Confidence" color="blue" />
-                 <ScoreCircle score={analysis.technicalScore} label="Technical" color="purple" />
-                 <ScoreCircle score={analysis.behavioralScore} label="Behavior" color="amber" />
-              </div>
-
-              {/* Behavior Analysis Details */}
-              <div className="space-y-6 pt-4">
-                 <div className="p-5 rounded-2xl bg-black/40 border border-slate-800">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center justify-between">
-                       Communication Profile
-                       <span className={cn("text-[9px] px-2 py-0.5 rounded uppercase", 
-                         analysis.sentiment === 'Positive' ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-800 text-slate-400"
-                       )}>{analysis.sentiment} Sentiment</span>
-                    </h4>
-                    <div className="space-y-4">
-                       <MetricBar label="Engagement" score={analysis.engagementScore} color="bg-teal-500" />
-                       <MetricBar label="Response Accuracy" score={analysis.technicalScore} color="bg-purple-500" />
+        {isRecruiter && (
+          <>
+            {/* Panel 2 (CENTER - 30%): Notes/Transcript */}
+            <section className="w-[30%] flex flex-col rounded-3xl border border-slate-800 bg-slate-900/30 backdrop-blur-sm overflow-hidden shadow-xl">
+               <div className="p-5 border-b border-slate-800 bg-slate-800/20 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                     <div className="p-2 bg-slate-800 rounded-lg text-slate-400"><FileText size={18} /></div>
+                     <h3 className="text-xs font-black uppercase tracking-[0.2em]">Mission Journal</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-600 bg-slate-800 px-2 py-0.5 rounded-full">{transcript.length} Logs</span>
+               </div>
+               
+               <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                  {transcript.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-30 px-10">
+                       <MessageSquare size={32} className="mb-4" />
+                       <p className="text-xs font-bold uppercase tracking-widest leading-loose">Awaiting neural voice input synchronization...</p>
                     </div>
-                 </div>
-
-                 {/* Real-time Insights */}
-                 <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-1 flex items-center gap-2">
-                       <Zap size={12} className="text-teal-400" /> Neural Signals
-                    </h4>
-                    {analysis.insights.length > 0 ? analysis.insights.map((insight, i) => (
-                      <motion.div key={i} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-                        className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-start gap-3">
-                        <CheckCircle2 size={14} className="text-teal-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-slate-300 leading-relaxed font-medium">{insight}</p>
-                      </motion.div>
-                    )) : (
-                      <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest text-center py-10 border border-dashed border-slate-800 rounded-2xl italic">Synthesizing behavioral streams...</p>
-                    )}
-                 </div>
-
-                 {/* Fraud / Risk Alert */}
-                 <div className={cn("p-4 rounded-2xl border flex items-center justify-between", 
-                   analysis.fillerWordCount > 8 ? "bg-amber-500/5 border-amber-500/20" : "bg-slate-800/20 border-slate-800"
-                 )}>
-                    <div className="flex items-center gap-3">
-                       <Shield size={16} className={analysis.fillerWordCount > 8 ? "text-amber-400" : "text-slate-600"} />
-                       <div className="min-w-0">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Speech Analysis</p>
-                          <p className="text-xs font-bold text-slate-200">{analysis.fillerWordCount} Hesitation Markers</p>
-                       </div>
+                  ) : (
+                    <div className="stagger">
+                       {/* Interleave AI Notes and Transcript */}
+                       {[...transcript, ...aiNotes].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).map((entry, i) => (
+                         <TranscriptBlock key={i} entry={entry} isAiNote={entry.speaker === 'AI Notes'} />
+                       ))}
                     </div>
-                    {analysis.fillerWordCount > 8 && <AlertTriangle size={14} className="text-amber-400" />}
-                 </div>
-                 
-                 <div className="p-4 rounded-2xl border border-slate-800 bg-slate-800/10">
-                    <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-3">
-                          <Activity size={16} className="text-slate-600" />
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Facial Posture</p>
-                       </div>
-                       <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Unavailable</span>
-                    </div>
-                 </div>
-              </div>
-           </div>
-        </section>
+                  )}
+               </div>
+            </section>
+
+            {/* Panel 3 (RIGHT - 30%): AI Analysis */}
+            <section className="w-[30%] flex flex-col rounded-3xl border border-slate-800 bg-slate-900/50 overflow-hidden shadow-xl">
+               <div className="p-5 border-b border-slate-800 bg-slate-800/40 flex items-center gap-3">
+                  <div className="p-2 bg-teal-500/10 rounded-lg text-teal-400"><Brain size={18} className="animate-pulse" /></div>
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em]">Neural Evaluation</h3>
+               </div>
+
+               <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+                  
+                  {/* Overall Confidence Radar Placeholder */}
+                  <div className="grid grid-cols-2 gap-6">
+                     <ScoreCircle score={analysis.commScore} label="Clarity" color="teal" />
+                     <ScoreCircle score={analysis.confidenceScore} label="Confidence" color="blue" />
+                     <ScoreCircle score={analysis.technicalScore} label="Technical" color="purple" />
+                     <ScoreCircle score={analysis.behavioralScore} label="Behavior" color="amber" />
+                  </div>
+
+                  {/* Behavior Analysis Details */}
+                  <div className="space-y-6 pt-4">
+                     <div className="p-5 rounded-2xl bg-black/40 border border-slate-800">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center justify-between">
+                           Communication Profile
+                           <span className={cn("text-[9px] px-2 py-0.5 rounded uppercase", 
+                             analysis.sentiment === 'Positive' ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-800 text-slate-400"
+                           )}>{analysis.sentiment} Sentiment</span>
+                        </h4>
+                        <div className="space-y-4">
+                           <MetricBar label="Engagement" score={analysis.engagementScore} color="bg-teal-500" />
+                           <MetricBar label="Response Accuracy" score={analysis.technicalScore} color="bg-purple-500" />
+                        </div>
+                     </div>
+
+                     {/* Real-time Insights */}
+                     <div className="space-y-3">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-1 flex items-center gap-2">
+                           <Zap size={12} className="text-teal-400" /> Neural Signals
+                        </h4>
+                        {analysis.insights.length > 0 ? analysis.insights.map((insight, i) => (
+                          <motion.div key={i} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                            className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-start gap-3">
+                            <CheckCircle2 size={14} className="text-teal-400 shrink-0 mt-0.5" />
+                            <p className="text-xs text-slate-300 leading-relaxed font-medium">{insight}</p>
+                          </motion.div>
+                        )) : (
+                          <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest text-center py-10 border border-dashed border-slate-800 rounded-2xl italic">Synthesizing behavioral streams...</p>
+                        )}
+                     </div>
+
+                     {/* Fraud / Risk Alert */}
+                     <div className={cn("p-4 rounded-2xl border flex items-center justify-between", 
+                       analysis.fillerWordCount > 8 ? "bg-amber-500/5 border-amber-500/20" : "bg-slate-800/20 border-slate-800"
+                     )}>
+                        <div className="flex items-center gap-3">
+                           <Shield size={16} className={analysis.fillerWordCount > 8 ? "text-amber-400" : "text-slate-600"} />
+                           <div className="min-w-0">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Speech Analysis</p>
+                              <p className="text-xs font-bold text-slate-200">{analysis.fillerWordCount} Hesitation Markers</p>
+                           </div>
+                        </div>
+                        {analysis.fillerWordCount > 8 && <AlertTriangle size={14} className="text-amber-400" />}
+                     </div>
+                     
+                     <div className="p-4 rounded-2xl border border-slate-800 bg-slate-800/10">
+                        <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-3">
+                              <Activity size={16} className="text-slate-600" />
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Facial Posture</p>
+                           </div>
+                           <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Unavailable</span>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </section>
+          </>
+        )}
       </main>
 
       {/* ── Footer ── */}
