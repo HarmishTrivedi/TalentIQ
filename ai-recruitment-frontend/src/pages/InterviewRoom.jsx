@@ -6,7 +6,7 @@ import {
   Monitor, MonitorOff, Phone, Signal, Users, Video, VideoOff, MessageSquare, User
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import api, { authApi } from '../services/api'
+import api, { authApi, API_BASE } from '../services/api'
 import { useAuthStore } from '../store'
 import MeetingChat from '../components/interview/MeetingChat'
 import ParticipantsList from '../components/interview/ParticipantsList'
@@ -125,6 +125,12 @@ export default function InterviewRoom() {
   const streamRef = useRef(null)
   const recognitionRef = useRef(null)
   const timerRef = useRef(null)
+  
+  // ── WebRTC State ──────────────────────────────────────────────────────────
+  const makingOfferRef = useRef(false)
+  const ignoreOfferRef = useRef(false)
+  const isPoliteRef = useRef(false) // Will be determined during signaling
+  const iceCandidateQueue = useRef([])
 
   // ── ICE servers ref — always current, no stale closure ──────────────────
   const iceServersRef = useRef([
@@ -132,8 +138,7 @@ export default function InterviewRoom() {
     { urls: 'stun:stun1.l.google.com:19302' },
   ])
 
-  // Fetch TURN credentials once on mount, store in ref so createPeerConnection
-  // always reads the latest value regardless of when it is called
+  // Fetch TURN credentials once on mount
   useEffect(() => {
     api.get('/interviews/turn-credentials')
       .then(res => {
@@ -144,9 +149,6 @@ export default function InterviewRoom() {
       })
       .catch(() => console.warn('[ICE] Could not fetch TURN credentials, using STUN only'))
   }, [])
-
-  // ── ICE candidate queue — holds candidates that arrive before remote desc ──
-  const iceCandidateQueue = useRef([])
 
   // ── Attach remote stream to video element whenever it changes ─────────────
   useEffect(() => {
@@ -287,14 +289,25 @@ export default function InterviewRoom() {
   }
 
   const initializeWebSocket = (stream) => {
-    // Build correct WebSocket URL
-    const wsBase = import.meta.env.VITE_WS_URL
-      || (window.location.protocol === 'https:' ? 'wss' : 'ws') + '://' + window.location.host
-    // Strip trailing slash, ensure no double /api/v1
+    // Build correct WebSocket URL from API_BASE
+    // API_BASE is something like "https://backend.com/api/v1" or "http://localhost:8000/api/v1"
+    let wsBase = import.meta.env.VITE_WS_URL || API_BASE
+    
+    // Convert http(s) to ws(s)
+    wsBase = wsBase.replace(/^http/, 'ws')
+    
+    // Ensure it doesn't end with a slash
     const cleanBase = wsBase.replace(/\/$/, '')
-    const wsUrl = `${cleanBase}/api/v1/interviews/${interviewId}/live`
+    const wsUrl = `${cleanBase}/interviews/${interviewId}/live`
 
     console.log('[WS] Connecting to:', wsUrl)
+    
+    // Safety check: On Render, the frontend cannot host WebSockets.
+    // If the wsUrl is the same as the window origin, and we are on onrender.com, it's likely a config error.
+    if (window.location.hostname.includes('onrender.com') && wsUrl.includes(window.location.hostname)) {
+      console.warn('[WS] ⚠️ WARNING: WebSocket URL points to the frontend domain. This will likely fail (Error 1006) on Render Static Sites. Please set VITE_API_URL or VITE_WS_URL to your Backend Service URL.')
+    }
+
     wsRef.current = new WebSocket(wsUrl)
 
     wsRef.current.onopen = () => {
@@ -322,107 +335,131 @@ export default function InterviewRoom() {
     if (peerRef.current) {
       console.log('[WebRTC] Closing existing peer connection')
       peerRef.current.close()
-      peerRef.current = null
     }
-    iceCandidateQueue.current = [] // reset queue for new connection
+    
+    iceCandidateQueue.current = [] 
 
-    // Always use the ref — guaranteed to have latest TURN credentials
     const config = { iceServers: iceServersRef.current, iceCandidatePoolSize: 10 }
-    console.log('[WebRTC] Creating RTCPeerConnection with', config.iceServers.length, 'ICE servers')
+    console.log('[WebRTC] Creating RTCPeerConnection with', config.iceServers.length, 'servers')
     const pc = new RTCPeerConnection(config)
     peerRef.current = pc
 
     if (stream) {
       stream.getTracks().forEach(track => {
-        console.log('[WebRTC] Adding local track:', track.kind, '| enabled:', track.enabled)
+        console.log('[WebRTC] Adding local track:', track.kind)
         pc.addTrack(track, stream)
       })
-    } else {
-      console.error('[WebRTC] ❌ No local stream — remote peer will not receive media!')
     }
 
     pc.onicecandidate = ({ candidate }) => {
       if (candidate && wsRef.current?.readyState === WebSocket.OPEN) {
-        console.log('[WebRTC] Sending ICE candidate:', candidate.type, candidate.protocol)
+        console.log('[WebRTC] ICE candidate generated')
         wsRef.current.send(JSON.stringify({ type: 'ice-candidate', candidate }))
       }
     }
 
+    // Robust track handling
     pc.ontrack = (event) => {
-      console.log('[WebRTC] ✅ ontrack — kind:', event.track.kind, '| streams:', event.streams?.length)
-      const remote = event.streams?.[0] || new MediaStream([event.track])
-      console.log('[WebRTC] Remote tracks:', remote.getTracks().map(t => `${t.kind}(enabled:${t.enabled})`).join(', '))
-      setRemoteStream(remote)
+      console.log('[WebRTC] ✅ ontrack — kind:', event.track.kind)
+      setRemoteStream(prev => {
+        if (!prev) {
+          console.log('[WebRTC] Creating new remote stream')
+          return new MediaStream([event.track])
+        }
+        // Check if track already exists
+        if (prev.getTracks().find(t => t.id === event.track.id)) return prev
+        console.log('[WebRTC] Adding track to existing remote stream')
+        prev.addTrack(event.track)
+        return new MediaStream(prev.getTracks()) // new ref
+      })
     }
 
     pc.onconnectionstatechange = () => {
       console.log('[WebRTC] Connection state:', pc.connectionState)
-      if (pc.connectionState === 'connected') toast.success('Video connected', { duration: 2000 })
-      if (pc.connectionState === 'failed') { console.error('[WebRTC] Failed — restarting ICE'); pc.restartIce() }
+      if (pc.connectionState === 'connected') toast.success('Video connected')
+      if (pc.connectionState === 'failed') {
+        console.warn('[WebRTC] Connection failed, attempting ICE restart')
+        pc.restartIce()
+      }
     }
-    pc.oniceconnectionstatechange = () => console.log('[WebRTC] ICE state:', pc.iceConnectionState)
-    pc.onsignalingstatechange  = () => console.log('[WebRTC] Signaling state:', pc.signalingState)
+
+    pc.onnegotiationneeded = async () => {
+      try {
+        console.log('[WebRTC] Negotiation needed — creating offer')
+        makingOfferRef.current = true
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        wsRef.current?.send(JSON.stringify({ type: 'offer', offer: pc.localDescription }))
+      } catch (err) {
+        console.error('[WebRTC] Negotiation failed:', err)
+      } finally {
+        makingOfferRef.current = false
+      }
+    }
 
     return pc
   }
 
   const handleWebSocketMessage = async (data, stream) => {
     console.log('[WS] Received:', data.type)
-    switch (data.type) {
+    
+    // Determine politeness (Recruiter is polite, Candidate is impolite — simple fixed rule)
+    // Or base it on alphabetical sort of some ID if available. 
+    // Here we use role: recruiter is usually the one who waits/accepts.
+    isPoliteRef.current = isRecruiter
 
-      case 'participant_joined': {
-        console.log('[WebRTC] participant_joined from', data.name, '— creating offer')
-        toast.success(`${data.name} joined the interview`)
-        // Always use streamRef.current — the closure param may be stale
-        const localStream = streamRef.current
-        if (!localStream) { console.error('[WebRTC] No local stream for offer!'); break }
-        const pc = createPeerConnection(localStream)
-        try {
-          const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
-          await pc.setLocalDescription(offer)
-          console.log('[WebRTC] Offer created — sending')
-          wsRef.current.send(JSON.stringify({ type: 'offer', offer: pc.localDescription }))
-        } catch (e) { console.error('[WebRTC] createOffer failed:', e) }
+    switch (data.type) {
+      case 'participant_joined':
+        console.log('[WebRTC] participant_joined from', data.name)
+        toast.success(`${data.name} joined`)
+        // The joining peer doesn't need to do anything, 
+        // the existing peer's onnegotiationneeded will fire when they add tracks
+        // OR we can manually trigger it:
+        if (!peerRef.current) createPeerConnection(streamRef.current)
         break
-      }
 
       case 'offer': {
-        console.log('[WebRTC] Received offer — creating answer')
-        const localStream = streamRef.current
-        if (!localStream) { console.error('[WebRTC] No local stream for answer!'); break }
+        const pc = peerRef.current || createPeerConnection(streamRef.current)
+        const offerCollision = makingOfferRef.current || pc.signalingState !== 'stable'
+        
+        ignoreOfferRef.current = !isPoliteRef.current && offerCollision
+        if (ignoreOfferRef.current) {
+          console.warn('[WebRTC] Offer collision — ignoring offer (impolite)')
+          break
+        }
+
+        console.log('[WebRTC] Handling offer')
         try {
-          const pc = createPeerConnection(localStream)
           await pc.setRemoteDescription(new RTCSessionDescription(data.offer))
-          console.log('[WebRTC] Remote description set (offer)')
-          // Flush any queued ICE candidates
-          for (const c of iceCandidateQueue.current) {
-            await pc.addIceCandidate(new RTCIceCandidate(c)).catch(e => console.warn('[WebRTC] Queued ICE failed:', e.message))
-          }
-          iceCandidateQueue.current = []
           const answer = await pc.createAnswer()
           await pc.setLocalDescription(answer)
-          console.log('[WebRTC] Answer created — sending')
           wsRef.current.send(JSON.stringify({ type: 'answer', answer: pc.localDescription }))
-        } catch (e) { console.error('[WebRTC] handleOffer failed:', e) }
+          
+          // Flush ICE queue
+          for (const c of iceCandidateQueue.current) {
+            await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {})
+          }
+          iceCandidateQueue.current = []
+        } catch (e) {
+          console.error('[WebRTC] Offer handling failed:', e)
+        }
         break
       }
 
       case 'answer': {
-        console.log('[WebRTC] Received answer')
         const pc = peerRef.current
-        if (!pc) { console.warn('[WebRTC] No peer connection for answer'); break }
-        if (pc.signalingState !== 'have-local-offer') {
-          console.warn('[WebRTC] Ignoring answer — signaling state:', pc.signalingState); break
-        }
+        if (!pc) break
+        console.log('[WebRTC] Handling answer')
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer))
-          console.log('[WebRTC] ✅ Remote description (answer) set')
-          // Flush queued ICE candidates
+          // Flush ICE queue
           for (const c of iceCandidateQueue.current) {
-            await pc.addIceCandidate(new RTCIceCandidate(c)).catch(e => console.warn('[WebRTC] Queued ICE failed:', e.message))
+            await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {})
           }
           iceCandidateQueue.current = []
-        } catch (e) { console.error('[WebRTC] setRemoteDescription (answer) failed:', e) }
+        } catch (e) {
+          console.error('[WebRTC] Answer handling failed:', e)
+        }
         break
       }
 
@@ -430,16 +467,13 @@ export default function InterviewRoom() {
         if (!data.candidate) break
         const pc = peerRef.current
         if (!pc || !pc.remoteDescription) {
-          // Queue it — remote description not set yet
-          console.log('[WebRTC] Queuing ICE candidate (no remote desc yet)')
           iceCandidateQueue.current.push(data.candidate)
           break
         }
         try {
           await pc.addIceCandidate(new RTCIceCandidate(data.candidate))
-          console.log('[WebRTC] ICE candidate added')
         } catch (e) {
-          if (e.name !== 'InvalidStateError') console.warn('[WebRTC] addIceCandidate failed:', e.message)
+          if (!ignoreOfferRef.current) console.warn('[WebRTC] ICE addition failed:', e.message)
         }
         break
       }

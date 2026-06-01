@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Brain, CheckCircle, Code, FileText, MessageSquare, Mic, MicOff, Monitor, MonitorOff, Phone, Video, VideoOff, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import api from '../services/api'
+import api, { API_BASE } from '../services/api'
 import CodeEditor from '../components/interview/CodeEditor'
 import RecruiterAIPanel from '../components/interview/RecruiterAIPanel'
 import TranscriptPanel from '../components/interview/TranscriptPanel'
@@ -65,8 +65,19 @@ export default function LiveInterview() {
   }
 
   const initializeWebSocket = () => {
-    const defaultOrigin = typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}` : 'ws://localhost:8000'
-    wsRef.current = new WebSocket(`${import.meta.env.VITE_WS_URL || defaultOrigin}/api/v1/interviews/${interviewId}/live`)
+    // Build correct WebSocket URL from API_BASE
+    let wsBase = import.meta.env.VITE_WS_URL || API_BASE
+    
+    // Convert http(s) to ws(s)
+    wsBase = wsBase.replace(/^http/, 'ws')
+    
+    // Ensure it doesn't end with a slash
+    const cleanBase = wsBase.replace(/\/$/, '')
+    const wsUrl = `${cleanBase}/interviews/${interviewId}/live`
+
+    console.log('[WS] Connecting to:', wsUrl)
+    wsRef.current = new WebSocket(wsUrl)
+
     wsRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data)
       if (data.type === 'transcript') {

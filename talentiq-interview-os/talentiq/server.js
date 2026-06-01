@@ -101,6 +101,29 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', rooms: rooms.size, uptime: process.uptime() });
 });
 
+// TURN Credentials endpoint
+app.get('/api/webrtc/turn-credentials', async (req, res) => {
+  const meteredApiKey = process.env.METERED_API_KEY;
+  const defaultIce = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ];
+
+  if (!meteredApiKey) {
+    return res.json({ iceServers: defaultIce });
+  }
+
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(`https://talentiq.metered.live/api/v1/turn/credentials?apiKey=${meteredApiKey}`);
+    if (response.ok) {
+      const turnServers = await response.json();
+      return res.json({ iceServers: [...defaultIce, ...turnServers] });
+    }
+  } catch (err) {}
+  res.json({ iceServers: defaultIce });
+});
+
 // Anthropic API Proxy — protects your API key server-side
 // The recruiter's browser calls /api/ai/analyze instead of Anthropic directly
 app.post('/api/ai/analyze', async (req, res) => {

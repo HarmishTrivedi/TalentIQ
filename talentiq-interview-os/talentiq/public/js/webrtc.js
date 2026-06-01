@@ -2,32 +2,25 @@
 // TalentIQ — WebRTC Manager (Audited & Fixed)
 // ═══════════════════════════════════════════════════════
 
-// Metered TURN Configuration
-const ICE_SERVERS = [
-  {
-    urls: "stun:stun.relay.metered.ca:80"
-  },
-  {
-    urls: "turn:global.relay.metered.ca:80",
-    username: "bcb923cd13bb66d858302a57",
-    credential: "YLri3hKFQq7CFm6q"
-  },
-  {
-    urls: "turn:global.relay.metered.ca:80?transport=tcp",
-    username: "bcb923cd13bb66d858302a57",
-    credential: "YLri3hKFQq7CFm6q"
-  },
-  {
-    urls: "turn:global.relay.metered.ca:443",
-    username: "bcb923cd13bb66d858302a57",
-    credential: "YLri3hKFQq7CFm6q"
-  },
-  {
-    urls: "turns:global.relay.metered.ca:443?transport=tcp",
-    username: "bcb923cd13bb66d858302a57",
-    credential: "YLri3hKFQq7CFm6q"
-  }
+let ICE_SERVERS = [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  { urls: "stun:stun.l.google.com:19302" }
 ];
+
+async function fetchIceServers() {
+  try {
+    const res = await fetch('/api/webrtc/turn-credentials');
+    const data = await res.json();
+    if (data.iceServers) {
+      ICE_SERVERS = data.iceServers;
+      console.log('[WebRTC Audit] Dynamic ICE Servers loaded:', ICE_SERVERS.length);
+    }
+  } catch (e) {
+    console.warn('[WebRTC Audit] Using STUN fallback');
+  }
+}
+
+fetchIceServers();
 
 export class WebRTCManager {
   constructor(socket, localStream, onRemoteStream, onRemoveStream) {
