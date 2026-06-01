@@ -297,8 +297,12 @@ export class InterviewRoom {
     this.addSelfTile();
     this.setupControls();
     this.setupPanels();
-    this.setupSocket();
+
+    // CRITICAL: Setup WebRTC and socket listeners BEFORE emitting join-room
+    // so we are ready to handle incoming offers/answers immediately
     this.setupWebRTC();
+    this.setupSocket();
+
     this.startTimer();
     this.addSelfToParticipants();
 
@@ -307,7 +311,7 @@ export class InterviewRoom {
       this.setupSpeechRecognition();
     }
 
-    // Join socket room
+    // Join socket room AFTER all listeners are registered
     this.socket.emit('join-room', {
       roomId: this.roomId,
       userId: this.userId,
@@ -369,31 +373,57 @@ export class InterviewRoom {
     if (stream) {
       const videoEl = document.getElementById(`video-${socketId}`);
       if (videoEl) {
-        // FIX: Attach stream BEFORE setting muted/volume so browser can autoplay
         videoEl.srcObject = stream;
 
         if (!isSelf) {
-          // FIX: Remote video must NEVER be muted — audio lives on the stream
-          // Setting muted=false explicitly overrides any residual HTML attribute
-          videoEl.muted = false;
+          // Remote video: must NOT be muted so audio plays through
+          // We start muted to satisfy autoplay policy, then unmute after play starts
+          videoEl.muted = true;
           videoEl.volume = 1.0;
         }
 
-        videoEl.onloadedmetadata = () => {
-          console.log(`[Video] Metadata loaded for ${socketId}, tracks:`, stream.getTracks().map(t => t.kind));
-          videoEl.play().catch(e => {
-            console.error('[Video] Autoplay blocked:', e);
-            // Autoplay policy fallback: unmute and retry on user gesture
-            videoEl.muted = true;
-            videoEl.play().catch(e2 => console.error('[Video] Muted autoplay also failed:', e2));
-          });
-          document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
+        const tryPlay = () => {
+          videoEl.play()
+            .then(() => {
+              console.log(`[Video] Playing for ${socketId}, isSelf=${isSelf}`);
+              if (!isSelf) {
+                // Unmute after successful play — this is the key fix for audio
+                videoEl.muted = false;
+                console.log(`[Audio] Unmuted remote video for ${socketId}`);
+              }
+              document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
+            })
+            .catch(e => {
+              console.warn(`[Video] Autoplay failed for ${socketId}:`, e.name);
+              // Keep muted and retry — audio will be lost but video works
+              // User can click to unmute via the interaction handler below
+            });
         };
 
-        // FIX: Also handle case where metadata already loaded (stream was added late)
+        videoEl.onloadedmetadata = () => {
+          console.log(`[Video] Metadata loaded for ${socketId}, tracks:`, stream.getTracks().map(t => t.kind));
+          tryPlay();
+        };
+
+        // Handle case where metadata already loaded
         if (videoEl.readyState >= 2) {
-          videoEl.play().catch(e => console.warn('[Video] Late-play failed:', e));
-          document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
+          tryPlay();
+        }
+
+        // Fallback: on any user interaction, unmute all remote videos
+        // This handles strict autoplay policies (Safari, Chrome with no prior interaction)
+        if (!isSelf) {
+          const unmuteOnInteraction = () => {
+            if (videoEl.muted) {
+              videoEl.muted = false;
+              videoEl.play().catch(() => {});
+              console.log(`[Audio] Unmuted via user interaction for ${socketId}`);
+            }
+            document.removeEventListener('click', unmuteOnInteraction);
+            document.removeEventListener('keydown', unmuteOnInteraction);
+          };
+          document.addEventListener('click', unmuteOnInteraction, { once: true });
+          document.addEventListener('keydown', unmuteOnInteraction, { once: true });
         }
       }
     }
@@ -476,9 +506,16 @@ export class InterviewRoom {
     });
 
     this.socket.on('room-participants', (participants) => {
+      // CRITICAL FIX: When we join and receive existing participants,
+      // we must create offers to each of them so they can see/hear us.
+      // Without this, only the existing peer creates an offer (via participant-joined)
+      // but the new joiner never initiates connections to already-present peers.
       participants.forEach(p => {
         if (p.socketId !== this.socket.id) {
+          console.log('[Room] Existing participant found, creating offer to:', p.socketId, p.userName);
           this.addParticipantToList(p.socketId, p.userName, p.role, false);
+          // Create offer to this existing peer so they receive our stream
+          this.webrtc.createOffer(p.socketId, p.userName, p.role);
         }
       });
     });

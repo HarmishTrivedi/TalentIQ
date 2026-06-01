@@ -215,9 +215,11 @@ io.on('connection', (socket) => {
 
     // Send current participants list to newcomer
     const roomParticipants = Array.from(io.sockets.adapter.rooms.get(roomId) || [])
+      .filter(sid => sid !== socket.id)  // exclude the newcomer themselves
       .map(sid => participants.get(sid))
       .filter(Boolean);
     socket.emit('room-participants', roomParticipants);
+    console.log(`[Room ${roomId}] Sent ${roomParticipants.length} existing participant(s) to newcomer ${userName}`);
 
     console.log(`[Room ${roomId}] ${userName} (${role}) joined`);
   });
