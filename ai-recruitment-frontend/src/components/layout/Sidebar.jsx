@@ -17,6 +17,8 @@ const navItems = [
   { to: '/candidates',    icon: Users,           label: 'Candidates' },
   { to: '/jobs',          icon: Briefcase,       label: 'Jobs' },
   { to: '/interviews',    icon: Brain,           label: 'Interviews' },
+  { to: '/calendar',      icon: Calendar,        label: 'Calendar' },
+  { to: '/ai-sourcing',   icon: Search,          label: 'AI Sourcing Assist' },
   { to: '/account',       icon: Settings,        label: 'Settings' },
 ]
 

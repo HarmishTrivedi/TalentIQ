@@ -105,6 +105,7 @@ export default function App() {
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
             <Route path="/matching" element={<Matching />} />
+            <Route path="/ai-sourcing" element={<ChatPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/chat/:sessionId" element={<ChatPage />} />
             <Route path="/interview-room" element={<InterviewRoom />} />
