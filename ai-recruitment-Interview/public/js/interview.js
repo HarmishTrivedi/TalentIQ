@@ -32,6 +32,12 @@ export class InterviewRoom {
     this.analysisState = null;
 
     this.webrtc = null;
+
+    // Recording
+    this.mediaRecorder = null;
+    this.recordingChunks = [];
+    this.isRecording = false;
+    this.candidateName = null; // set when remote participant joins
   }
 
   render() {
@@ -47,108 +53,185 @@ export class InterviewRoom {
   html() {
     const isRecruiter = this.role === 'recruiter';
     return `
-    <div id="interview-room">
+    <div id="interview-room" class="interview-layout-v2">
 
-      <!-- Header -->
-      <div class="room-header" id="room-header">
-        <div class="room-header-left">
+      <!-- Header V2 -->
+      <header class="header-v2">
+        <div class="header-v2-left">
           <div class="room-logo">
             <div class="room-logo-mark">T</div>
-            <span class="room-title">TalentIQ</span>
+            <span class="room-title">TalentIQ AI</span>
           </div>
-          <div class="room-timer" id="room-timer">00:00</div>
+          <div class="ctrl-divider"></div>
+          <div class="session-info">
+            <div class="session-title">${this.roomId} — AI Interview</div>
+            <div class="session-status">
+              <span id="room-timer" class="room-timer">00:00</span>
+              <span class="ctrl-divider" style="height:12px;"></span>
+              <span>${this.name} (${this.role})</span>
+            </div>
+          </div>
+        </div>
+        <div class="header-v2-right">
           ${isRecruiter ? `
-          <div class="recording-indicator">
+          <div class="live-indicator" id="recording-indicator" style="display:none;">
             <span class="recording-dot"></span>
-            AI Active
-          </div>` : ''}
-        </div>
-        <div class="room-header-right">
-          <div style="font-size:11px;color:var(--text-muted);background:var(--glass-bg);backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);padding:4px 12px;border-radius:999px;">
-            ${this.roomId}
+            REC
+          </div>
+          <div class="live-indicator">
+            <span class="recording-dot" style="background:var(--accent-green);"></span>
+            AI Analysis Live
+          </div>
+          <button id="ctrl-record" class="ctrl-btn" title="Start Recording" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);border-radius:var(--r-md);width:auto;padding:0 14px;gap:6px;font-size:11px;font-weight:700;color:var(--accent-red);">
+            ${SVGIcons.record()}
+            <span id="record-btn-label">REC</span>
+          </button>` : ''}
+          <div style="font-size:11px;color:var(--text-muted);background:var(--glass-bg);backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);padding:6px 14px;border-radius:999px;">
+            SECURE SESSION
           </div>
         </div>
-      </div>
+      </header>
 
-      <!-- Video Grid -->
-      <div class="video-grid" id="video-grid">
-        <div class="video-tiles count-1" id="video-tiles">
-          <!-- Populated dynamically -->
+      <!-- Left Section: Candidate Video -->
+      <section class="section-video">
+        <div class="video-main-container ai-glow">
+          <div class="video-tiles count-1" id="video-tiles" style="width:100%; height:100%;">
+            <!-- Populated dynamically -->
+          </div>
+          
+          <!-- Minimal Overlay Controls -->
+          <div class="video-overlay-controls">
+            <button class="ctrl-btn" id="ctrl-mic" title="Microphone">
+              ${SVGIcons.mic()}
+            </button>
+            <button class="ctrl-btn" id="ctrl-cam" title="Camera">
+              ${SVGIcons.camera()}
+            </button>
+            <button class="ctrl-btn" id="ctrl-screen" title="Share Screen">
+              ${SVGIcons.screen()}
+            </button>
+            <div class="ctrl-divider"></div>
+            <button class="ctrl-btn end-call" id="ctrl-leave" title="End Session">
+              ${SVGIcons.phone()}
+            </button>
+          </div>
         </div>
-      </div>
 
-      <!-- Self Preview -->
-      <div class="self-preview" id="self-preview">
-        <video id="local-video" autoplay muted playsinline></video>
-        <div class="self-preview-label">You</div>
-      </div>
-
-      <!-- Control Bar -->
-      <div class="control-bar" id="control-bar">
-        <button class="ctrl-btn" id="ctrl-mic" title="Microphone">
-          <span class="tooltip">Mute</span>
-          ${SVGIcons.mic()}
-        </button>
-        <button class="ctrl-btn" id="ctrl-cam" title="Camera">
-          <span class="tooltip">Camera</span>
-          ${SVGIcons.camera()}
-        </button>
-        <button class="ctrl-btn" id="ctrl-screen" title="Share Screen">
-          <span class="tooltip">Share Screen</span>
-          ${SVGIcons.screen()}
-        </button>
-        <div class="ctrl-divider"></div>
-        <button class="ctrl-btn" id="ctrl-chat" title="Chat">
-          <span class="tooltip">Chat</span>
-          ${SVGIcons.chat()}
-          <span class="chat-badge hidden" id="chat-badge" style="position:absolute;top:6px;right:6px;width:8px;height:8px;background:var(--brand);border-radius:50%;"></span>
-        </button>
-        <button class="ctrl-btn" id="ctrl-participants" title="Participants">
-          <span class="tooltip">Participants</span>
-          ${SVGIcons.people()}
-        </button>
-        <button class="ctrl-btn" id="ctrl-fullscreen" title="Full Screen">
-          <span class="tooltip">Full Screen</span>
-          ${SVGIcons.fullscreen()}
-        </button>
-        ${isRecruiter ? `
-        <div class="ctrl-divider"></div>
-        <button class="ctrl-btn" id="ctrl-transcript" title="Transcript">
-          <span class="tooltip">Transcript</span>
-          ${SVGIcons.transcript()}
-        </button>
-        <button class="ctrl-btn" id="ctrl-notes" title="Notes">
-          <span class="tooltip">Notes</span>
-          ${SVGIcons.notes()}
-        </button>
-        <button class="ctrl-btn" id="ctrl-ai" title="AI Copilot">
-          <span class="tooltip">AI Copilot</span>
-          ${SVGIcons.ai()}
-          <span style="position:absolute;top:6px;right:6px;width:6px;height:6px;background:var(--brand);border-radius:50%;animation:ai-pulse-anim 2s ease infinite;"></span>
-        </button>
-        ` : ''}
-        <div class="ctrl-divider"></div>
-        <button class="ctrl-btn end-call" id="ctrl-leave" title="Leave">
-          <span class="tooltip">Leave</span>
-          ${SVGIcons.phone()}
-        </button>
-      </div>
-
-      <!-- Chat Panel -->
-      <div class="side-panel" id="panel-chat">
-        <div class="panel-header">
-          <span class="panel-title">Chat</span>
-          <button class="panel-close" data-close="chat">${SVGIcons.x()}</button>
+        <!-- Floating Self Preview -->
+        <div class="self-preview" id="self-preview" style="bottom:40px; right:40px;">
+          <video id="local-video" autoplay muted playsinline></video>
+          <div class="self-preview-label">You</div>
         </div>
-        <div class="chat-messages" id="chat-messages"></div>
-        <div class="chat-input-wrap">
-          <textarea class="chat-input" id="chat-input" placeholder="Message everyone..." rows="1"></textarea>
-          <button class="chat-send-btn" id="chat-send">${SVGIcons.send()}</button>
-        </div>
-      </div>
+      </section>
 
-      <!-- Participants Panel -->
-      <div class="side-panel" id="panel-participants">
+      <!-- Center Section: Live Conversation -->
+      <section class="section-conversation">
+        <div class="conversation-header">
+          <span class="conversation-title">Live Transcript & Notes</span>
+          <div class="ai-live-badge"><span class="ai-pulse"></span>ACTIVE</div>
+        </div>
+        <div class="transcript-scroll" id="transcript-body">
+          <div style="text-align:center; padding-top:100px; color:var(--text-hint); font-size:13px;">
+            Waiting for conversation to begin...
+          </div>
+        </div>
+        
+        <!-- Chat Area (Hidden by default, toggleable) -->
+        <div id="panel-chat" class="side-panel" style="position:relative; width:100%; height:auto; transform:none; border:none; display:none; background:rgba(0,0,0,0.2);">
+          <div class="chat-messages" id="chat-messages" style="height:200px;"></div>
+          <div class="chat-input-wrap">
+            <textarea class="chat-input" id="chat-input" placeholder="Quick message..." rows="1"></textarea>
+            <button class="chat-send-btn" id="chat-send">${SVGIcons.send()}</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Section: AI Analysis -->
+      <aside class="section-analysis">
+        
+        <!-- Overall Score Card -->
+        <div class="analysis-card">
+          <div class="panel-section-heading">Interview Performance</div>
+          <div class="analysis-score-circle">
+            <svg class="score-svg" viewBox="0 0 100 100">
+              <circle class="score-circle-bg" cx="50" cy="50" r="45"></circle>
+              <circle class="score-circle-fill" id="overall-circle" cx="50" cy="50" r="45" style="stroke-dasharray: 282.7; stroke-dashoffset: 282.7;"></circle>
+            </svg>
+            <div class="score-number" id="overall-score">0</div>
+          </div>
+          <div id="overall-summary" style="font-size:12px; color:var(--text-secondary); text-align:center; line-height:1.5;">
+            Analyzing interview data in real-time...
+          </div>
+        </div>
+
+        <!-- Metric Bars -->
+        <div class="analysis-card">
+          <div class="panel-section-heading">Communication Analysis</div>
+          <div class="analysis-metrics-grid">
+            ${['Clarity','Structure','Technical','Complete','Concise'].map(m => `
+            <div class="metric-row">
+              <div class="metric-info">
+                <span>${m}</span>
+                <span id="score-${m.toLowerCase()}">0%</span>
+              </div>
+              <div class="metric-bar-bg">
+                <div class="metric-bar-fill" id="bar-${m.toLowerCase()}" style="width:0%"></div>
+              </div>
+            </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Detected Skills -->
+        <div class="analysis-card">
+          <div class="panel-section-heading">Technical Skills Detected</div>
+          <div class="skill-tags mt-2" id="skill-tags">
+            <div style="font-size:11px; color:var(--text-hint);">No skills detected yet.</div>
+          </div>
+        </div>
+
+        <!-- Topics Covered -->
+        <div class="analysis-card">
+          <div class="panel-section-heading">Discussion Topics</div>
+          <div class="topic-list mt-2" id="topic-list">
+            <div style="font-size:11px; color:var(--text-hint);">Analyzing topics...</div>
+          </div>
+        </div>
+
+        <!-- Strengths & Concerns -->
+        <div class="analysis-card">
+          <div class="panel-section-heading">AI Feedback Highlights</div>
+          <div id="strengths-list" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+          <div id="concerns-list" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+        </div>
+
+      </aside>
+
+      <!-- Footer: Question Bar -->
+      <footer class="footer-v2">
+        <div class="question-bar">
+          <div class="question-label">AI Suggested</div>
+          <div class="question-text" id="active-ai-question">
+            Listening to conversation to generate the next best question...
+          </div>
+          <div class="ctrl-divider"></div>
+          <div class="header-v2-right" style="gap:8px;">
+            <button class="ctrl-btn" id="ctrl-chat" title="Toggle Chat" style="width:36px; height:36px;">
+              ${SVGIcons.chat()}
+            </button>
+            <button class="ctrl-btn" id="ctrl-participants" title="Participants" style="width:36px; height:36px;">
+              ${SVGIcons.people()}
+            </button>
+            ${isRecruiter ? `
+            <button class="ctrl-btn" id="ctrl-notes" title="Notes" style="width:36px; height:36px;">
+              ${SVGIcons.notes()}
+            </button>
+            ` : ''}
+          </div>
+        </div>
+      </footer>
+
+      <!-- Floating Participants Panel -->
+      <div class="side-panel" id="panel-participants" style="right:32px; bottom:120px; top:auto; height:400px; border-radius:var(--r-lg); border:1px solid var(--border-bright);">
         <div class="panel-header">
           <span class="panel-title">Participants (<span id="participant-count">1</span>)</span>
           <button class="panel-close" data-close="participants">${SVGIcons.x()}</button>
@@ -156,138 +239,43 @@ export class InterviewRoom {
         <div class="panel-body" id="participants-list"></div>
       </div>
 
-      ${isRecruiter ? `
-      <!-- Transcript Panel -->
-      <div class="side-panel" id="panel-transcript">
-        <div class="panel-header">
-          <span class="panel-title">Live Transcript</span>
-          <button class="panel-close" data-close="transcript">${SVGIcons.x()}</button>
-        </div>
-        <div class="panel-body" id="transcript-body"></div>
-      </div>
-
-      <!-- Notes Panel -->
-      <div class="side-panel" id="panel-notes">
+      <!-- Floating Notes Panel -->
+      <div class="side-panel" id="panel-notes" style="right:32px; bottom:120px; top:auto; height:500px; border-radius:var(--r-lg); border:1px solid var(--border-bright);">
         <div class="panel-header">
           <span class="panel-title">Interview Notes</span>
           <button class="panel-close" data-close="notes">${SVGIcons.x()}</button>
         </div>
         <div class="panel-body">
-          <div class="notes-section-label">Strengths</div>
-          <textarea class="notes-textarea" id="notes-strengths" placeholder="Candidate strengths..." style="min-height:80px;"></textarea>
-          <div class="notes-section-label mt-3">Concerns</div>
-          <textarea class="notes-textarea" id="notes-concerns" placeholder="Areas of concern..." style="min-height:80px;"></textarea>
-          <div class="notes-section-label mt-3">Key Observations</div>
-          <textarea class="notes-textarea" id="notes-general" placeholder="General notes..." style="min-height:120px;"></textarea>
-          <button id="export-notes-btn" style="width:100%;margin-top:12px;padding:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;">
-            Export Notes
-          </button>
+          <textarea class="notes-textarea" id="notes-general" placeholder="Your observations..." style="height:100%;"></textarea>
+          <button id="export-notes-btn" class="btn-join" style="margin-top:12px; padding:10px; font-size:12px;">Export Report</button>
         </div>
       </div>
-
-      <!-- AI Copilot Panel -->
-      <div class="side-panel ai-panel" id="panel-ai">
-        <div class="panel-header">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="panel-title">AI Copilot</span>
-            <div class="ai-live-badge"><span class="ai-pulse"></span>LIVE</div>
-          </div>
-          <button class="panel-close" data-close="ai">${SVGIcons.x()}</button>
-        </div>
-
-        <div class="ai-panel-tabs">
-          <button class="ai-tab active" data-tab="overview">Overview</button>
-          <button class="ai-tab" data-tab="skills">Skills</button>
-          <button class="ai-tab" data-tab="insights">Insights</button>
-          <button class="ai-tab" data-tab="questions">Questions</button>
-          <button class="ai-tab" data-tab="timeline">Timeline</button>
-        </div>
-
-        <!-- Overview Tab -->
-        <div class="ai-tab-content active" id="tab-overview">
-          <div class="ai-score-card">
-            <div class="score-header">
-              <span class="score-label">Overall Score</span>
-              <span class="score-value high" id="overall-score">—</span>
-            </div>
-            <div class="score-bar-wrap">
-              <div class="score-bar green" id="overall-bar" style="width:0%"></div>
-            </div>
-            <div class="score-sub" id="overall-summary">Waiting for interview data...</div>
-          </div>
-
-          <div class="comm-grid" id="comm-grid">
-            ${['Clarity','Structure','Technical','Complete','Concise'].map(m => `
-            <div class="comm-metric">
-              <div class="comm-metric-label">${m}</div>
-              <div class="comm-metric-score" id="score-${m.toLowerCase()}">—</div>
-              <div class="comm-bar-mini"><div class="comm-bar-fill" id="bar-${m.toLowerCase()}" style="width:0%"></div></div>
-            </div>`).join('')}
-          </div>
-
-          <div>
-            <div class="panel-section-heading">Topic Coverage</div>
-            <div class="topic-list mt-2" id="topic-list">
-              <div style="font-size:12px;color:var(--text-hint);text-align:center;padding:16px;">Analysis will appear as interview progresses...</div>
-            </div>
-          </div>
-
-          <div>
-            <div class="panel-section-heading">Key Strengths</div>
-            <div id="strengths-list" class="mt-2" style="display:flex;flex-direction:column;gap:6px;"></div>
-          </div>
-
-          <div>
-            <div class="panel-section-heading">Concerns</div>
-            <div id="concerns-list" class="mt-2" style="display:flex;flex-direction:column;gap:6px;"></div>
-          </div>
-        </div>
-
-        <!-- Skills Tab -->
-        <div class="ai-tab-content" id="tab-skills">
-          <div>
-            <div class="panel-section-heading">Detected Skills</div>
-            <div class="skill-tags mt-2" id="skill-tags">
-              <div style="font-size:12px;color:var(--text-hint);">Skills will appear as candidate speaks...</div>
-            </div>
-          </div>
-          <div>
-            <div class="panel-section-heading mt-3">Experience Claims</div>
-            <div id="claims-list" class="mt-2" style="display:flex;flex-direction:column;gap:8px;"></div>
-          </div>
-        </div>
-
-        <!-- Insights Tab -->
-        <div class="ai-tab-content" id="tab-insights">
-          <div id="contradictions-list" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="font-size:12px;color:var(--text-hint);text-align:center;padding:16px;">No contradictions detected.</div>
-          </div>
-          <div>
-            <div class="panel-section-heading mt-2">AI Summary</div>
-            <div id="ai-summary" class="mt-2" style="font-size:12px;color:var(--text-secondary);line-height:1.6;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px;">
-              Summary appears after sufficient conversation...
-            </div>
-          </div>
-        </div>
-
-        <!-- Questions Tab -->
-        <div class="ai-tab-content" id="tab-questions">
-          <div id="questions-list" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="font-size:12px;color:var(--text-hint);text-align:center;padding:16px;">Suggested questions appear as interview progresses...</div>
-          </div>
-        </div>
-
-        <!-- Timeline Tab -->
-        <div class="ai-tab-content" id="tab-timeline">
-          <div id="timeline-list" style="display:flex;flex-direction:column;gap:2px;">
-            <div style="font-size:12px;color:var(--text-hint);text-align:center;padding:16px;">Timeline builds during the interview...</div>
-          </div>
-        </div>
-      </div>
-      ` : ''}
 
       <!-- Toast Container -->
       <div class="toast-container" id="toast-container"></div>
+
+      <!-- Recording Consent Modal (candidate sees this) -->
+      <div id="recording-consent-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.75); backdrop-filter:blur(8px); display:none; align-items:center; justify-content:center;">
+        <div style="background:var(--bg-elevated); border:1px solid var(--border-bright); border-radius:var(--r-2xl); padding:40px 36px; max-width:440px; width:90%; text-align:center; box-shadow:var(--shadow-xl);">
+          <div style="width:64px;height:64px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" width="28" height="28"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <h3 style="font-size:20px;font-weight:800;color:var(--text-primary);margin-bottom:10px;">Recording Request</h3>
+          <p style="font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:28px;" id="consent-message">
+            The interviewer would like to record this session for review purposes. Do you consent?
+          </p>
+          <div style="display:flex;gap:12px;">
+            <button id="consent-decline" style="flex:1;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);color:var(--text-secondary);font-size:14px;font-weight:600;cursor:pointer;">Decline</button>
+            <button id="consent-accept" style="flex:1;padding:12px;background:linear-gradient(135deg,var(--accent-red),#dc2626);border:none;border-radius:var(--r-lg);color:white;font-size:14px;font-weight:700;cursor:pointer;">Yes, Allow Recording</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recording Notification Banner -->
+      <div id="recording-banner" style="display:none; position:fixed; top:70px; left:50%; transform:translateX(-50%); z-index:500; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:999px; padding:8px 20px; font-size:12px; font-weight:700; color:var(--accent-red); display:none; align-items:center; gap:8px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--accent-red);animation:blink-rec 1.5s ease infinite;"></span>
+        This session is being recorded
+      </div>
     </div>
     `;
   }
@@ -426,6 +414,10 @@ export class InterviewRoom {
     document.getElementById('ctrl-ai')?.addEventListener('click', () => this.togglePanel('ai'));
     // Leave
     document.getElementById('ctrl-leave')?.addEventListener('click', () => this.leaveRoom());
+    // Record (recruiter only)
+    if (this.role === 'recruiter') {
+      document.getElementById('ctrl-record')?.addEventListener('click', () => this.toggleRecording());
+    }
     // Chat send
     document.getElementById('chat-send')?.addEventListener('click', () => this.sendChat());
     document.getElementById('chat-input')?.addEventListener('keydown', (e) => {
@@ -452,6 +444,8 @@ export class InterviewRoom {
     this.socket.on('participant-joined', ({ userId, userName, role, socketId }) => {
       showToast(`${userName} joined`, 'info');
       this.addParticipantToList(socketId, userName, role, false);
+      // Track candidate name for recording filename
+      if (role === 'candidate') this.candidateName = userName;
     });
 
     this.socket.on('participant-left', ({ userName, socketId }) => {
@@ -513,6 +507,49 @@ export class InterviewRoom {
 
     this.socket.on('transcript-update', (entry) => {
       if (this.role === 'recruiter') this.addTranscriptEntry(entry);
+    });
+
+    // ── Recording events ──
+    // Candidate: receives consent request
+    this.socket.on('recording-consent-request', ({ recruiterName }) => {
+      const modal = document.getElementById('recording-consent-modal');
+      const msg = document.getElementById('consent-message');
+      if (msg) msg.textContent = `${recruiterName || 'The interviewer'} would like to record this session for review purposes. Do you consent?`;
+      if (modal) modal.style.display = 'flex';
+
+      document.getElementById('consent-accept')?.addEventListener('click', () => {
+        modal.style.display = 'none';
+        this.socket.emit('recording-consent-response', { roomId: this.roomId, accepted: true });
+      }, { once: true });
+
+      document.getElementById('consent-decline')?.addEventListener('click', () => {
+        modal.style.display = 'none';
+        this.socket.emit('recording-consent-response', { roomId: this.roomId, accepted: false });
+      }, { once: true });
+    });
+
+    // Recruiter: receives candidate's consent decision
+    this.socket.on('recording-consent-result', ({ accepted, candidateName }) => {
+      if (accepted) {
+        showToast(`${candidateName} accepted recording`, 'info');
+        this._startMediaRecorder();
+      } else {
+        showToast(`${candidateName} declined recording`, 'warn');
+      }
+    });
+
+    // Both: recording started announcement
+    this.socket.on('recording-started', ({ startedBy }) => {
+      this._showRecordingBanner(true);
+      this._speak('Attention: This meeting is now being recorded.');
+      showToast('🔴 Recording started', 'warn', 4000);
+    });
+
+    // Both: recording stopped announcement
+    this.socket.on('recording-stopped', ({ stoppedBy }) => {
+      this._showRecordingBanner(false);
+      this._speak('Recording has stopped.');
+      showToast('Recording stopped', 'info', 3000);
     });
   }
 
@@ -674,29 +711,30 @@ export class InterviewRoom {
   }
 
   togglePanel(name) {
-    const panelMap = { chat: 'panel-chat', participants: 'panel-participants', ai: 'panel-ai', transcript: 'panel-transcript', notes: 'panel-notes' };
-    const ctrlMap = { chat: 'ctrl-chat', participants: 'ctrl-participants', ai: 'ctrl-ai', transcript: 'ctrl-transcript', notes: 'ctrl-notes' };
+    const panelMap = { chat: 'panel-chat', participants: 'panel-participants', notes: 'panel-notes' };
+    const ctrlMap = { chat: 'ctrl-chat', participants: 'ctrl-participants', notes: 'ctrl-notes' };
+
+    if (!panelMap[name]) return; // AI and Transcript are now fixed sections
+
+    const panel = document.getElementById(panelMap[name]);
+    const ctrl = document.getElementById(ctrlMap[name]);
 
     if (this.activePanel === name) {
-      // Close current
-      document.getElementById(panelMap[name])?.classList.remove('open');
-      document.getElementById(ctrlMap[name])?.classList.remove('active');
-      document.getElementById('video-grid')?.classList.remove('panel-open');
+      panel.style.display = 'none';
+      ctrl?.classList.remove('active');
       this.activePanel = null;
     } else {
-      // Close previous
-      if (this.activePanel) {
-        document.getElementById(panelMap[this.activePanel])?.classList.remove('open');
+      // Close previous floating panel if different
+      if (this.activePanel && panelMap[this.activePanel]) {
+        document.getElementById(panelMap[this.activePanel]).style.display = 'none';
         document.getElementById(ctrlMap[this.activePanel])?.classList.remove('active');
       }
-      // Open new
-      document.getElementById(panelMap[name])?.classList.add('open');
-      document.getElementById(ctrlMap[name])?.classList.add('active');
-      document.getElementById('video-grid')?.classList.add('panel-open');
+      
+      panel.style.display = name === 'chat' ? 'flex' : 'flex';
+      ctrl?.classList.add('active');
       this.activePanel = name;
 
       if (name === 'chat') {
-        document.getElementById('chat-badge')?.classList.add('hidden');
         setTimeout(() => document.getElementById('chat-input')?.focus(), 200);
       }
     }
@@ -718,8 +756,10 @@ export class InterviewRoom {
     const div = document.createElement('div');
     div.className = `chat-msg${isSelf ? ' self' : ''}`;
     div.innerHTML = `
-      <div class="chat-msg-meta">${escapeHtml(msg.userName)} · ${formatTimestamp(msg.timestamp)}</div>
-      <div class="chat-bubble">${escapeHtml(msg.message)}</div>
+      <div class="chat-msg-meta" style="font-size:9px; color:var(--text-hint); margin-bottom:2px;">${escapeHtml(msg.userName)} · ${formatTimestamp(msg.timestamp)}</div>
+      <div class="chat-bubble" style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:12px; padding:8px 12px; font-size:12px; color:var(--text-secondary); max-width:85%; line-height:1.4;">
+        ${escapeHtml(msg.message)}
+      </div>
     `;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
@@ -729,16 +769,27 @@ export class InterviewRoom {
     this.transcriptEntries.push(entry);
     const container = document.getElementById('transcript-body');
     if (!container) return;
-    const isCandidate = entry.speaker !== this.name && entry.speaker !== 'Recruiter';
+
+    // Remove placeholder if it exists
+    if (this.transcriptEntries.length === 1) {
+      container.innerHTML = '';
+    }
+
+    const isRecruiter = entry.speaker === 'Recruiter' || entry.speaker === this.name && this.role === 'recruiter';
     const div = document.createElement('div');
-    div.className = 'transcript-entry';
+    div.className = 'transcript-bubble';
+    if (isRecruiter) div.style.alignSelf = 'flex-end';
+
     div.innerHTML = `
-      <div class="transcript-meta">
-        <span class="transcript-speaker${isCandidate ? ' candidate' : ''}">${escapeHtml(entry.speaker)}</span>
-        <span class="transcript-time">${formatTimestamp(entry.timestamp)}</span>
+      <div class="bubble-meta" style="${isRecruiter ? 'flex-direction:row-reverse' : ''}">
+        <span class="bubble-speaker ${isRecruiter ? 'recruiter' : ''}">${escapeHtml(entry.speaker)}</span>
+        <span class="bubble-time">${formatTimestamp(entry.timestamp)}</span>
       </div>
-      <div class="transcript-text">${escapeHtml(entry.text)}</div>
+      <div class="bubble-content ${isRecruiter ? 'recruiter' : ''}">
+        ${escapeHtml(entry.text)}
+      </div>
     `;
+    
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 
@@ -784,8 +835,12 @@ export class InterviewRoom {
     const el = document.getElementById(`media-${socketId}`);
     if (!el) return;
     el.innerHTML = `
-      <div class="media-icon ${audio ? 'on' : 'off'}">${audio ? SVGIcons.micSmall() : SVGIcons.micOffSmall()}</div>
-      <div class="media-icon ${video ? 'on' : 'off'}">${video ? SVGIcons.cameraSmall() : SVGIcons.cameraOffSmall()}</div>
+      <div class="media-icon ${audio ? 'on' : 'off'}" style="width:20px; height:20px; border-radius:4px; display:flex; align-items:center; justify-content:center; background:${audio ? 'rgba(0,242,255,0.1)' : 'rgba(255,61,113,0.1)'}; color:${audio ? 'var(--brand)' : 'var(--accent-red)'}">
+        ${audio ? SVGIcons.micSmall() : SVGIcons.micOffSmall()}
+      </div>
+      <div class="media-icon ${video ? 'on' : 'off'}" style="width:20px; height:20px; border-radius:4px; display:flex; align-items:center; justify-content:center; background:${video ? 'rgba(0,255,157,0.1)' : 'rgba(255,61,113,0.1)'}; color:${video ? 'var(--accent-green)' : 'var(--accent-red)'}">
+        ${video ? SVGIcons.cameraSmall() : SVGIcons.cameraOffSmall()}
+      </div>
     `;
   }
 
@@ -800,13 +855,17 @@ export class InterviewRoom {
     // Overall score
     const score = analysis.overallScore || 0;
     const scoreEl = document.getElementById('overall-score');
-    const barEl = document.getElementById('overall-bar');
+    const circleEl = document.getElementById('overall-circle');
     const summaryEl = document.getElementById('overall-summary');
-    if (scoreEl) {
-      scoreEl.textContent = score;
-      scoreEl.className = `score-value ${score >= 70 ? 'high' : score >= 50 ? 'mid' : 'low'}`;
+    
+    if (scoreEl) scoreEl.textContent = score;
+    if (circleEl) {
+      const radius = 45;
+      const circumference = 2 * Math.PI * radius;
+      const offset = circumference - (score / 100) * circumference;
+      circleEl.style.strokeDasharray = `${circumference} ${circumference}`;
+      circleEl.style.strokeDashoffset = offset;
     }
-    if (barEl) barEl.style.width = `${score}%`;
     if (summaryEl) summaryEl.textContent = analysis.summary || 'Analysis in progress...';
 
     // Comm scores
@@ -816,7 +875,7 @@ export class InterviewRoom {
       const val = scores[key] || 0;
       const el = document.getElementById(`score-${shortKey}`);
       const bar = document.getElementById(`bar-${shortKey}`);
-      if (el) el.textContent = val;
+      if (el) el.textContent = `${val}%`;
       if (bar) bar.style.width = `${val}%`;
     });
 
@@ -829,7 +888,6 @@ export class InterviewRoom {
             ${t.covered ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:10px;height:10px;"><path d="M5 13l4 4L19 7"/></svg>` : ''}
           </div>
           <span class="topic-name ${t.covered ? 'done' : ''}">${escapeHtml(t.name)}</span>
-          ${t.covered && t.depth ? `<span style="font-size:9px;color:var(--text-hint);">${t.depth}</span>` : ''}
         </div>
       `).join('');
     }
@@ -838,110 +896,187 @@ export class InterviewRoom {
     const skillTags = document.getElementById('skill-tags');
     if (skillTags && analysis.skills?.length) {
       skillTags.innerHTML = analysis.skills.map(s => `
-        <span class="skill-tag ${s.status === 'demonstrated' ? 'confirmed' : s.status === 'confirmed' ? 'confirmed' : 'mentioned'}">
+        <span class="skill-tag ${s.status === 'demonstrated' ? 'confirmed' : 'mentioned'}">
           <span class="tag-dot"></span>
           ${escapeHtml(s.name)}
-          <span style="font-size:9px;opacity:0.6;">${s.level || ''}</span>
         </span>
-      `).join('');
-    }
-
-    // Claims
-    const claimsList = document.getElementById('claims-list');
-    if (claimsList && analysis.claims?.length) {
-      claimsList.innerHTML = analysis.claims.map(c => `
-        <div class="claim-card">
-          <div class="claim-title">${escapeHtml(c.claim)}</div>
-          <div class="claim-evidence">${escapeHtml(c.evidence || '')}</div>
-          <div class="confidence-bar">
-            <span class="conf-label">Confidence</span>
-            <div class="conf-track"><div class="conf-fill" style="width:${c.confidence || 50}%"></div></div>
-            <span style="font-size:10px;color:var(--text-hint);white-space:nowrap;">${c.confidence || 50}%</span>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // Contradictions
-    const contradictions = document.getElementById('contradictions-list');
-    if (contradictions && analysis.contradictions?.length) {
-      contradictions.innerHTML = analysis.contradictions.map(c => `
-        <div class="contradiction-card">
-          <div class="contradiction-header">
-            <div class="contradiction-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-            </div>
-            <span class="contradiction-title">Possible Inconsistency · ${c.severity || 'medium'}</span>
-          </div>
-          <div class="contradiction-stmts">
-            <div class="contradiction-stmt">
-              <div class="stmt-time">${c.time_a || ''}</div>
-              "${escapeHtml(c.statement_a)}"
-            </div>
-            <div class="contradiction-stmt">
-              <div class="stmt-time">${c.time_b || ''}</div>
-              "${escapeHtml(c.statement_b)}"
-            </div>
-          </div>
-        </div>
-      `).join('');
-    } else if (contradictions && !analysis.contradictions?.length) {
-      contradictions.innerHTML = `<div style="font-size:12px;color:var(--text-hint);text-align:center;padding:16px;">No contradictions detected.</div>`;
-    }
-
-    // AI Summary
-    const summaryBox = document.getElementById('ai-summary');
-    if (summaryBox && analysis.summary) {
-      summaryBox.textContent = analysis.summary;
-    }
-
-    // Questions
-    const questionsList = document.getElementById('questions-list');
-    if (questionsList && analysis.suggestedQuestions?.length) {
-      questionsList.innerHTML = analysis.suggestedQuestions.map(q => `
-        <div class="question-suggestion" onclick="navigator.clipboard?.writeText('${escapeHtml(q.question)}').then(()=>{})">
-          <div class="q-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </div>
-          <div>
-            <div class="q-text">${escapeHtml(q.question)}</div>
-            <div class="q-category">${q.category || ''} ${q.reason ? '· ' + escapeHtml(q.reason) : ''}</div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // Timeline
-    const timelineList = document.getElementById('timeline-list');
-    if (timelineList && analysis.timeline?.length) {
-      timelineList.innerHTML = analysis.timeline.map((t, i) => `
-        <div class="timeline-item">
-          <div class="timeline-dot-wrap">
-            <div class="timeline-dot"></div>
-            ${i < analysis.timeline.length - 1 ? '<div class="timeline-line"></div>' : ''}
-          </div>
-          <span class="timeline-time">${t.time || ''}</span>
-          <span class="timeline-label">${escapeHtml(t.topic || '')}</span>
-        </div>
       `).join('');
     }
 
     // Strengths / Concerns
     const strengthsList = document.getElementById('strengths-list');
     if (strengthsList && analysis.strengths?.length) {
-      strengthsList.innerHTML = analysis.strengths.map(s => `
-        <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-secondary);">
-          <span style="color:var(--accent-green);flex-shrink:0;margin-top:2px;">✓</span>${escapeHtml(s)}
+      strengthsList.innerHTML = analysis.strengths.slice(0, 3).map(s => `
+        <div style="display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--text-secondary);background:rgba(0,255,157,0.05);padding:6px 10px;border-radius:6px;border-left:2px solid var(--accent-green);">
+          ${escapeHtml(s)}
         </div>`).join('');
     }
 
     const concernsList = document.getElementById('concerns-list');
     if (concernsList && analysis.concerns?.length) {
-      concernsList.innerHTML = analysis.concerns.map(c => `
-        <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-secondary);">
-          <span style="color:var(--accent-amber);flex-shrink:0;margin-top:2px;">!</span>${escapeHtml(c)}
+      concernsList.innerHTML = analysis.concerns.slice(0, 2).map(c => `
+        <div style="display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--text-secondary);background:rgba(255,61,113,0.05);padding:6px 10px;border-radius:6px;border-left:2px solid var(--accent-red);">
+          ${escapeHtml(c)}
         </div>`).join('');
     }
+
+    // Suggested Question (Update the Question Bar)
+    const questionEl = document.getElementById('active-ai-question');
+    if (questionEl && analysis.suggestedQuestions?.length) {
+      const latestQ = analysis.suggestedQuestions[analysis.suggestedQuestions.length - 1].question;
+      if (questionEl.textContent !== latestQ) {
+        questionEl.style.opacity = 0;
+        setTimeout(() => {
+          questionEl.textContent = latestQ;
+          questionEl.style.opacity = 1;
+        }, 300);
+      }
+    }
+  }
+
+  // ── Recording ──
+  toggleRecording() {
+    if (!this.isRecording) {
+      // Ask candidate for consent first
+      this.socket.emit('recording-start-request', { roomId: this.roomId, recruiterName: this.name });
+      showToast('Waiting for candidate consent...', 'info', 4000);
+    } else {
+      this._stopMediaRecorder();
+    }
+  }
+
+  _startMediaRecorder() {
+    // Capture all video tiles + local audio into one stream
+    const streams = [];
+    if (this.localStream) streams.push(this.localStream);
+
+    // Grab remote video elements' streams
+    document.querySelectorAll('#video-tiles video').forEach(v => {
+      if (v.srcObject && v.srcObject !== this.localStream) streams.push(v.srcObject);
+    });
+
+    // Merge into one stream via canvas + AudioContext
+    let combinedStream;
+    try {
+      const audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+      streams.forEach(s => {
+        s.getAudioTracks().forEach(() => {
+          audioCtx.createMediaStreamSource(s).connect(dest);
+        });
+      });
+
+      // Use screen capture of the interview room element for video
+      const videoEl = document.querySelector('#video-tiles video:not([muted])');
+      const videoStream = videoEl?.srcObject || this.localStream;
+      const videoTrack = videoStream?.getVideoTracks()[0];
+
+      const tracks = [...dest.stream.getAudioTracks()];
+      if (videoTrack) tracks.push(videoTrack);
+      combinedStream = new MediaStream(tracks);
+    } catch(e) {
+      // Fallback: just record local stream
+      combinedStream = this.localStream;
+    }
+
+    if (!combinedStream) {
+      showToast('No stream available to record', 'error');
+      return;
+    }
+
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+      ? 'video/webm;codecs=vp9,opus'
+      : 'video/webm';
+
+    this.recordingChunks = [];
+    this.mediaRecorder = new MediaRecorder(combinedStream, { mimeType });
+    this.mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) this.recordingChunks.push(e.data);
+    };
+    this.mediaRecorder.onstop = () => this._saveRecording();
+    this.mediaRecorder.start(1000); // collect chunks every 1s
+
+    this.isRecording = true;
+    this._updateRecordBtn(true);
+
+    // Notify all participants
+    this.socket.emit('recording-started', { roomId: this.roomId });
+  }
+
+  _stopMediaRecorder() {
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+    }
+    this.isRecording = false;
+    this._updateRecordBtn(false);
+    this.socket.emit('recording-stopped', { roomId: this.roomId });
+  }
+
+  async _saveRecording() {
+    if (!this.recordingChunks.length) return;
+    const blob = new Blob(this.recordingChunks, { type: 'video/webm' });
+    const candidateName = (this.candidateName || 'candidate').replace(/\s+/g, '_');
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `${candidateName}_${date}_${this.roomId.slice(0, 8)}.webm`;
+
+    // Try uploading to server
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const res = await fetch(`/api/rooms/${this.roomId}/recording`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'video/webm' },
+        body: arrayBuffer
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(`Recording saved: ${data.filename}`, 'info', 5000);
+        return;
+      }
+    } catch(e) {
+      console.warn('Server upload failed, falling back to download:', e);
+    }
+
+    // Fallback: trigger browser download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`Recording downloaded: ${filename}`, 'info', 5000);
+  }
+
+  _updateRecordBtn(isRecording) {
+    const btn = document.getElementById('ctrl-record');
+    const label = document.getElementById('record-btn-label');
+    const indicator = document.getElementById('recording-indicator');
+    if (!btn) return;
+    if (isRecording) {
+      btn.style.background = 'rgba(239,68,68,0.25)';
+      btn.style.borderColor = 'rgba(239,68,68,0.6)';
+      if (label) label.textContent = 'STOP REC';
+      if (indicator) indicator.style.display = 'flex';
+    } else {
+      btn.style.background = 'rgba(239,68,68,0.12)';
+      btn.style.borderColor = 'rgba(239,68,68,0.25)';
+      if (label) label.textContent = 'REC';
+      if (indicator) indicator.style.display = 'none';
+    }
+  }
+
+  _showRecordingBanner(show) {
+    const banner = document.getElementById('recording-banner');
+    if (banner) banner.style.display = show ? 'flex' : 'none';
+  }
+
+  _speak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 0.95;
+    utter.pitch = 1;
+    utter.volume = 1;
+    window.speechSynthesis.speak(utter);
   }
 
   startTimer() {
@@ -998,6 +1133,7 @@ ${this.analysisState.skills?.map(s => `- ${s.name} (${s.level})`).join('\n') || 
       clearInterval(this.timerInterval);
       this.speechRecognition?.stop();
       this.aiEngine?.stopAnalysis();
+      if (this.isRecording) this._stopMediaRecorder();
       this.webrtc?.closeAll();
       this.localStream?.getTracks().forEach(t => t.stop());
       this.socket.disconnect();
@@ -1063,4 +1199,5 @@ const SVGIcons = {
   micOffSmall: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12"/></svg>`,
   cameraSmall: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
   cameraOffSmall: () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="2" y1="2" x2="22" y2="22"/><path d="M7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16"/></svg>`,
+  record: () => `<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><circle cx="12" cy="12" r="8"/></svg>`,
 };

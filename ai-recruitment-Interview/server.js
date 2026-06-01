@@ -127,6 +127,33 @@ app.post('/api/ai/analyze', async (req, res) => {
   }
 });
 
+// Save recording metadata (called from client after MediaRecorder finishes)
+app.post('/api/rooms/:roomId/recording', express.raw({ type: 'video/webm', limit: '500mb' }), (req, res) => {
+  const room = rooms.get(req.params.roomId);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  const fs = require('fs');
+  const recordingsDir = path.join(__dirname, 'public', 'recordings');
+  if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir, { recursive: true });
+
+  const candidateName = (room.candidateName || 'candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const date = new Date().toISOString().split('T')[0];
+  const filename = `${candidateName}_${date}_${req.params.roomId.slice(0, 8)}.webm`;
+  const filepath = path.join(recordingsDir, filename);
+
+  fs.writeFile(filepath, req.body, (err) => {
+    if (err) {
+      console.error('Recording save error:', err);
+      return res.status(500).json({ error: 'Failed to save recording' });
+    }
+    const recordingUrl = `/recordings/${filename}`;
+    room.recordingUrl = recordingUrl;
+    room.recordingFilename = filename;
+    console.log(`[Recording] Saved: ${filename}`);
+    res.json({ success: true, recordingUrl, filename });
+  });
+});
+
 // Report page
 app.get('/report', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'report.html'));
@@ -228,6 +255,41 @@ io.on('connection', (socket) => {
 
   socket.on('screen-share-stopped', ({ roomId }) => {
     socket.to(roomId).emit('screen-share-stopped', { socketId: socket.id });
+  });
+
+  // ── Recording consent flow ──
+  // Recruiter requests to start recording → notify candidate
+  socket.on('recording-start-request', ({ roomId, recruiterName }) => {
+    if (socket.role !== 'recruiter') return;
+    socket.to(roomId).emit('recording-consent-request', { recruiterName });
+  });
+
+  // Candidate responds to consent
+  socket.on('recording-consent-response', ({ roomId, accepted }) => {
+    // Notify recruiter of candidate's decision
+    const roomSockets = io.sockets.adapter.rooms.get(roomId) || new Set();
+    roomSockets.forEach(sid => {
+      const p = participants.get(sid);
+      if (p && p.role === 'recruiter') {
+        io.to(sid).emit('recording-consent-result', { accepted, candidateName: socket.userName });
+      }
+    });
+  });
+
+  // Recruiter confirmed recording started → broadcast to all in room
+  socket.on('recording-started', ({ roomId }) => {
+    if (socket.role !== 'recruiter') return;
+    const room = rooms.get(roomId);
+    if (room) room.recordingStartedAt = new Date().toISOString();
+    io.to(roomId).emit('recording-started', { startedBy: socket.userName });
+  });
+
+  // Recruiter stopped recording → broadcast to all in room
+  socket.on('recording-stopped', ({ roomId }) => {
+    if (socket.role !== 'recruiter') return;
+    const room = rooms.get(roomId);
+    if (room) room.recordingStoppedAt = new Date().toISOString();
+    io.to(roomId).emit('recording-stopped', { stoppedBy: socket.userName });
   });
 
   // Disconnect

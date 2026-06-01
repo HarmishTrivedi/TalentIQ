@@ -1,18 +1,13 @@
 // ═══════════════════════════════════════════════════════
-// TalentIQ — WebRTC Manager
+// TalentIQ — WebRTC Manager (Fixed)
 // ═══════════════════════════════════════════════════════
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
-  // Adding global public STUN servers for fallback
   { urls: 'stun:stun.ekiga.net' },
-  { urls: 'stun:stun.ideasip.com' },
-  { urls: 'stun:stun.schlund.de' },
-  { urls: 'stun:stun.voxgratia.org' }
+  { urls: 'stun:stun.voxgratia.org' },
 ];
 
 export class WebRTCManager {
@@ -21,7 +16,7 @@ export class WebRTCManager {
     this.localStream = localStream;
     this.onRemoteStream = onRemoteStream;
     this.onRemoveStream = onRemoveStream;
-    this.peers = new Map(); // socketId -> RTCPeerConnection
+    this.peers = new Map();
     this.setupSocketListeners();
   }
 
@@ -36,7 +31,9 @@ export class WebRTCManager {
 
     this.socket.on('answer', async ({ from, answer }) => {
       const pc = this.peers.get(from);
-      if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      if (pc) {
+        try { await pc.setRemoteDescription(new RTCSessionDescription(answer)); } catch(e) {}
+      }
     });
 
     this.socket.on('ice-candidate', async ({ from, candidate }) => {
@@ -52,42 +49,58 @@ export class WebRTCManager {
   }
 
   createPeerConnection(socketId, userName, role) {
-    const pc = new RTCPeerConnection({ 
+    // Close any existing connection for this peer
+    if (this.peers.has(socketId)) {
+      this.peers.get(socketId).close();
+      this.peers.delete(socketId);
+    }
+
+    const pc = new RTCPeerConnection({
       iceServers: ICE_SERVERS,
-      iceCandidatePoolSize: 10
+      iceCandidatePoolSize: 10,
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require',
     });
     this.peers.set(socketId, pc);
 
-    // Add local tracks
+    // Add local tracks — do NOT add transceivers separately, addTrack handles it
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => {
         pc.addTrack(track, this.localStream);
       });
+    } else {
+      // No local stream: add recvonly transceivers so we can still receive
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      pc.addTransceiver('audio', { direction: 'recvonly' });
     }
 
-    // Explicitly add transceivers to ensure media flow
-    if (pc.addTransceiver) {
-      pc.addTransceiver('video', { direction: 'sendrecv' });
-      pc.addTransceiver('audio', { direction: 'sendrecv' });
-    }
-
-    // ICE candidates
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) {
         this.socket.emit('ice-candidate', { to: socketId, candidate });
       }
     };
 
-    // Remote stream
-    pc.ontrack = ({ streams }) => {
-      if (streams && streams[0]) {
-        this.onRemoteStream(socketId, streams[0], userName, role);
+    pc.ontrack = (event) => {
+      const stream = event.streams && event.streams[0];
+      if (stream) {
+        this.onRemoteStream(socketId, stream, userName, role);
       }
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      const state = pc.connectionState;
+      if (state === 'failed') {
+        // Attempt ICE restart
+        if (pc.restartIce) pc.restartIce();
+      }
+      if (state === 'closed') {
         this.removePeer(socketId);
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'failed') {
+        if (pc.restartIce) pc.restartIce();
       }
     };
 
@@ -96,17 +109,25 @@ export class WebRTCManager {
 
   async createOffer(socketId, userName, role) {
     const pc = this.createPeerConnection(socketId, userName, role);
-    const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-    await pc.setLocalDescription(offer);
-    this.socket.emit('offer', { to: socketId, offer });
+    try {
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await pc.setLocalDescription(offer);
+      this.socket.emit('offer', { to: socketId, offer: pc.localDescription });
+    } catch(e) {
+      console.error('createOffer error:', e);
+    }
   }
 
   async handleOffer(socketId, offer, userName, role) {
     const pc = this.createPeerConnection(socketId, userName, role);
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    this.socket.emit('answer', { to: socketId, answer });
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      this.socket.emit('answer', { to: socketId, answer: pc.localDescription });
+    } catch(e) {
+      console.error('handleOffer error:', e);
+    }
   }
 
   removePeer(socketId) {
