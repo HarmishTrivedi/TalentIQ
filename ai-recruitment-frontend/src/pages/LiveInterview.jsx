@@ -65,18 +65,24 @@ export default function LiveInterview() {
   }
 
   const initializeWebSocket = () => {
-    // Build correct WebSocket URL from API_BASE
-    let wsBase = import.meta.env.VITE_WS_URL || API_BASE
+    let wsUrl = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || '';
     
-    // Convert http(s) to ws(s)
-    wsBase = wsBase.replace(/^http/, 'ws')
-    
-    // Ensure it doesn't end with a slash
-    const cleanBase = wsBase.replace(/\/$/, '')
-    const wsUrl = `${cleanBase}/interviews/${interviewId}/live`
+    if (!wsUrl || wsUrl.startsWith('/')) {
+      wsUrl = window.location.origin + '/api/v1';
+    }
 
-    console.log('[WS] Connecting to:', wsUrl)
-    wsRef.current = new WebSocket(wsUrl)
+    if (wsUrl.includes('-frontend-')) {
+      wsUrl = wsUrl.replace('-frontend-', '-backend-');
+    }
+
+    wsUrl = wsUrl.replace(/^http/, 'ws');
+    
+    // Strictly ensure /api/v1 is present exactly once before /interviews
+    const cleanBase = wsUrl.replace(/\/$/, '').replace(/\/api\/v1$/, '') + '/api/v1';
+    const finalUrl = `${cleanBase}/interviews/${interviewId}/live`;
+
+    console.log('[WS] Connecting to signaling server:', finalUrl);
+    wsRef.current = new WebSocket(finalUrl);
 
     wsRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data)

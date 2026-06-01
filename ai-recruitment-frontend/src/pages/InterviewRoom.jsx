@@ -272,27 +272,25 @@ export default function InterviewRoom() {
 
   const initializeWebSocket = (stream) => {
     let wsUrl = import.meta.env.VITE_WS_URL;
+    
     if (!wsUrl) {
-      let host = window.location.host;
-      if (host.includes('-frontend-')) host = host.replace('-frontend-', '-backend-');
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      let apiPath = import.meta.env.VITE_API_URL || '/api/v1';
-      if (apiPath.startsWith('http')) {
-        apiPath = apiPath.replace(/^http/, 'ws');
-        if (apiPath.includes('-frontend-')) apiPath = apiPath.replace('-frontend-', '-backend-');
-        wsUrl = apiPath.replace(/\/$/, '') + `/interviews/${interviewId}/live`;
-      } else {
-        wsUrl = `${protocol}//${host}${apiPath}/interviews/${interviewId}/live`;
+      let apiBase = import.meta.env.VITE_API_URL || '';
+      if (!apiBase || apiBase.startsWith('/')) {
+        apiBase = window.location.origin;
       }
-    } else {
-      if (!wsUrl.includes('/interviews/')) {
-        wsUrl = wsUrl.replace(/\/$/, '') + `/interviews/${interviewId}/live`;
+      if (apiBase.includes('-frontend-')) {
+        apiBase = apiBase.replace('-frontend-', '-backend-');
       }
+      wsUrl = apiBase.replace(/^http/, 'ws');
     }
+    
+    // Strictly ensure /api/v1 is present exactly once before /interviews
+    const cleanBase = wsUrl.replace(/\/$/, '').replace(/\/api\/v1$/, '') + '/api/v1';
+    const finalUrl = `${cleanBase}/interviews/${interviewId}/live`;
 
-    console.log('[WS] Connecting to:', wsUrl)
+    console.log('[WS] Connecting to:', finalUrl)
 
-    wsRef.current = new WebSocket(wsUrl)
+    wsRef.current = new WebSocket(finalUrl)
     wsRef.current.onopen = () => {
       wsRef.current.send(JSON.stringify({
         type: 'participant_joined',
@@ -381,6 +379,16 @@ export default function InterviewRoom() {
         setTranscript(prev => [...prev, entry])
         // Buffer for real-time analysis
         if (isRecruiter) runRealTimeAnalysis(entry)
+        break
+        
+      case 'chat_message':
+        setChatMessages(prev => [...prev, {
+          id: `remote-${Date.now()}`,
+          sender: data.sender || data.name || 'Participant',
+          text: data.text,
+          timestamp: new Date().toISOString(),
+          isOwn: false
+        }])
         break
 
       case 'participant_left':
