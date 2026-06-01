@@ -9,6 +9,8 @@ import {
 import toast from 'react-hot-toast'
 import api, { authApi, API_BASE } from '../services/api'
 import { useAuthStore } from '../store'
+import MeetingChat from '../components/interview/MeetingChat'
+import SharedCodeEditor from '../components/interview/SharedCodeEditor'
 
 // ── Components ──────────────────────────────────────────────────────────────
 
@@ -148,8 +150,10 @@ export default function InterviewRoom() {
   const [elapsedTime, setElapsedTime] = useState(0)
   const [transcript, setTranscript] = useState([])
   const [aiNotes, setAiNotes] = useState([])
-  
-  // Real-time AI analysis state
+  const [activePanel, setActivePanel] = useState(null)
+  const [showCodeEditor, setShowCodeEditor] = useState(false)
+  const [chatMessages, setChatMessages] = useState([])
+
   const [analysis, setAnalysis] = useState({
     commScore: 0,
     confidenceScore: 0,
@@ -657,6 +661,12 @@ export default function InterviewRoom() {
 
       {/* Floating Overlays */}
       <AnimatePresence>
+        {activePanel === 'chat' && <MeetingChat messages={chatMessages} onSend={(t) => {
+          const m = { id: `local-${Date.now()}`, sender: 'You', text: t, timestamp: new Date().toISOString(), isOwn: true };
+          setChatMessages(p => [...p, m]);
+          wsRef.current?.send(JSON.stringify({ type: 'chat_message', sender: user?.full_name || 'Recruiter', text: t }));
+        }} onClose={() => setActivePanel(null)} />}
+        
         {showCodeEditor && (
           <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed inset-x-0 top-16 bottom-20 z-10 bg-[#0a0b14]/95 backdrop-blur-3xl p-6">
