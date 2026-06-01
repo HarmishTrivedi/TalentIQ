@@ -329,45 +329,57 @@ export class InterviewRoom {
   }
 
   addVideoTile(socketId, name, role, stream, isSelf = false) {
+    console.log(`[UI] addVideoTile for ${name} (${socketId}), isSelf: ${isSelf}`);
     const tilesEl = document.getElementById('video-tiles');
     if (!tilesEl) return;
 
-    const existing = document.getElementById(`tile-${socketId}`);
-    if (existing) return;
-
-    const tile = document.createElement('div');
-    tile.className = `video-tile${isSelf ? ' is-self' : ''}`;
-    tile.id = `tile-${socketId}`;
-    tile.innerHTML = `
-      <div class="video-avatar" id="avatar-${socketId}">
-        <div class="avatar-ring">${getInitials(name)}</div>
-        <span class="avatar-name">${escapeHtml(name)}</span>
-      </div>
-      <video id="video-${socketId}" autoplay playsinline ${isSelf ? 'muted' : ''} style="width:100%; height:100%; object-fit:cover; background:#000;"></video>
-      <div class="tile-overlay"></div>
-      <div class="tile-info">
-        <div class="tile-name">
-          ${escapeHtml(name)}
-          ${role === 'recruiter' ? `<span class="role-badge recruiter">Recruiter</span>` : ''}
+    let tile = document.getElementById(`tile-${socketId}`);
+    if (!tile) {
+      tile = document.createElement('div');
+      tile.className = `video-tile${isSelf ? ' is-self' : ''}`;
+      tile.id = `tile-${socketId}`;
+      tile.innerHTML = `
+        <div class="video-avatar" id="avatar-${socketId}">
+          <div class="avatar-ring">${getInitials(name)}</div>
+          <span class="avatar-name">${escapeHtml(name)}</span>
         </div>
-      </div>
-    `;
-    tilesEl.appendChild(tile);
+        <video id="video-${socketId}" autoplay playsinline ${isSelf ? 'muted' : ''} style="width:100%; height:100%; object-fit:cover; background:#000;"></video>
+        <div class="tile-overlay"></div>
+        <div class="tile-info">
+          <div class="tile-name">
+            ${escapeHtml(name)}
+            ${role === 'recruiter' ? `<span class="role-badge recruiter">Recruiter</span>` : ''}
+          </div>
+        </div>
+      `;
+      tilesEl.appendChild(tile);
+    }
 
     if (stream) {
       const videoEl = document.getElementById(`video-${socketId}`);
       if (videoEl) {
-        videoEl.srcObject = stream;
+        if (videoEl.srcObject !== stream) {
+          console.log(`[UI] Attaching stream to video element for ${socketId}`);
+          videoEl.srcObject = stream;
+        }
         
         // Force play and ensure volume is up for remote users
         videoEl.onloadedmetadata = () => {
-          videoEl.play().catch(e => console.error("Auto-play failed:", e));
+          console.log(`[UI] Video metadata loaded for ${socketId}, playing...`);
+          videoEl.play().catch(e => console.error("[UI] Auto-play failed:", e));
           if (!isSelf) {
             videoEl.muted = false;
             videoEl.volume = 1.0;
           }
           document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
         };
+
+        // If metadata already loaded
+        if (videoEl.readyState >= 2) {
+          videoEl.play().catch(e => {});
+          if (!isSelf) videoEl.muted = false;
+          document.getElementById(`avatar-${socketId}`)?.classList.add('hidden');
+        }
       }
     }
 
