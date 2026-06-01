@@ -99,9 +99,19 @@ async def get_turn_credentials():
                 if res.status_code == 200:
                     turn_servers = res.json()
                     ice_servers.extend(turn_servers)
-                    print(f"[TURN] Got {len(turn_servers)} TURN servers from Metered")
+                    print(f"[TURN] \u2705 Got {len(turn_servers)} TURN servers from Metered")
                 else:
-                    print(f"[TURN] Metered API returned {res.status_code}")
+                    # Fallback: try the generic metered.ca domain
+                    res2 = await client.get(
+                        f"https://global.metered.ca/api/v1/turn/credentials?apiKey={metered_api_key}",
+                        timeout=5.0
+                    )
+                    if res2.status_code == 200:
+                        turn_servers = res2.json()
+                        ice_servers.extend(turn_servers)
+                        print(f"[TURN] \u2705 Got {len(turn_servers)} TURN servers (fallback domain)")
+                    else:
+                        print(f"[TURN] Both Metered endpoints failed: {res.status_code}, {res2.status_code}")
         except Exception as e:
             print(f"[TURN] Failed to fetch Metered credentials: {e}")
     else:
