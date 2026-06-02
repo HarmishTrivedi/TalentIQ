@@ -187,7 +187,7 @@ export default function CandidateDetail() {
            {/* Core Metrics Grid */}
            <div className="grid grid-cols-2 gap-4">
               {[
-                { val: formatExperience(candidate.experience_years) || '0y', label: 'Experience', icon: Briefcase },
+                { val: formatExperience(candidate.experience_years) || 'Not Specified', label: 'Experience', icon: Briefcase },
                 { val: allSkills.length, label: 'Verified Skills', icon: Award },
                 { val: positions.length, label: 'Past Roles', icon: TrendingUp },
                 { val: degrees.length, label: 'Edu Degrees', icon: GraduationCap },

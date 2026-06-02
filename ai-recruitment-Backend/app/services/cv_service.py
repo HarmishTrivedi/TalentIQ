@@ -22,74 +22,68 @@ from app.config import settings
 logger = structlog.get_logger()
 
 
-CV_EXTRACTION_PROMPT = """You are a world-class Executive Technical Recruiter and CV/Resume Intelligence System. Your goal is to perform a DEEP ANALYSIS of the candidate's professional profile.
-
-STEP 1: INTERNAL READING & COMPREHENSION
-- Read the ENTIRE provided resume text carefully.
-- Identify the candidate's core identity, career progression, and specialized expertise.
-- Note any subtle details like specific tools mentioned in project descriptions, soft skills demonstrated in leadership roles, and the specific impact of their work.
-
-STEP 2: STRUCTURED EXTRACTION
-Today's date is {today}. Extract information with extreme precision.
+CV_EXTRACTION_PROMPT = """You are a STRICT Data Extraction System for Resumes.
+YOUR ONLY RULE IS TO EXTRACT EXACT DATA. DO NOT GENERATE, INFER, OR GUESS ANY INFORMATION.
+ACCURACY IS MORE IMPORTANT THAN COMPLETENESS. MISSING DATA IS ACCEPTABLE. INCORRECT DATA IS NOT.
 
 Resume Text:
 {cv_text}
 
 Return a JSON object with EXACTLY this structure:
 {{
-  "name": "Full name of the candidate",
-  "email": "email@example.com or null",
-  "phone": "phone number or null",
-  "location": "city, country or null",
-  "summary": "3-4 sentence powerful professional summary capturing their unique value proposition",
-  "domain": "Detected domain (e.g. Software Engineering, Data & AI, Cloud Architecture, Product Management, etc.)",
-  "experience_years": 0.0,
+  "name": "Exact name from resume",
+  "email": "Exact email or null",
+  "phone": "Exact phone or null",
+  "location": "Exact location or null",
+  "summary": "Exact summary text from resume, or null if none exists. DO NOT write your own.",
+  "domain": "Detected domain based ONLY on explicit keywords",
+  "experience_years": null,
   "experience_details": {{
     "positions": [
       {{
         "title": "Exact Job Title",
-        "company": "Company Name",
-        "duration": "Start Date - End Date (e.g. Jan 2020 - Mar 2023)",
-        "description": "Comprehensive bullet points of key responsibilities and measurable impact (e.g. 'Reduced latency by 40%')"
+        "company": "Exact Company Name",
+        "duration": "Exact duration text (e.g. 'Jul 2025 - Present') OR null if missing",
+        "description": "Exact bullet points of responsibilities"
       }}
     ]
   }},
   "skills": {{
-    "technical": ["Python", "Go", "Distributed Systems"],
-    "soft": ["Cross-functional Leadership", "Strategic Planning"],
-    "tools": ["Git", "Docker", "Terraform", "Kubernetes"],
-    "frameworks": ["FastAPI", "React", "PyTorch"]
+    "technical": ["Only skills explicitly written"],
+    "soft": ["Only soft skills explicitly written"],
+    "tools": ["Only tools explicitly written"],
+    "frameworks": ["Only frameworks explicitly written"]
   }},
   "education": {{
     "degrees": [
       {{
-        "degree": "e.g. Master of Science in Computer Science",
-        "institution": "University Name",
-        "year": "YYYY",
-        "field": "Field of Study"
+        "degree": "Exact degree text",
+        "institution": "Exact institution text",
+        "year": "Exact year text or null",
+        "field": "Exact field text or null"
       }}
     ],
-    "highest_level": "bachelor|master|phd|diploma"
+    "highest_level": "bachelor|master|phd|diploma or null"
   }},
   "projects": [
     {{
-      "name": "Project Name",
-      "description": "Detailed description of what was built and the technical stack used",
-      "link": "URL or null"
+      "name": "Exact Project Name",
+      "description": "Exact description text",
+      "link": "Exact URL or null"
     }}
   ],
-  "certifications": ["e.g. AWS Certified Solutions Architect"],
-  "languages": ["e.g. English (Native)", "German (Professional)"]
+  "certifications": ["Exact certification text"],
+  "languages": ["Exact language text"]
 }}
 
-CRITICAL INSTRUCTIONS:
-1. READ THE WHOLE RESUME: Do not skim. Look for details in projects, summaries, and experience.
-2. EXPERIENCE DETAILS: Extract every legitimate job role. Ensure the "duration" is exactly as written.
-3. SKILLS: Categorize skills intelligently. If a tool is mentioned in a project description but not in a skills list, INCLUDE IT in the "tools" section.
-4. SUMMARY: Write a high-quality summary based on the WHOLE resume content, not just the candidate's own summary section.
-5. ACCURACY: If a resume is complicated or non-standard, take your time to reconstruct the professional timeline accurately.
+CRITICAL ANTI-HALLUCINATION RULES:
+1. MISSING DATA: If a date, company, or duration is missing, output `null`. DO NOT guess "2020-2023" or use placeholder values.
+2. SKILLS: Do not infer skills. If the resume says "Python", do NOT add "Django" unless it is explicitly written.
+3. SUMMARY: Do not write or summarize the candidate. Only copy the summary section if it exists on the resume. If not, return null.
+4. EDUCATION IS NOT EXPERIENCE: Do not include degrees, coursework, or university projects in the "positions" array. Keep them strictly separate.
+5. INTERNSHIPS: Treat internships as positions ONLY if they have explicit companies and titles. If duration is missing, set duration to null.
 
-Return ONLY the JSON object."""
+Return ONLY the JSON object. Do not add markdown blocks or explanations."""
 
 
 MONTH_MAP = {

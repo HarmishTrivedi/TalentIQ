@@ -184,7 +184,7 @@ export default function Candidates() {
                             {c.name}
                           </Link>
                           <p className="text-[10px] text-outline font-semibold uppercase tracking-wider mt-0.5">
-                            {c.experience_years > 0 ? formatExperience(c.experience_years) : 'Entry Level'}
+                            {formatExperience(c.experience_years) || 'Not Specified'}
                           </p>
                         </div>
                       </div>
