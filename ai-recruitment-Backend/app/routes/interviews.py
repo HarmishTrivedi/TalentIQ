@@ -867,6 +867,54 @@ async def submit_coding_solution(
         "analysis": analysis
     }
 
+# ─── Recording Upload ────────────────────────────────────────────────────────
+
+from fastapi import UploadFile, File
+import os
+import shutil
+from pathlib import Path
+
+@router.post("/{interview_id}/recording")
+async def upload_interview_recording(
+    interview_id: str,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """Save the actual video/audio recording of the interview."""
+    interview = await db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Define upload directory
+    upload_dir = Path(settings.UPLOAD_DIR) / "recordings" if hasattr(settings, 'UPLOAD_DIR') else Path("app/uploads/recordings")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    file_path = upload_dir / f"{interview_id}.webm"
+    
+    try:
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Update database with recording URL
+        relative_url = f"/api/v1/interviews/recordings/{interview_id}.webm"
+        interview.recording_url = relative_url
+        await db.commit()
+        
+        return {"message": "Recording saved", "recording_url": relative_url}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to save recording: {str(e)}")
+
+
+@router.get("/recordings/{filename}")
+async def serve_recording(filename: str):
+    """Serve the saved recording file."""
+    from fastapi.responses import FileResponse
+    file_path = Path("app/uploads/recordings") / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Recording not found")
+    return FileResponse(file_path, media_type="video/webm")
+
 
 # ─── Interview Analysis ───────────────────────────────────────────────────────
 

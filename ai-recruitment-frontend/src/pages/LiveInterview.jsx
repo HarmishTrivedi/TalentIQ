@@ -38,6 +38,8 @@ export default function LiveInterview() {
   const screenShareRef = useRef(null)
   const wsRef = useRef(null)
   const recognitionRef = useRef(null)
+  const mediaRecorderRef = useRef(null)
+  const recordedChunks = useRef([])
 
   useEffect(() => {
     loadInterview()
@@ -48,6 +50,9 @@ export default function LiveInterview() {
       wsRef.current?.close()
       recognitionRef.current?.stop()
       stopLocalVideo()
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop()
+      }
       screenShareRef.current?.srcObject?.getTracks().forEach((track) => track.stop())
     }
   }, [interviewId])
@@ -157,13 +162,73 @@ export default function LiveInterview() {
     }
   }
 
+  const startActualRecording = () => {
+    // Record local stream for now to ensure we capture voice and camera.
+    const stream = localVideoRef.current?.srcObject;
+    if (!stream) {
+      console.warn("No stream to record!");
+      return;
+    }
+
+    try {
+      recordedChunks.current = [];
+      const options = { mimeType: 'video/webm' };
+      const mediaRecorder = new MediaRecorder(stream, options);
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunks.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
+        toast('Saving recording to cloud...', { icon: '☁️' });
+
+        try {
+          const formData = new FormData();
+          formData.append('file', blob, `interview_${interviewId}.webm`);
+
+          // Use standard backend api endpoint
+          const res = await api.post(`/interviews/${interviewId}/recording`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          
+          if (res.data.recording_url) {
+            toast.success('Recording saved directly to recordings page!');
+          }
+        } catch (err) {
+          console.error('Failed to upload recording:', err);
+          toast.error('Failed to save recording');
+        }
+      };
+
+      mediaRecorder.start(1000);
+      mediaRecorderRef.current = mediaRecorder;
+      console.log("MediaRecorder started");
+    } catch (e) {
+      console.error("Failed to start MediaRecorder:", e);
+    }
+  };
+
+  const stopActualRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      console.log("MediaRecorder stopped");
+    }
+  };
+
   const toggleRecording = () => {
     if (isRecording) {
       recognitionRef.current?.stop()
+      stopActualRecording()
       setIsRecording(false)
+      toast.success('Recording stopped and saving...');
     } else {
       recognitionRef.current?.start()
+      startActualRecording()
       setIsRecording(true)
+      toast.success('Recording started with voice and camera!');
     }
   }
 
@@ -180,6 +245,9 @@ export default function LiveInterview() {
 
   const endInterview = async () => {
     try {
+      if (isRecording) {
+        toggleRecording()
+      }
       await api.post(`/interviews/${interviewId}/end`)
       stopLocalVideo()
       navigate(`/interviews/${interviewId}/analysis`, { state: { transcript } })
