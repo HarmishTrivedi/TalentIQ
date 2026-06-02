@@ -22,6 +22,8 @@ const CandidateJoin = lazy(() => import('./pages/CandidateJoin'))
 const Landing = lazy(() => import('./pages/Landing'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const CinematicAuth = lazy(() => import('./pages/CinematicAuth'))
 const RecruiterPlans = lazy(() => import('./pages/RecruiterPlans'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
@@ -83,6 +85,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth" element={<CinematicAuth />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/privacy" element={<Privacy />} />
