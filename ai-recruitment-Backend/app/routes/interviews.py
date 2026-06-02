@@ -1062,49 +1062,173 @@ async def send_interview_invitation(
         raise HTTPException(status_code=500, detail=f"Failed to send invitation: {str(e)}")
 
 
-@router.post("/send-reminder/{interview_id}")
-async def send_interview_reminder(
-    interview_id: str,
-    db: AsyncSession = Depends(get_db)
+@router.post("/ai-generate")
+async def ai_generate_interviews(
+    request: dict,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """Send interview reminder manually (30 min before as default)"""
-    interview = await db.get(Interview, interview_id)
-    if not interview:
-        raise HTTPException(status_code=404, detail="Interview not found")
+    """Bulk AI Scheduling for real-time Interviews: Syncs with Calendar and sends emails."""
+    text = request.get('text') or request.get('prompt')
+    if not text:
+        raise HTTPException(status_code=400, detail="Text input is required")
+
+    # Fetch existing candidates for this user to help LLM map names
+    cand_result = await db.execute(select(Candidate).where(Candidate.uploaded_by == current_user.id))
+    all_candidates = cand_result.scalars().all()
+    cand_context = "\n".join([f"- {c.name} (ID: {c.id}, Email: {c.email})" for c in all_candidates])
+
+    now = datetime.now()
+    context = f"Today is {now.strftime('%A, %B %d, %Y')}. Current time is {now.strftime('%I:%M %p')}."
+
+    prompt = f"""
+    You are a Smart Interview Dispatcher.
+    {context}
+    Available Candidates in Pool:
+    {cand_context}
+
+    Analyze the request and return a JSON 'interviews' array for EACH candidate mentioned.
+    If a name is mentioned but NOT in the candidate pool above, still generate an entry but set 'candidate_id' to null.
+
+    Guidelines:
+    - Use "today", "tomorrow", or specific times correctly.
+    - Default duration: 60 minutes.
+    - Return a JSON object with 'interviews' array:
+    {{
+      "interviews": [
+        {{
+          "candidate_id": "UUID or null",
+          "candidate_name": "Full name",
+          "candidate_email": "email if found",
+          "title": "Interview Title",
+          "start_time": "ISO 8601",
+          "duration": 60
+        }}
+      ]
+    }}
     
-    candidate = await db.get(Candidate, interview.candidate_id)
-    recruiter = await db.get(User, interview.recruiter_id)
+    Request: "{text}"
+    """
     
-    if not candidate:
-        raise HTTPException(status_code=400, detail="Candidate not found")
+    from app.services.llm_service import get_llm_service
+    llm = get_llm_service()
     
-    email_service = get_new_email_service()
-    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-    candidate_link = interview.meeting_url or f"{frontend_url}/join/{interview_id}?token={interview.candidate_access_token}"
-    recruiter_link = f"{frontend_url}/interview-prejoin/{interview_id}"
-    
-    # Send reminder to candidate
-    if candidate.email:
-        await email_service.send_interview_reminder(
-            to_email=candidate.email,
-            name=candidate.name,
-            role_title=interview.title,
-            time_remaining_str="30 minutes",
-            link=candidate_link,
-            is_candidate=True,
-            related_id=interview.id
-        )
-    
-    # Send reminder to recruiter
-    if recruiter and recruiter.email:
-        await email_service.send_interview_reminder(
-            to_email=recruiter.email,
-            name=recruiter.full_name,
-            role_title=interview.title,
-            time_remaining_str="30 minutes",
-            link=recruiter_link,
-            is_candidate=False,
-            related_id=interview.id
-        )
-    
-    return {"message": "Reminders sent"}
+    try:
+        response = await llm.generate_json(prompt, system_prompt="You are a precise bulk interview scheduler.")
+        extracted = response.get("interviews", [])
+        
+        created_interviews = []
+        
+        for item in extracted:
+            # We need a candidate_id to create a real Interview record.
+            # If AI didn't find one, we try a fallback name search in Python.
+            cand_id = item.get("candidate_id")
+            if not cand_id:
+                name_to_search = item.get("candidate_name", "")
+                found = next((c for c in all_candidates if name_to_search.lower() in c.name.lower()), None)
+                if found: cand_id = found.id
+                
+            if not cand_id:
+                print(f"⚠️ Skipping real Interview record for {item.get('candidate_name')} - No candidate profile found in database.")
+                # We still create a Calendar Event for it
+                from app.models.models import CalendarEvent
+                cal_ev = CalendarEvent(
+                    user_id=current_user.id,
+                    title=item.get("title", "Interview"),
+                    start_time=datetime.fromisoformat(item["start_time"].replace('Z', '+00:00')).replace(tzinfo=None),
+                    end_time=(datetime.fromisoformat(item["start_time"].replace('Z', '+00:00')) + timedelta(minutes=item.get("duration", 60))).replace(tzinfo=None),
+                    event_type="interview",
+                    description=f"AI scheduled for {item.get('candidate_name')}"
+                )
+                db.add(cal_ev)
+                continue
+
+            # Create Real Interview
+            interview_id = str(secrets.token_hex(8))
+            token = secrets.token_urlsafe(32)
+            start_time = datetime.fromisoformat(item["start_time"].replace('Z', '+00:00')).replace(tzinfo=None)
+            
+            # Fallback links
+            frontend_url = settings.frontend_url.rstrip('/')
+            cand_link = f"{frontend_url}/join/{interview_id}?token={token}"
+            rec_link = f"{frontend_url}/interview-prejoin/{interview_id}"
+
+            # Interview OS Integration
+            try:
+                async with httpx.AsyncClient() as client:
+                    os_res = await client.post(
+                        f"{settings.interview_os_url.rstrip('/')}/api/rooms/create",
+                        json={
+                            "interviewId": interview_id,
+                            "recruiterId": current_user.id,
+                            "candidateId": cand_id,
+                            "candidateName": item.get("candidate_name"),
+                            "recruiterName": current_user.full_name,
+                            "jobTitle": item.get("title"),
+                            "scheduledAt": start_time.isoformat(),
+                            "apiKey": settings.talentiq_api_key
+                        }, timeout=3.0
+                    )
+                    if os_res.status_code == 200 and os_res.json().get("success"):
+                        cand_link = os_res.json().get("candidateUrl", cand_link)
+                        rec_link = os_res.json().get("recruiterUrl", rec_link)
+            except: pass
+
+            interview = Interview(
+                id=interview_id,
+                candidate_id=cand_id,
+                recruiter_id=current_user.id,
+                title=item.get("title"),
+                scheduled_at=start_time,
+                duration_minutes=item.get("duration", 60),
+                status=InterviewStatus.scheduled,
+                candidate_access_token=token,
+                meeting_url=cand_link,
+                recruiter_meeting_url=rec_link
+            )
+            db.add(interview)
+            
+            # Also create Calendar Event
+            from app.models.models import CalendarEvent
+            cal_ev = CalendarEvent(
+                user_id=current_user.id,
+                title=item.get("title"),
+                start_time=start_time,
+                end_time=start_time + timedelta(minutes=item.get("duration", 60)),
+                event_type="interview",
+                description=f"Real-time interview for {item.get('candidate_name')}"
+            )
+            db.add(cal_ev)
+            
+            created_interviews.append({
+                "interview": interview,
+                "email": item.get("candidate_email") or next((c.email for c in all_candidates if c.id == cand_id), None)
+            })
+
+        await db.commit()
+
+        # ─── DISPATCH EMAILS ───
+        async def dispatch_bulk_emails():
+            email_service = get_new_email_service()
+            for obj in created_interviews:
+                iv = obj["interview"]
+                email = obj["email"]
+                if email:
+                    await email_service.send_interview_invitation_candidate(
+                        candidate_email=email,
+                        candidate_name=iv.title.replace("Interview with ", "").split(" ")[0],
+                        role_title=iv.title,
+                        scheduled_at=iv.scheduled_at,
+                        duration=iv.duration_minutes,
+                        magic_link=iv.meeting_url,
+                        recruiter_name=current_user.full_name,
+                        related_id=iv.id
+                    )
+        
+        background_tasks.add_task(dispatch_bulk_emails)
+        return {"message": f"Dispatched {len(created_interviews)} AI-powered sessions", "count": len(created_interviews)}
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"AI failed to dispatch: {str(e)}")

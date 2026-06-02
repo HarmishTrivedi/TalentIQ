@@ -97,11 +97,11 @@ export default function Interviews() {
     if (!aiInput.trim()) return;
     setAiGenerating(true);
     try {
-      const res = await api.post('/calendar/ai-generate', { text: aiInput });
-      const events = res.data.events || [res.data];
-      toast.success(`Successfully scheduled ${events.length} session(s) via AI!`);
+      // Use the unified interviews endpoint for real-time syncing
+      const res = await api.post('/interviews/ai-generate', { text: aiInput });
+      toast.success(res.data.message || 'AI successfully dispatched your session(s)!');
       setAiInput('');
-      loadInterviews(); // Refresh list
+      loadInterviews(); // Refresh the list immediately
     } catch (err) {
       console.error('AI Schedule Error:', err);
       toast.error('AI failed to parse scheduling intent');
