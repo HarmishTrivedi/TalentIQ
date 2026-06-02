@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { 
   Users, Briefcase, Zap, TrendingUp, ArrowRight, Clock, 
   Target, Brain, Upload, BarChart3, Plus, Calendar,
-  MoreVertical, Filter, Activity, CheckCircle, Send, FileText
+  MoreVertical, Filter, Activity, CheckCircle, Send, FileText, Sparkles
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { dashboardApi } from '../services/api'
