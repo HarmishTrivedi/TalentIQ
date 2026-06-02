@@ -117,64 +117,64 @@ export default function NotificationCenter() {
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute left-0 mt-3 w-80 md:w-96 bg-slate-900/98 backdrop-blur-2xl border border-slate-800 rounded-3xl shadow-2xl z-50 overflow-hidden"
+            className="absolute right-0 mt-3 w-80 md:w-96 bg-surface-container-lowest backdrop-blur-2xl border border-outline-variant rounded-3xl shadow-2xl z-50 overflow-hidden"
             style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}
           >
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+            <div className="p-5 border-b border-outline-variant flex items-center justify-between bg-surface-container">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-cyan-500/10 rounded-lg">
-                  <Bell className="w-4 h-4 text-cyan-400" />
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Bell className="w-4 h-4 text-primary" />
                 </div>
-                <h3 className="font-bold text-white">Notifications</h3>
+                <h3 className="font-bold text-on-surface">Notifications</h3>
               </div>
               <div className="flex items-center gap-2">
                 {notifications.length > 0 && (
-                  <button onClick={handleClear} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-red-400 transition-colors" title="Clear all">
+                  <button onClick={handleClear} className="p-1.5 hover:bg-surface-container-highest rounded-lg text-outline hover:text-error transition-colors" title="Clear all">
                     <Trash2 size={16} />
                   </button>
                 )}
-                <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors">
+                <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-surface-container-highest rounded-lg text-outline hover:text-on-surface transition-colors">
                   <X size={16} />
                 </button>
               </div>
             </div>
 
-            <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
+            <div className="max-h-[450px] overflow-y-auto custom-scrollbar bg-surface-container-lowest">
               {loading && notifications.length === 0 ? (
-                <div className="p-12 text-center text-slate-500">Loading...</div>
+                <div className="p-12 text-center text-outline">Loading...</div>
               ) : notifications.length === 0 ? (
                 <div className="p-12 text-center">
-                  <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-800">
-                    <Bell className="w-6 h-6 text-slate-600" />
+                  <div className="w-16 h-16 bg-surface-container rounded-full flex items-center justify-center mx-auto mb-4 border border-outline-variant">
+                    <Bell className="w-6 h-6 text-outline opacity-40" />
                   </div>
-                  <p className="text-slate-500 font-medium">All caught up!</p>
-                  <p className="text-slate-600 text-xs mt-1">No new notifications for you.</p>
+                  <p className="text-on-surface font-medium">All caught up!</p>
+                  <p className="text-outline text-xs mt-1">No new notifications for you.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-800/50">
+                <div className="divide-y divide-outline-variant/30">
                   {notifications.map((notif) => (
                     <div 
                       key={notif.id}
                       onClick={() => !notif.is_read && handleMarkRead(notif.id)}
-                      className={`p-4 hover:bg-slate-800/40 transition-colors cursor-pointer relative group ${!notif.is_read ? 'bg-cyan-500/5' : ''}`}
+                      className={`p-4 hover:bg-surface-container transition-colors cursor-pointer relative group ${!notif.is_read ? 'bg-primary/5' : ''}`}
                     >
                       {!notif.is_read && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-500" />
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
                       )}
                       <div className="flex gap-4">
-                        <div className={`mt-1 flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${!notif.is_read ? 'bg-cyan-500/10' : 'bg-slate-800'}`}>
+                        <div className={`mt-1 flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${!notif.is_read ? 'bg-primary/10' : 'bg-surface-container-high'}`}>
                           {getIcon(notif.type)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start mb-1">
-                            <h4 className={`text-sm font-bold truncate ${!notif.is_read ? 'text-white' : 'text-slate-300'}`}>
+                            <h4 className={`text-sm font-bold truncate ${!notif.is_read ? 'text-on-surface' : 'text-on-surface-variant'}`}>
                               {notif.title}
                             </h4>
-                            <span className="text-[10px] text-slate-500 whitespace-nowrap ml-2">
+                            <span className="text-[10px] text-outline whitespace-nowrap ml-2">
                               {formatRelativeTime(notif.created_at)}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                          <p className="text-xs text-on-surface-variant line-clamp-2 leading-relaxed">
                             {notif.message}
                           </p>
                         </div>
@@ -186,10 +186,10 @@ export default function NotificationCenter() {
             </div>
 
             {unreadCount > 0 && (
-              <div className="p-3 bg-slate-900 border-t border-slate-800 text-center">
+              <div className="p-3 bg-surface-container border-t border-outline-variant text-center">
                 <button 
                   onClick={handleReadAll}
-                  className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors"
+                  className="text-xs font-bold text-primary hover:text-primary/80 transition-colors"
                 >
                   Mark all as read
                 </button>

@@ -66,6 +66,44 @@ async def create_event(
         await db.rollback()
         raise HTTPException(status_code=400, detail=f"Invalid event data: {str(e)}")
 
+@router.patch("/{event_id}", response_model=CalendarEventResponse)
+async def update_event(
+    event_id: str,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update an existing calendar event."""
+    result = await db.execute(
+        select(CalendarEvent)
+        .where(CalendarEvent.id == event_id)
+        .where(CalendarEvent.user_id == current_user.id)
+    )
+    event = result.scalar_one_or_none()
+    
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+        
+    try:
+        if "title" in data: event.title = data["title"]
+        if "description" in data: event.description = data["description"]
+        if "event_type" in data: event.event_type = data["event_type"]
+        if "priority" in data: event.priority = data["priority"]
+        if "participants" in data: event.participants = data["participants"]
+        if "reminder_time" in data: event.reminder_time = data["reminder_time"]
+        
+        if "start_time" in data:
+            event.start_time = datetime.fromisoformat(data["start_time"].replace('Z', '+00:00')).replace(tzinfo=None)
+        if "end_time" in data:
+            event.end_time = datetime.fromisoformat(data["end_time"].replace('Z', '+00:00')).replace(tzinfo=None)
+            
+        await db.commit()
+        await db.refresh(event)
+        return event
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"Invalid event data: {str(e)}")
+
 @router.delete("/{event_id}")
 async def delete_event(
     event_id: str,

@@ -36,12 +36,71 @@ export default function Calendar() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [aiInput, setAiInput] = useState('');
-  const [aiGenerating, setAiGenerating] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    description: '',
+    event_type: 'meeting',
+    start_time: '',
+    end_time: '',
+    priority: 'medium',
+    participants: ''
+  });
 
   useEffect(() => {
     fetchEvents();
   }, [currentDate, view]);
+
+  const openAddModal = () => {
+    setEditingEvent(null);
+    setEventForm({
+      title: '',
+      description: '',
+      event_type: 'meeting',
+      start_time: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      end_time: format(addDaysFns(new Date(), 0), "yyyy-MM-dd'T'HH:mm"),
+      priority: 'medium',
+      participants: ''
+    });
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (event) => {
+    setEditingEvent(event);
+    setEventForm({
+      title: event.title || '',
+      description: event.description || '',
+      event_type: event.event_type || 'meeting',
+      start_time: format(parseISO(event.start_time), "yyyy-MM-dd'T'HH:mm"),
+      end_time: format(parseISO(event.end_time), "yyyy-MM-dd'T'HH:mm"),
+      priority: event.priority || 'medium',
+      participants: (event.participants || []).join(', ')
+    });
+    setShowAddModal(true);
+  };
+
+  const handleSaveEvent = async (e) => {
+    e.preventDefault();
+    const payload = {
+      ...eventForm,
+      participants: eventForm.participants.split(',').map(p => p.trim()).filter(Boolean)
+    };
+
+    try {
+      if (editingEvent) {
+        const res = await calendarApi.update(editingEvent.id, payload);
+        setEvents(prev => prev.map(ev => ev.id === editingEvent.id ? res.data : ev));
+        toast.success('Event updated');
+      } else {
+        const res = await calendarApi.create(payload);
+        setEvents(prev => [...prev, res.data]);
+        toast.success('Event scheduled');
+      }
+      setShowAddModal(false);
+    } catch (err) {
+      toast.error('Failed to save event');
+    }
+  };
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -189,8 +248,9 @@ export default function Calendar() {
               {dayEvents.slice(0, 3).map((event, idx) => (
                 <div 
                   key={idx} 
+                  onClick={() => openEditModal(event)}
                   className={cn(
-                    "text-[10px] p-1.5 rounded-md px-2 truncate border text-left font-semibold",
+                    "text-[10px] p-1.5 rounded-md px-2 truncate border text-left font-semibold cursor-pointer hover:brightness-95 transition-all active:scale-95",
                     getEventStyle(event.event_type)
                   )}
                   title={event.title}
@@ -259,7 +319,11 @@ export default function Calendar() {
             return (
               <div key={i} className="border-r border-outline-variant last:border-r-0 p-2 space-y-2 min-h-[500px]">
                 {dayEvents.map((event, idx) => (
-                  <div key={idx} className={cn("p-2 rounded-lg border text-xs text-left", getEventStyle(event.event_type))}>
+                  <div 
+                    key={idx} 
+                    onClick={() => openEditModal(event)}
+                    className={cn("p-2 rounded-lg border text-xs text-left cursor-pointer hover:brightness-95 transition-all active:scale-95", getEventStyle(event.event_type))}
+                  >
                     <div className="font-bold mb-1 line-clamp-2">{event.title}</div>
                     <div className="text-[10px] font-semibold opacity-80">{format(parseISO(event.start_time), "h:mm a")}</div>
                   </div>
@@ -291,7 +355,11 @@ export default function Calendar() {
         ) : (
           <div className="space-y-4">
             {dayEvents.map((event, idx) => (
-              <div key={idx} className={cn("p-4 rounded-xl border flex gap-4 items-start", getEventStyle(event.event_type))}>
+              <div 
+                key={idx} 
+                onClick={() => openEditModal(event)}
+                className={cn("p-4 rounded-xl border flex gap-4 items-start cursor-pointer hover:brightness-95 transition-all active:scale-[0.98]", getEventStyle(event.event_type))}
+              >
                 <div className="w-16 shrink-0 text-right pt-0.5">
                   <div className="text-xs font-black">{format(parseISO(event.start_time), "h:mm a")}</div>
                 </div>
@@ -305,7 +373,10 @@ export default function Calendar() {
                      </div>
                   )}
                 </div>
-                <button onClick={() => handleDeleteEvent(event.id)} className="p-2 opacity-50 hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }} 
+                  className="p-2 opacity-50 hover:opacity-100 hover:text-error transition-all"
+                >
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -455,13 +526,23 @@ export default function Calendar() {
             
             <div className="space-y-3">
               {events.filter(e => parseISO(e.start_time) >= new Date()).slice(0, 6).map((event, idx) => (
-                <div key={idx} className="group relative bg-surface-container hover:bg-surface-container-high border border-outline-variant/50 p-3.5 rounded-xl transition-all hover:border-primary/30">
+                <div 
+                  key={idx} 
+                  onClick={() => openEditModal(event)}
+                  className="group relative bg-surface-container hover:bg-surface-container-high border border-outline-variant/50 p-3.5 rounded-xl transition-all hover:border-primary/30 cursor-pointer active:scale-[0.98]"
+                >
                   <div className="flex justify-between items-start mb-2">
                     <span className={cn("text-[9px] uppercase tracking-widest font-black px-2 py-0.5 rounded border", 
                       getEventStyle(event.event_type)
                     )}>
                       {event.event_type}
                     </span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-outline hover:text-error transition-all"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                   <h4 className="text-sm font-bold text-on-surface mb-2 leading-tight">{event.title}</h4>
                   <div className="space-y-1">
@@ -485,6 +566,135 @@ export default function Calendar() {
           </div>
         </div>
       </div>
+      {/* Event Modal (Add/Edit) */}
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddModal(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-surface-container-lowest border border-outline-variant rounded-3xl shadow-2xl overflow-hidden z-10"
+            >
+              <div className="p-6 border-b border-outline-variant flex items-center justify-between bg-surface-container">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-xl">
+                    <CalendarIcon className="w-5 h-5 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold text-on-surface">
+                    {editingEvent ? 'Edit Event' : 'Schedule New Event'}
+                  </h3>
+                </div>
+                <button 
+                  onClick={() => setShowAddModal(false)}
+                  className="p-2 hover:bg-surface-container-highest rounded-full text-outline transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEvent} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-outline uppercase tracking-wider mb-2">Event Title</label>
+                  <input
+                    required
+                    type="text"
+                    value={eventForm.title}
+                    onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 text-on-surface focus:outline-none focus:border-primary transition-all"
+                    placeholder="e.g. Technical Interview - John Doe"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-outline uppercase tracking-wider mb-2">Start Time</label>
+                    <input
+                      required
+                      type="datetime-local"
+                      value={eventForm.start_time}
+                      onChange={(e) => setEventForm({ ...eventForm, start_time: e.target.value })}
+                      className="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 text-on-surface focus:outline-none focus:border-primary transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-outline uppercase tracking-wider mb-2">End Time</label>
+                    <input
+                      required
+                      type="datetime-local"
+                      value={eventForm.end_time}
+                      onChange={(e) => setEventForm({ ...eventForm, end_time: e.target.value })}
+                      className="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 text-on-surface focus:outline-none focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-outline uppercase tracking-wider mb-2">Event Type</label>
+                    <select
+                      value={eventForm.event_type}
+                      onChange={(e) => setEventForm({ ...eventForm, event_type: e.target.value })}
+                      className="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 text-on-surface focus:outline-none focus:border-primary transition-all appearance-none"
+                    >
+                      <option value="interview">Interview</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="task">Task</option>
+                      <option value="reminder">Reminder</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-outline uppercase tracking-wider mb-2">Priority</label>
+                    <select
+                      value={eventForm.priority}
+                      onChange={(e) => setEventForm({ ...eventForm, priority: e.target.value })}
+                      className="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 text-on-surface focus:outline-none focus:border-primary transition-all appearance-none"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-outline uppercase tracking-wider mb-2">Participants (emails, comma separated)</label>
+                  <input
+                    type="text"
+                    value={eventForm.participants}
+                    onChange={(e) => setEventForm({ ...eventForm, participants: e.target.value })}
+                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 text-on-surface focus:outline-none focus:border-primary transition-all"
+                    placeholder="john@example.com, sara@example.com"
+                  />
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 py-3 px-4 border border-outline-variant rounded-xl font-bold text-on-surface hover:bg-surface-container transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-[2] py-3 px-4 bg-primary text-on-primary rounded-xl font-bold hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
+                  >
+                    {editingEvent ? 'Update Event' : 'Create Event'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
