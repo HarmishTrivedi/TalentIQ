@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../store'
 import { getInitials } from '../../utils/helpers'
 import { BASE_URL } from '../../services/api'
+import NotificationCenter from './NotificationCenter'
 
 export default function TopAppBar() {
   const { user } = useAuthStore()
@@ -26,13 +27,14 @@ export default function TopAppBar() {
       </div>
       
       <div className="flex items-center gap-3">
-        <Link to="/notifications" className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
-          <Bell size={20} />
-        </Link>
-        <Link to="/account" className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+        {/* Real Notification Center instead of broken link */}
+        <NotificationCenter />
+
+        <Link to="/account" className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all" title="Account Settings">
           <Settings size={20} />
         </Link>
-        <Link to="/dashboard" className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+        
+        <Link to="/dashboard" className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all" title="Go to Dashboard">
           <LayoutGrid size={20} />
         </Link>
         

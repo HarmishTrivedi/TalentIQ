@@ -103,13 +103,11 @@ export default function NotificationCenter() {
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2.5 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-all group"
+        className="relative p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all group"
       >
-        <Bell className={`w-5 h-5 transition-colors ${unreadCount > 0 ? 'text-cyan-400 animate-pulse' : 'text-slate-400 group-hover:text-white'}`} />
+        <Bell className={`w-5 h-5 transition-colors ${unreadCount > 0 ? 'text-cyan-400 animate-pulse' : ''}`} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-slate-950 shadow-lg">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
+          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-surface-container-lowest shadow-sm"></span>
         )}
       </button>
 
