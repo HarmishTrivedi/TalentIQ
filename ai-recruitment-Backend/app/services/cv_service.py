@@ -22,66 +22,74 @@ from app.config import settings
 logger = structlog.get_logger()
 
 
-CV_EXTRACTION_PROMPT = """You are an expert CV/Resume parser. Today's date is {today}. Extract structured information from the following resume text.
+CV_EXTRACTION_PROMPT = """You are a world-class Executive Technical Recruiter and CV/Resume Intelligence System. Your goal is to perform a DEEP ANALYSIS of the candidate's professional profile.
+
+STEP 1: INTERNAL READING & COMPREHENSION
+- Read the ENTIRE provided resume text carefully.
+- Identify the candidate's core identity, career progression, and specialized expertise.
+- Note any subtle details like specific tools mentioned in project descriptions, soft skills demonstrated in leadership roles, and the specific impact of their work.
+
+STEP 2: STRUCTURED EXTRACTION
+Today's date is {today}. Extract information with extreme precision.
 
 Resume Text:
 {cv_text}
 
-Extract and return a JSON object with EXACTLY this structure:
+Return a JSON object with EXACTLY this structure:
 {{
   "name": "Full name of the candidate",
   "email": "email@example.com or null",
   "phone": "phone number or null",
   "location": "city, country or null",
-  "summary": "2-3 sentence professional summary",
-  "domain": "Detected domain (e.g. Software Engineering, Data & AI, Enterprise Systems, Sales, etc.)",
+  "summary": "3-4 sentence powerful professional summary capturing their unique value proposition",
+  "domain": "Detected domain (e.g. Software Engineering, Data & AI, Cloud Architecture, Product Management, etc.)",
   "experience_years": 0.0,
   "experience_details": {{
     "positions": [
       {{
-        "title": "Job Title",
+        "title": "Exact Job Title",
         "company": "Company Name",
-        "duration": "Jan 2020 - Present",
-        "description": "Key responsibilities and achievements"
+        "duration": "Start Date - End Date (e.g. Jan 2020 - Mar 2023)",
+        "description": "Comprehensive bullet points of key responsibilities and measurable impact (e.g. 'Reduced latency by 40%')"
       }}
     ]
   }},
   "skills": {{
-    "technical": ["Python", "React", "SQL"],
-    "soft": ["Leadership", "Communication"],
-    "tools": ["Git", "Docker", "AWS"],
-    "frameworks": ["FastAPI", "Django", "React"]
+    "technical": ["Python", "Go", "Distributed Systems"],
+    "soft": ["Cross-functional Leadership", "Strategic Planning"],
+    "tools": ["Git", "Docker", "Terraform", "Kubernetes"],
+    "frameworks": ["FastAPI", "React", "PyTorch"]
   }},
   "education": {{
     "degrees": [
       {{
-        "degree": "B.Sc Computer Science",
+        "degree": "e.g. Master of Science in Computer Science",
         "institution": "University Name",
-        "year": "2018",
-        "field": "Computer Science"
+        "year": "YYYY",
+        "field": "Field of Study"
       }}
     ],
-    "highest_level": "bachelor"
+    "highest_level": "bachelor|master|phd|diploma"
   }},
   "projects": [
     {{
       "name": "Project Name",
-      "description": "Brief description of what was built and tools used",
-      "link": "URL if available or null"
+      "description": "Detailed description of what was built and the technical stack used",
+      "link": "URL or null"
     }}
   ],
-  "certifications": ["AWS Certified Developer", "PMP"],
-  "languages": ["English", "Spanish"]
+  "certifications": ["e.g. AWS Certified Solutions Architect"],
+  "languages": ["e.g. English (Native)", "German (Professional)"]
 }}
 
-CRITICAL RULES for experience_details.positions:
-- Extract ONLY work/job positions from the Experience or Work History section
-- Do NOT include education, projects, or certifications as positions
-- For "duration", copy the EXACT date range as written in the CV (e.g. "Jan 2025 - April 2025", "Feb 2026 - Present")
-- If a date says "Present" or "Current", keep it as-is — do not replace with today's date
-- Set experience_years to 0.0 — it will be calculated programmatically
+CRITICAL INSTRUCTIONS:
+1. READ THE WHOLE RESUME: Do not skim. Look for details in projects, summaries, and experience.
+2. EXPERIENCE DETAILS: Extract every legitimate job role. Ensure the "duration" is exactly as written.
+3. SKILLS: Categorize skills intelligently. If a tool is mentioned in a project description but not in a skills list, INCLUDE IT in the "tools" section.
+4. SUMMARY: Write a high-quality summary based on the WHOLE resume content, not just the candidate's own summary section.
+5. ACCURACY: If a resume is complicated or non-standard, take your time to reconstruct the professional timeline accurately.
 
-Be precise and accurate. If information is not available, use null or empty arrays."""
+Return ONLY the JSON object."""
 
 
 MONTH_MAP = {
@@ -383,7 +391,8 @@ class CVProcessingService:
 
     async def _extract_structured_data(self, raw_text: str) -> dict:
         """Use LLM to extract structured data from CV text."""
-        text = raw_text[:7000]
+        # Increased limit for deep analysis of complex resumes
+        text = raw_text[:10000]
         today = datetime.now().strftime("%B %Y")  # e.g. "July 2025"
         prompt = CV_EXTRACTION_PROMPT.replace("{cv_text}", text).replace("{today}", today)
 
