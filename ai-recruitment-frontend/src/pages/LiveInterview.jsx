@@ -26,7 +26,16 @@ export default function LiveInterview() {
   const [isAudioOn, setIsAudioOn] = useState(true)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [transcript, setTranscript] = useState([])
-  const [liveAnalysis, setLiveAnalysis] = useState({ insights: [] })
+  const [liveAnalysis, setLiveAnalysis] = useState({
+    commScore: 0,
+    confidenceScore: 0,
+    technicalScore: 0,
+    behavioralScore: 0,
+    sentiment: 'Neutral',
+    engagementScore: 0,
+    insights: [],
+    fillerWordCount: 0
+  })
   const [questions, setQuestions] = useState([])
   const [currentQuestion, setCurrentQuestion] = useState(null)
   const [answeredQuestions, setAnsweredQuestions] = useState([])
@@ -40,6 +49,8 @@ export default function LiveInterview() {
   const recognitionRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const recordedChunks = useRef([])
+  const analysisBuffer = useRef([])
+  const lastProcessedIndex = useRef(0)
 
   useEffect(() => {
     loadInterview()
@@ -69,6 +80,81 @@ export default function LiveInterview() {
     }
   }
 
+  const runRealTimeAnalysis = async (newEntry) => {
+    analysisBuffer.current.push(newEntry)
+    
+    // Immediate filler word detection
+    const text = newEntry.text.toLowerCase()
+    const fillers = (text.match(/\b(um|uh|umm|ahh|like|you know|basically)\b/g) || []).length
+    if (fillers > 0) {
+       setLiveAnalysis(prev => ({ ...prev, fillerWordCount: (prev.fillerWordCount || 0) + fillers }))
+    }
+
+    // Deep analysis
+    const candidateEntries = analysisBuffer.current.filter(e => !e.speaker.toLowerCase().includes('recruiter'))
+    if (candidateEntries.length - lastProcessedIndex.current >= 2) {
+      lastProcessedIndex.current = candidateEntries.length
+      triggerLLMAnalysis(candidateEntries)
+    }
+  }
+
+  const triggerLLMAnalysis = async (buffer) => {
+    try {
+      const recentText = buffer.slice(-5).map(e => `${e.speaker}: ${e.text}`).join('\n')
+      const prompt = `Analyze this interview transcript slice. Return valid JSON ONLY.
+      - scores (0-100): comm, confidence, technical, behavioral, engagement
+      - sentiment: Positive|Neutral|Negative
+      - insight: one critical observation
+      - ai_note: optional context for interviewer
+
+      Transcript:
+      ${recentText}`
+
+      let apiBase = window.location.origin;
+      if (apiBase.includes(':5173')) apiBase = apiBase.replace(':5173', ':8000');
+      else if (apiBase.includes('-frontend-')) apiBase = apiBase.replace('-frontend-', '-backend-');
+
+      const res = await fetch(`${apiBase}/api/v1/interviews/ai/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 400,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      })
+
+      
+      if (!res.ok) return;
+
+      const data = await res.json()
+      const content = data.content?.[0]?.text
+      if (content) {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return;
+        
+        const result = JSON.parse(jsonMatch[0])
+        setLiveAnalysis(prev => ({
+          ...prev,
+          commScore: result.scores?.comm || prev.commScore,
+          confidenceScore: result.scores?.confidence || prev.confidenceScore,
+          technicalScore: result.scores?.technical || prev.technicalScore,
+          behavioralScore: result.scores?.behavioral || prev.behavioralScore,
+          engagementScore: result.scores?.engagement || prev.engagementScore,
+          sentiment: result.sentiment || prev.sentiment,
+          insights: [result.insight, ...(prev.insights || [])].slice(0, 10).filter(Boolean)
+        }))
+        
+        // Broadcast analysis to other participants
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'analysis_update', scores: result.scores }))
+        }
+      }
+    } catch (e) {
+      console.warn('AI Analysis failed:', e.message)
+    }
+  }
+
   const initializeWebSocket = () => {
     let wsUrl = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || '';
     
@@ -92,9 +178,14 @@ export default function LiveInterview() {
     wsRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data)
       if (data.type === 'transcript') {
-        setTranscript((previous) => [...previous, { speaker: data.speaker, text: data.text, timestamp: data.timestamp || new Date().toISOString() }])
+        const entry = { speaker: data.speaker, text: data.text, timestamp: data.timestamp || new Date().toISOString() }
+        setTranscript((previous) => [...previous, entry])
+        // If candidate speaks, we analyze
+        if (data.speaker !== 'Recruiter') {
+          runRealTimeAnalysis(entry)
+        }
       } else if (data.type === 'analysis') {
-        setLiveAnalysis(data.scores || data.analysis || data)
+        setLiveAnalysis(prev => ({ ...prev, ...data.scores, ...data.analysis, ...data }))
       } else if (data.type === 'event' && data.severity === 'high') {
         toast.error(`${data.event_type} detected`, { duration: 5000 })
       }
@@ -105,15 +196,37 @@ export default function LiveInterview() {
   const initializeSpeechRecognition = () => {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    recognitionRef.current = new SpeechRecognition()
-    recognitionRef.current.continuous = true
-    recognitionRef.current.interimResults = true
-    recognitionRef.current.onresult = (event) => {
-      const text = Array.from(event.results).map((result) => result[0].transcript).join('')
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'transcript', text, speaker: 'candidate', timestamp: new Date().toISOString() }))
+    const rec = new SpeechRecognition()
+    rec.continuous = true
+    rec.interimResults = true
+    rec.lang = 'en-US'
+
+    let finalTranscript = '';
+
+    rec.onresult = (e) => {
+      let interimTranscript = '';
+      for (let i = e.resultIndex; i < e.results.length; ++i) {
+        if (e.results[i].isFinal) {
+          finalTranscript += e.results[i][0].transcript;
+          const speaker = 'Recruiter'; // Or candidate depending on who is logged in
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'transcript', text: finalTranscript.trim(), speaker, timestamp: new Date().toISOString() }))
+          }
+          finalTranscript = '';
+        } else {
+          interimTranscript += e.results[i][0].transcript;
+        }
       }
     }
+
+    rec.onerror = (e) => console.error('[Speech] Error:', e.error)
+    rec.onend = () => {
+      if (isRecording && recognitionRef.current === rec) {
+        try { rec.start(); } catch (err) {}
+      }
+    }
+
+    recognitionRef.current = rec
   }
 
   const startLocalVideo = async () => {

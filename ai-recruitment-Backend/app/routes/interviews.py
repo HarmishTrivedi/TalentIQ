@@ -557,6 +557,46 @@ async def save_recording_url(
     return {"message": "Recording URL saved", "recording_url": interview.recording_url}
 
 
+# ─── AI Proxy for Live Interview Analysis ─────────────────────────────────────
+
+@router.post("/ai/analyze")
+async def proxy_ai_analyze(
+    request: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Proxy Anthropic messages API for live interview analysis to bypass CORS and simplify frontend logic."""
+    from app.services.llm_service import get_llm_service
+    import json
+    
+    # The frontend sends: { "model": "...", "messages": [{ "role": "user", "content": prompt }] }
+    try:
+        messages = request.get("messages", [])
+        if not messages:
+            raise ValueError("No messages provided")
+            
+        prompt = messages[-1].get("content", "")
+        
+        llm = get_llm_service()
+        # We use standard text generation and then wrap it in the format the frontend expects
+        system_prompt = "You are a live interview AI analyzer. Return ONLY raw JSON without any markdown formatting like ```json."
+        
+        # Call LLM service which abstracts Anthropic/OpenAI
+        json_data = await llm.generate_json(prompt, system_prompt=system_prompt)
+        
+        # Package it in the format the frontend expects from Anthropic (e.g. data.content[0].text)
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(json_data)
+                }
+            ]
+        }
+    except Exception as e:
+        print(f"❌ AI Proxy Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/{interview_id}/start")
 async def start_interview(
     interview_id: str,
