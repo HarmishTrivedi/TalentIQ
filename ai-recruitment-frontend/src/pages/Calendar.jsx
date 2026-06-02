@@ -136,9 +136,11 @@ export default function Calendar() {
     setAiGenerating(true);
     try {
       const res = await calendarApi.aiGenerate(aiInput);
-      setEvents(prev => [...prev, res.data]);
+      // Backend now returns an object with 'events' array
+      const newEvents = res.data.events || [res.data];
+      setEvents(prev => [...prev, ...newEvents]);
       setAiInput('');
-      toast.success('AI successfully scheduled your event!');
+      toast.success(res.data.message || 'AI successfully scheduled your events!');
     } catch (err) {
       toast.error('AI failed to parse scheduling intent');
     } finally {

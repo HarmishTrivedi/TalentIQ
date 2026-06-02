@@ -12,15 +12,12 @@ from app.services.new_email_service import get_new_email_service
 
 
 async def send_pending_welcome_emails():
-    """Send welcome emails ONLY to newly registered recruiters (created within last 24 hours)."""
+    """Send welcome emails ONLY to newly registered recruiters (created within last 1 hour)."""
     try:
         async with AsyncSessionLocal() as db:
-            # Only send to recruiters who:
-            # 1. Haven't received welcome email yet
-            # 2. Were registered within the last 24 hours (new accounts only)
-            # This ensures the worker NEVER fires for existing recruiters
-            # during interview scheduling or any other workflow
-            cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+            # STRICT CUTOFF: Only newly registered users within the last 60 minutes.
+            # This ensures that old recruiters NEVER get a welcome email if the server restarts.
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
 
             result = await db.execute(
                 select(User)

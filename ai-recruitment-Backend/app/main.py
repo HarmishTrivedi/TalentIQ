@@ -70,6 +70,7 @@ async def lifespan(app: FastAPI):
                     full_name="Harmish",
                     hashed_password=hash_password("Harmish@1234"),
                     role="admin",
+                    welcome_email_sent=True
                 ))
                 logger.info("✅ Admin user created")
             # Seed demo user
@@ -80,6 +81,7 @@ async def lifespan(app: FastAPI):
                     full_name="Demo User",
                     hashed_password=hash_password("demo1234"),
                     role="admin",
+                    welcome_email_sent=True
                 ))
                 logger.info("✅ Demo user created")
             # Seed demo recruiter (Jonathan Byers)
@@ -90,6 +92,7 @@ async def lifespan(app: FastAPI):
                     full_name="Jonathan Byers",
                     hashed_password=hash_password("Jonathan@1234"),
                     role="recruiter",
+                    welcome_email_sent=True
                 ))
                 logger.info("✅ Jonathan Byers recruiter created")
             await db.commit()
