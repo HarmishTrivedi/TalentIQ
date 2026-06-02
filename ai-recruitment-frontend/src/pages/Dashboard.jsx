@@ -77,10 +77,10 @@ export default function Dashboard() {
             <Calendar size={18} />
             <span>Calendar View</span>
           </Link>
-          <button className="btn-ai">
-            <Zap size={18} />
+          <Link to="/ai-sourcing" className="btn-ai flex items-center gap-2">
+            <Sparkles size={18} />
             <span>AI Sourcing Assist</span>
-          </button>
+          </Link>
         </div>
       </div>
 

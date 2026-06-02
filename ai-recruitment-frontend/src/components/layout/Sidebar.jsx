@@ -18,7 +18,7 @@ const navItems = [
   { to: '/jobs',          icon: Briefcase,       label: 'Jobs' },
   { to: '/interviews',    icon: Brain,           label: 'Interviews' },
   { to: '/calendar',      icon: Calendar,        label: 'Calendar' },
-  { to: '/ai-sourcing',   icon: Search,          label: 'AI Sourcing Assist' },
+  { to: '/ai-sourcing',   icon: Sparkles,        label: 'AI Sourcing Assist' },
   { to: '/account',       icon: Settings,        label: 'Settings' },
 ]
 
@@ -71,7 +71,7 @@ export default function Sidebar() {
             isActive && 'text-primary font-bold border-r-4 border-primary bg-surface-container'
           )}
         >
-          <Sparkles size={20} className="text-violet-500" />
+          <Zap size={20} className="text-violet-500" />
           <span className="text-sm">AI Matching</span>
         </NavLink>
         <NavLink

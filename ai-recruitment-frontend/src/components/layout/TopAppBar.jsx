@@ -1,5 +1,6 @@
 import React from 'react'
 import { Search, Bell, Settings, LayoutGrid, ChevronDown } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../store'
 import { getInitials } from '../../utils/helpers'
 import { BASE_URL } from '../../services/api'
@@ -25,15 +26,15 @@ export default function TopAppBar() {
       </div>
       
       <div className="flex items-center gap-3">
-        <button className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+        <Link to="/notifications" className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
           <Bell size={20} />
-        </button>
-        <button className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+        </Link>
+        <Link to="/account" className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
           <Settings size={20} />
-        </button>
-        <button className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+        </Link>
+        <Link to="/dashboard" className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
           <LayoutGrid size={20} />
-        </button>
+        </Link>
         
         <div className="h-8 w-[1px] bg-outline-variant mx-2"></div>
         
