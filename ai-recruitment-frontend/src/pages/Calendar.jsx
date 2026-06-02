@@ -46,6 +46,8 @@ export default function Calendar() {
     priority: 'medium',
     participants: ''
   });
+  const [aiInput, setAiInput] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   useEffect(() => {
     fetchEvents();
