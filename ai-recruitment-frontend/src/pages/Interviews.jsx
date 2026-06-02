@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Video, Calendar, Clock, User, Briefcase,
-  Brain, Search, Play, Eye, Trash2, AlertCircle, X, Film
+  Brain, Search, Play, Eye, Trash2, AlertCircle, X, Film, Sparkles, Send
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -90,6 +90,26 @@ export default function Interviews() {
     i.candidate?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const [aiInput, setAiInput] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  const handleAiSchedule = async () => {
+    if (!aiInput.trim()) return;
+    setAiGenerating(true);
+    try {
+      const res = await api.post('/calendar/ai-generate', { text: aiInput });
+      const events = res.data.events || [res.data];
+      toast.success(`Successfully scheduled ${events.length} session(s) via AI!`);
+      setAiInput('');
+      loadInterviews(); // Refresh list
+    } catch (err) {
+      console.error('AI Schedule Error:', err);
+      toast.error('AI failed to parse scheduling intent');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const recordingCount = interviews.filter(i => i.recording_url).length;
 
   return (
@@ -127,6 +147,54 @@ export default function Interviews() {
           </button>
         </div>
       </div>
+
+      {/* AI Instant Scheduler Box (Themed like JD AI bar) */}
+      <motion.div
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="portal-card p-6 mb-8 bg-primary/5 border border-primary/20 shadow-xl overflow-hidden relative group"
+      >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/10 transition-all duration-700"></div>
+        
+        <div className="flex items-center gap-4 mb-4 relative z-10">
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+            <Sparkles className="w-5 h-5 text-on-primary animate-pulse" />
+          </div>
+          <div>
+            <h3 className="font-black text-primary text-xs uppercase tracking-wider">AI Interview Dispatcher</h3>
+            <p className="text-[10px] font-bold text-outline opacity-70 italic">"Schedule John for technical round at 2pm tomorrow..."</p>
+          </div>
+        </div>
+
+        <div className="relative z-10">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <input 
+                type="text"
+                placeholder="Bulk schedule candidates via AI (e.g. Rahul at 2pm, Amit at 4pm today)..."
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAiSchedule()}
+                className="w-full h-12 pl-5 pr-4 bg-surface-container-lowest border border-outline-variant rounded-xl text-sm font-bold text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all shadow-inner"
+              />
+            </div>
+            <button 
+              onClick={handleAiSchedule}
+              disabled={aiGenerating || !aiInput.trim()}
+              className="h-12 px-8 bg-primary hover:bg-primary-container text-white rounded-xl transition-all flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 disabled:opacity-50"
+            >
+              {aiGenerating ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Send size={14} />
+                  <span>Dispatch</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Filters & Search */}
       <div className="portal-card mb-8 p-2 flex flex-col lg:flex-row gap-4 bg-surface-container-lowest shadow-sm">
