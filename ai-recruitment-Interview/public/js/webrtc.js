@@ -32,6 +32,7 @@ export class WebRTCManager {
     this.onRemoveStream = onRemoveStream;
     this.peers = new Map();       // socketId -> RTCPeerConnection
     this.makingOffer = new Map(); // socketId -> boolean (polite peer collision)
+    this.iceQueue = new Map();    // socketId -> RTCIceCandidate[]
     this.setupSocketListeners();
 
     console.log("[WebRTC Audit] 1. Local Media Stream Verification");
@@ -64,13 +65,16 @@ export class WebRTCManager {
         console.warn('[WebRTC] No peer connection found for answer from', from);
         return;
       }
-      if (pc.signalingState !== 'have-local-offer') {
-        console.warn('[WebRTC] Ignoring answer — unexpected signaling state:', pc.signalingState);
-        return;
-      }
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         console.log('[WebRTC Signaling] Answer applied successfully for', from);
+        
+        // Process queued ICE candidates
+        const queue = this.iceQueue.get(from) || [];
+        while (queue.length > 0) {
+          const cand = queue.shift();
+          await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn('[WebRTC] Queued ICE fail:', e));
+        }
       } catch (e) {
         console.error('[WebRTC] setRemoteDescription (answer) failed:', e);
       }
@@ -79,15 +83,17 @@ export class WebRTCManager {
     this.socket.on('ice-candidate', async ({ from, candidate }) => {
       console.log('[WebRTC Signaling] 4. ICE Candidate Received from', from);
       const pc = this.peers.get(from);
-      if (pc && candidate) {
+      if (pc && pc.remoteDescription) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
           console.log('[WebRTC] ICE candidate added successfully from', from);
         } catch (e) {
-          if (e.name !== 'InvalidStateError') {
-            console.warn('[WebRTC] Failed to add ICE candidate from', from, ':', e.message);
-          }
+          console.warn('[WebRTC] Failed to add ICE candidate from', from, ':', e.message);
         }
+      } else {
+        console.log('[WebRTC] Queuing ICE candidate from', from);
+        if (!this.iceQueue.has(from)) this.iceQueue.set(from, []);
+        this.iceQueue.get(from).push(candidate);
       }
     });
 
@@ -210,6 +216,13 @@ export class WebRTCManager {
       await pc.setLocalDescription(answer);
       console.log('[WebRTC Signaling] 3. Answer Sent to', socketId);
       this.socket.emit('answer', { to: socketId, answer: pc.localDescription });
+
+      // Process queued ICE candidates
+      const queue = this.iceQueue.get(socketId) || [];
+      while (queue.length > 0) {
+        const cand = queue.shift();
+        await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn('[WebRTC] Queued ICE fail:', e));
+      }
     } catch (e) {
       console.error('[WebRTC] handleOffer failed:', e);
     }

@@ -183,8 +183,22 @@ export default function InterviewRoom() {
 
   const makingOfferRef = useRef(false)
   const ignoreOfferRef = useRef(false)
-  const isPoliteRef = useRef(false)
+  const isPoliteRef = useRef(isCandidate)
   const iceCandidateQueue = useRef([])
+
+  // ── Stream Assignment ──
+  useEffect(() => {
+    if (localVideoRef.current && streamRef.current) {
+      localVideoRef.current.srcObject = streamRef.current
+    }
+  }, [loading, isVideoOn, isAudioOn])
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream
+      console.log('[WebRTC] Remote stream assigned to video element')
+    }
+  }, [remoteStream])
 
   // ── ICE Servers ──
   const iceServersRef = useRef([
@@ -359,24 +373,70 @@ export default function InterviewRoom() {
   const handleWebSocketMessage = async (data, stream) => {
     switch (data.type) {
       case 'participant_joined':
+        console.log('[WS] Participant joined:', data.name)
         toast.success(`${data.name} joined`)
+        // The one who sees the other join is the "offerer" (non-polite)
+        isPoliteRef.current = false
         if (!peerRef.current) createPeerConnection(stream)
         break
 
       case 'offer':
-        const pc = peerRef.current || createPeerConnection(stream)
-        await pc.setRemoteDescription(new RTCSessionDescription(data.offer))
-        const answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        wsRef.current.send(JSON.stringify({ type: 'answer', answer: pc.localDescription }))
+        try {
+          console.log('[WebRTC] Received offer')
+          const pc = peerRef.current || createPeerConnection(stream)
+          
+          // Collision handling
+          const readyForOffer = !makingOfferRef.current && (pc.signalingState === 'stable' || pc.signalingState === 'have-local-offer')
+          const offerCollision = data.offer.type === 'offer' && !readyForOffer
+          
+          ignoreOfferRef.current = !isPoliteRef.current && offerCollision
+          if (ignoreOfferRef.current) {
+            console.warn('[WebRTC] Ignoring offer due to collision (polite peer logic)')
+            return
+          }
+
+          await pc.setRemoteDescription(new RTCSessionDescription(data.offer))
+          const answer = await pc.createAnswer()
+          await pc.setLocalDescription(answer)
+          wsRef.current.send(JSON.stringify({ type: 'answer', answer: pc.localDescription }))
+          
+          // Process queued ICE candidates
+          while (iceCandidateQueue.current.length > 0) {
+            const cand = iceCandidateQueue.current.shift()
+            await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.error('[WebRTC] Error adding queued ICE:', e))
+          }
+        } catch (err) {
+          console.error('[WebRTC] Error handling offer:', err)
+        }
         break
 
       case 'answer':
-        await peerRef.current?.setRemoteDescription(new RTCSessionDescription(data.answer))
+        try {
+          console.log('[WebRTC] Received answer')
+          if (peerRef.current) {
+            await peerRef.current.setRemoteDescription(new RTCSessionDescription(data.answer))
+            // Process queued ICE candidates
+            while (iceCandidateQueue.current.length > 0) {
+              const cand = iceCandidateQueue.current.shift()
+              await peerRef.current.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.error('[WebRTC] Error adding queued ICE:', e))
+            }
+          }
+        } catch (err) {
+          console.error('[WebRTC] Error handling answer:', err)
+        }
         break
 
       case 'ice-candidate':
-        await peerRef.current?.addIceCandidate(new RTCIceCandidate(data.candidate))
+        try {
+          if (peerRef.current?.remoteDescription) {
+            await peerRef.current.addIceCandidate(new RTCIceCandidate(data.candidate))
+          } else {
+            console.log('[WebRTC] Queuing ICE candidate (remote description not set yet)')
+            iceCandidateQueue.current.push(data.candidate)
+          }
+        } catch (err) {
+          console.error('[WebRTC] Error adding ICE candidate:', err)
+        }
         break
 
       case 'transcript':

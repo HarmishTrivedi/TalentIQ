@@ -435,8 +435,15 @@ input, textarea {
   .lobby-container {
     grid-template-columns: 1fr;
     max-width: 500px;
+    gap: 24px;
   }
-  .lobby-preview-side { display: none; }
+  .lobby-preview-side { 
+    display: flex;
+    order: 2;
+  }
+  .lobby-panel {
+    order: 1;
+  }
 }
 
 /* Camera Preview */

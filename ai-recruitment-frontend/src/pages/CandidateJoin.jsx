@@ -80,8 +80,16 @@ export default function CandidateJoin() {
   const streamRef = useRef(null);
 
   useEffect(() => {
+    if (videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [permissionsGranted, isVideoOn]);
+
+  useEffect(() => {
     if (!token) { toast.error('Invalid meeting link'); return; }
     loadInterview();
+    // Proactively request permissions on load
+    requestPermissions();
   }, [interviewId, token]);
 
   useEffect(() => {
