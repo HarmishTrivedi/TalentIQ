@@ -5,7 +5,7 @@ import {
   MessageSquare, Sparkles, LogOut, ShieldCheck,
   Target, Sun, Moon, Settings, Building2, 
   Crown, ChevronRight, DollarSign,
-  Brain, Wand2, Calendar, HelpCircle, Plus, Bell, BarChart3, Film, Search
+  Brain, Wand2, Calendar, HelpCircle, Plus, Bell, BarChart3, Film, Search, Zap
 } from 'lucide-react'
 import { useAuthStore } from '../../store'
 import { useThemeStore } from '../../store/themeStore'
