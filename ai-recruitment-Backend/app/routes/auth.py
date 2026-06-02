@@ -142,25 +142,29 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
-    from datetime import datetime, timezone
-    user.last_login = datetime.now(timezone.utc)
+    from datetime import datetime, timezone, timedelta
+    # Use naive UTC datetime to match database column type (TIMESTAMP WITHOUT TIME ZONE)
+    now_naive = datetime.utcnow()
+    user.last_login = now_naive
     
-    # Check if welcome email needs to be sent (e.g. if it failed during registration)
-    # ONLY send on login if the account was JUST created (within last 10 minutes)
-    # This prevents sending welcome emails to existing recruiters on every login
+    # Check if welcome email needs to be sent
     if not user.welcome_email_sent and user.role == 'recruiter':
-        from datetime import datetime, timezone, timedelta
-        just_created = (
-            user.created_at is not None and
-            datetime.now(timezone.utc) - user.created_at.replace(tzinfo=timezone.utc) < timedelta(minutes=10)
-        )
-        if just_created:
-            try:
-                email_service = get_new_email_service()
-                await email_service.send_welcome_email(user.email, user.full_name, related_id=user.id)
-                user.welcome_email_sent = True
-            except Exception as e:
-                print(f"⚠️ Failed to send welcome email during login: {e}")
+        # Ensure comparison uses naive datetimes
+        created_at_naive = user.created_at
+        if created_at_naive:
+            # Handle if created_at is aware for some reason
+            if created_at_naive.tzinfo:
+                created_at_naive = created_at_naive.replace(tzinfo=None)
+                
+            just_created = (now_naive - created_at_naive) < timedelta(minutes=10)
+            
+            if just_created:
+                try:
+                    email_service = get_new_email_service()
+                    await email_service.send_welcome_email(user.email, user.full_name, related_id=user.id)
+                    user.welcome_email_sent = True
+                except Exception as e:
+                    print(f"⚠️ Failed to send welcome email during login: {e}")
 
     await db.commit()
 
