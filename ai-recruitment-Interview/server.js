@@ -148,11 +148,18 @@ app.post('/api/ai/analyze', async (req, res) => {
       },
       body: JSON.stringify(req.body)
     });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Anthropic API error (${response.status}):`, errorText);
+      return res.status(response.status).json({ error: 'AI provider error', details: errorText });
+    }
+
     const data = await response.json();
     res.json(data);
   } catch (err) {
-    console.error('AI proxy error:', err);
-    res.status(500).json({ error: 'AI proxy error' });
+    console.error('AI proxy exception:', err);
+    res.status(500).json({ error: 'AI proxy exception' });
   }
 });
 

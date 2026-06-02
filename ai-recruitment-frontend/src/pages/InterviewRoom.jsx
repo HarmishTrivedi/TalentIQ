@@ -496,7 +496,7 @@ export default function InterviewRoom() {
       Transcript:
       ${recentText}`
 
-      // Call the proxy on the interview server (localhost:3000 logic)
+      // Call the proxy on the interview server
       const res = await fetch(`${window.location.origin.replace(':5173', ':3000')}/api/ai/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -507,10 +507,18 @@ export default function InterviewRoom() {
         })
       })
       
+      if (!res.ok) {
+        throw new Error(`AI Proxy responded with ${res.status}`);
+      }
+
       const data = await res.json()
       const content = data.content?.[0]?.text
       if (content) {
-        const result = JSON.parse(content.replace(/```json|```/g, ''))
+        // More robust JSON extraction from potential markdown
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No JSON found in AI response');
+        
+        const result = JSON.parse(jsonMatch[0])
         setAnalysis(prev => ({
           ...prev,
           commScore: result.scores?.comm || prev.commScore,
@@ -526,7 +534,7 @@ export default function InterviewRoom() {
         }
       }
     } catch (e) {
-      console.warn('AI Analysis failed:', e)
+      console.warn('AI Analysis failed:', e.message)
     }
   }
 
@@ -535,14 +543,42 @@ export default function InterviewRoom() {
     if (!Speech) return
     const rec = new Speech()
     rec.continuous = true
-    rec.interimResults = false
+    rec.interimResults = true // Enable interim for better responsiveness
+    rec.lang = 'en-US' // Explicitly set language
+    
+    let finalTranscript = '';
+
     rec.onresult = (e) => {
-      const text = e.results[e.results.length - 1][0].transcript
-      const speaker = isRecruiter ? 'Interviewer' : (candidateNameFromParams || 'Candidate')
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'transcript', speaker, text }))
+      let interimTranscript = '';
+      for (let i = e.resultIndex; i < e.results.length; ++i) {
+        if (e.results[i].isFinal) {
+          finalTranscript += e.results[i][0].transcript;
+          const speaker = isRecruiter ? 'Interviewer' : (candidateNameFromParams || 'Candidate');
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'transcript', speaker, text: finalTranscript.trim() }));
+          }
+          finalTranscript = ''; // Reset for next phrase
+        } else {
+          interimTranscript += e.results[i][0].transcript;
+        }
       }
+      
+      // We could optionally send interimTranscript to WS for "typing" effect, 
+      // but let's stick to final for now for cleaner logs.
     }
+
+    rec.onerror = (e) => {
+      console.error('[Speech] Error:', e.error);
+      if (e.error === 'network') toast.error('Speech recognition network error');
+    };
+
+    rec.onend = () => {
+      // Auto-restart if we want it to be always listening
+      if (isAudioOn && recognitionRef.current === rec) {
+        try { rec.start(); } catch (err) {}
+      }
+    };
+
     rec.start()
     recognitionRef.current = rec
   }

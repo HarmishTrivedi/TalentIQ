@@ -116,7 +116,7 @@ Rules:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-3-haiku-20240307',
           max_tokens: 1000,
           messages: [{ role: 'user', content: prompt }]
         })
@@ -129,13 +129,17 @@ Rules:
 
       let analysis;
       try {
-        const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        analysis = JSON.parse(clean);
+        // More robust JSON extraction
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No JSON found in AI response');
+        
+        analysis = JSON.parse(jsonMatch[0]);
         this.analysisState = { ...this.analysisState, ...analysis };
         this.lastAnalysisLength = this.transcriptBuffer.length;
         this.onAnalysisUpdate(this.analysisState);
       } catch (parseErr) {
         console.warn('AI response parse error:', parseErr);
+        console.log('Raw text:', text);
       }
 
     } catch (err) {
@@ -228,7 +232,7 @@ Return ONLY valid JSON:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-3-haiku-20240307',
           max_tokens: 1000,
           messages: [{ role: 'user', content: prompt }]
         })

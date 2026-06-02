@@ -597,6 +597,39 @@ export class InterviewRoom {
       console.warn('Speech recognition not supported');
       return;
     }
+    const rec = new SpeechRecognition();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+
+    let finalTranscript = '';
+
+    rec.onresult = (e) => {
+      let interimTranscript = '';
+      for (let i = e.resultIndex; i < e.results.length; ++i) {
+        if (e.results[i].isFinal) {
+          finalTranscript += e.results[i][0].transcript;
+          const speaker = this.role === 'recruiter' ? 'Interviewer' : this.name;
+          if (this.socket?.connected) {
+            this.socket.emit('transcript-update', { roomId: this.roomId, transcript: { speaker, text: finalTranscript.trim(), timestamp: new Date().toISOString() } });
+          }
+          finalTranscript = '';
+        } else {
+          interimTranscript += e.results[i][0].transcript;
+        }
+      }
+    };
+
+    rec.onerror = (e) => console.error('[Speech] Error:', e.error);
+    rec.onend = () => {
+      if (this.audioEnabled) {
+        try { rec.start(); } catch (err) {}
+      }
+    };
+
+    rec.start();
+    this.speechRecognition = rec;
+  }
 
     this.speechRecognition = new SpeechRecognition();
     this.speechRecognition.continuous = true;
