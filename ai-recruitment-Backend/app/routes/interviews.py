@@ -577,6 +577,9 @@ async def start_interview(
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
     
+    if interview.recruiter_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     interview.status = InterviewStatus.in_progress
     interview.started_at = datetime.utcnow()
     
@@ -588,7 +591,6 @@ async def start_interview(
         "started_at": interview.started_at.isoformat()
     })
     
-    # Return dict to avoid lazy loading
     return {
         "id": interview.id,
         "candidate_id": interview.candidate_id,
@@ -625,6 +627,9 @@ async def end_interview(
     
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
+        
+    if interview.recruiter_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
     
     interview.status = InterviewStatus.completed
     interview.ended_at = datetime.utcnow()
@@ -644,7 +649,6 @@ async def end_interview(
         "ended_at": interview.ended_at.isoformat()
     })
     
-    # Return dict to avoid lazy loading
     return {
         "id": interview.id,
         "candidate_id": interview.candidate_id,
@@ -679,12 +683,12 @@ async def generate_questions(
     
     if data.candidate_id:
         candidate = await db.get(Candidate, data.candidate_id)
-        if candidate:
+        if candidate and candidate.uploaded_by == current_user.id:
             candidate_context = f"Skills: {candidate.skills}, Experience: {candidate.experience_years} years"
     
     if data.job_id:
         job = await db.get(Job, data.job_id)
-        if job:
+        if job and job.created_by == current_user.id:
             job_context = f"Title: {job.title}, Requirements: {job.required_skills}"
     
     questions = await ai_service.generate_interview_questions(
@@ -751,6 +755,9 @@ async def add_question_to_interview(
     interview = await db.get(Interview, interview_id)
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
+        
+    if interview.recruiter_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
     
     question = InterviewQuestion(
         interview_id=interview_id,
@@ -870,6 +877,13 @@ async def get_interview_analysis(
     current_user: User = Depends(get_current_user)
 ):
     """Get comprehensive interview analysis"""
+    interview = await db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+        
+    if interview.recruiter_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
     result = await db.execute(
         select(InterviewAnalysis).where(InterviewAnalysis.interview_id == interview_id)
     )
@@ -882,6 +896,7 @@ async def get_interview_analysis(
 
 
 async def generate_interview_analysis(interview_id: str, db: AsyncSession):
+
     """Generate comprehensive AI analysis for completed interview"""
     interview = await db.get(Interview, interview_id)
     if not interview:

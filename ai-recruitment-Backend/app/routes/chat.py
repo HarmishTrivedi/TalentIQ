@@ -55,8 +55,19 @@ async def send_message(
     session_id: str,
     message: ChatMessageCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Send a message and get AI response."""
+    # Ensure session belongs to current user
+    result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Session not found")
+
     service = get_chat_service()
     try:
         ai_msg = await service.send_message(
@@ -74,10 +85,17 @@ async def send_message(
 
 
 @router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
-async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_session(
+    session_id: str, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Get a chat session with its message history."""
     result = await db.execute(
-        select(ChatSession).where(ChatSession.id == session_id)
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id
+        )
     )
     session = result.scalar_one_or_none()
     if not session:

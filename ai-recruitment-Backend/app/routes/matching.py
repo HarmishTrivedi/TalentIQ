@@ -110,8 +110,18 @@ async def get_job_matches(
 async def get_candidate_matches(
     candidate_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Get all match scores for a specific candidate."""
+    # Ensure the candidate belongs to the current user
+    cand_query = select(Candidate).where(
+        Candidate.id == candidate_id, 
+        Candidate.uploaded_by == current_user.id
+    )
+    result = await db.execute(cand_query)
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
     result = await db.execute(
         select(MatchScore)
         .where(MatchScore.candidate_id == candidate_id)

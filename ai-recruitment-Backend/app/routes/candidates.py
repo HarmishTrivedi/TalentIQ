@@ -171,6 +171,15 @@ async def reprocess_candidate(
     current_user: User = Depends(get_optional_user),
 ):
     """Reprocess a candidate's CV."""
+    query = select(Candidate).where(Candidate.id == candidate_id)
+    if current_user:
+        query = query.where(Candidate.uploaded_by == current_user.id)
+    result = await db.execute(query)
+    candidate = result.scalar_one_or_none()
+
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
     service = CVProcessingService()
     try:
         candidate = await service.reprocess_candidate(candidate_id, db)
