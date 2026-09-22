@@ -67,35 +67,39 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-        # Lightweight migrations: add missing columns if they don't exist
-        migrations = [
-            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS uploaded_by VARCHAR(36) REFERENCES users(id)",
-            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS processing_error TEXT",
-            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS faiss_doc_ids JSON",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS company_name VARCHAR(255)",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS role_in_company VARCHAR(255)",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)",
-            "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS candidate_access_token VARCHAR(100)",
-            "CREATE UNIQUE INDEX IF NOT EXISTS ix_interviews_candidate_access_token ON interviews(candidate_access_token)",
-            "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS interview_types JSON",
-            "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS meeting_url VARCHAR(500)",
-            "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS recruiter_meeting_url VARCHAR(500)",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_email_sent BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS domain VARCHAR(100)",
-            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS domain VARCHAR(100)",
-            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS projects JSON",
-            "ALTER TABLE email_activity_logs ADD COLUMN IF NOT EXISTS template_name VARCHAR(100)",
-            "ALTER TABLE email_activity_logs ADD COLUMN IF NOT EXISTS error_message TEXT",
-            "ALTER TABLE email_activity_logs ADD COLUMN IF NOT EXISTS provider_response JSON",
-            "CREATE TABLE IF NOT EXISTS calendar_events (id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) REFERENCES users(id), title VARCHAR(255) NOT NULL, description TEXT, event_type VARCHAR(50), start_time TIMESTAMP NOT NULL, end_time TIMESTAMP NOT NULL, priority VARCHAR(20), participants JSON, reminder_time INTEGER, metadata JSON, created_at TIMESTAMP, updated_at TIMESTAMP)",
-            "CREATE TABLE IF NOT EXISTS notifications (id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) REFERENCES users(id), title VARCHAR(255) NOT NULL, message TEXT NOT NULL, type VARCHAR(50) NOT NULL, is_read BOOLEAN DEFAULT FALSE, link VARCHAR(500), metadata JSON, created_at TIMESTAMP)",
-        ]
-        for sql in migrations:
-            try:
+    # Lightweight migrations: add missing columns if they don't exist.
+    # Each statement runs in its OWN transaction — if a Postgres error aborts
+    # one transaction, it must not take down the statements after it (a shared
+    # transaction would silently drop every later ALTER once one command fails).
+    migrations = [
+        "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS uploaded_by VARCHAR(36) REFERENCES users(id)",
+        "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS processing_error TEXT",
+        "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS faiss_doc_ids JSON",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS company_name VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS role_in_company VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)",
+        "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS candidate_access_token VARCHAR(100)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_interviews_candidate_access_token ON interviews(candidate_access_token)",
+        "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS interview_types JSON",
+        "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS meeting_url VARCHAR(500)",
+        "ALTER TABLE interviews ADD COLUMN IF NOT EXISTS recruiter_meeting_url VARCHAR(500)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_email_sent BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS domain VARCHAR(100)",
+        "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS domain VARCHAR(100)",
+        "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS projects JSON",
+        "ALTER TABLE email_activity_logs ADD COLUMN IF NOT EXISTS template_name VARCHAR(100)",
+        "ALTER TABLE email_activity_logs ADD COLUMN IF NOT EXISTS error_message TEXT",
+        "ALTER TABLE email_activity_logs ADD COLUMN IF NOT EXISTS provider_response JSON",
+        "CREATE TABLE IF NOT EXISTS calendar_events (id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) REFERENCES users(id), title VARCHAR(255) NOT NULL, description TEXT, event_type VARCHAR(50), start_time TIMESTAMP NOT NULL, end_time TIMESTAMP NOT NULL, priority VARCHAR(20), participants JSON, reminder_time INTEGER, metadata JSON, created_at TIMESTAMP, updated_at TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS notifications (id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) REFERENCES users(id), title VARCHAR(255) NOT NULL, message TEXT NOT NULL, type VARCHAR(50) NOT NULL, is_read BOOLEAN DEFAULT FALSE, link VARCHAR(500), metadata JSON, created_at TIMESTAMP)",
+    ]
+    for sql in migrations:
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text(sql))
-            except Exception:
-                pass  # column may already exist or table not yet created
+        except Exception as e:
+            logger.warning("Migration statement skipped", sql=sql, error=str(e))
 
     logger.info("Database initialized successfully")
 
